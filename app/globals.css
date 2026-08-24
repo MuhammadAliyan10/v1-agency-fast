@@ -50,25 +50,24 @@
 
 :root {
   /* Classy Crave Light Mode */
-  --gold: oklch(0.68 0.14 75);
-  --gold-light: oklch(0.78 0.12 75);
-  --gold-dark: oklch(0.50 0.14 75);
+  --background: oklch(0.98 0 0);
+  --foreground: oklch(0.14 0 0);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.14 0 0);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.457 0.24 277.023);
-  --primary-foreground: oklch(0.962 0.018 272.314);
-  --secondary: oklch(0.967 0.001 286.375);
-  --secondary-foreground: oklch(0.21 0.006 285.885);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --popover-foreground: oklch(0.14 0 0);
+  --primary: hsl(24.6, 95%, 53.1%);
+  --primary-foreground: oklch(0.98 0 0);
+  --secondary: oklch(0.96 0 0);
+  --secondary-foreground: oklch(0.2 0 0);
+  --muted: oklch(0.96 0 0);
+  --muted-foreground: oklch(0.55 0 0);
+  --accent: oklch(0.96 0 0);
+  --accent-foreground: oklch(0.2 0 0);
+  --destructive: oklch(0.57 0.2 27);
+  --border: oklch(0.92 0 0);
+  --input: oklch(0.92 0 0);
+  --ring: hsl(24.6, 95%, 53.1%);
 
   --chart-1: oklch(0.785 0.115 274.713);
   --chart-2: oklch(0.585 0.233 277.117);
@@ -79,40 +78,34 @@
 
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.511 0.262 276.966);
-  --sidebar-primary-foreground: oklch(0.962 0.018 272.314);
+  --sidebar-primary: hsl(24.6, 95%, 53.1%);
+  --sidebar-primary-foreground: oklch(0.98 0 0);
   --sidebar-accent: oklch(0.97 0 0);
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  --sidebar-ring: hsl(24.6, 95%, 53.1%);
 }
 
 .dark {
   /* Classy Crave Dark Mode */
-  --gold: oklch(0.76 0.12 75);
-  --gold-light: oklch(0.88 0.10 75);
-  --gold-dark: oklch(0.58 0.12 75);
-
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.398 0.195 277.366);
-  --primary-foreground: oklch(0.962 0.018 272.314);
-  --secondary: oklch(0.274 0.006 286.033);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
+  --background: oklch(0.1 0 0);
+  --foreground: oklch(0.98 0 0);
+  --card: oklch(0.14 0 0);
+  --card-foreground: oklch(0.98 0 0);
+  --popover: oklch(0.14 0 0);
+  --popover-foreground: oklch(0.98 0 0);
+  --primary: hsl(24.6, 95%, 53.1%);
+  --primary-foreground: oklch(0.98 0 0);
+  --secondary: oklch(0.2 0 0);
+  --secondary-foreground: oklch(0.98 0 0);
+  --muted: oklch(0.2 0 0);
+  --muted-foreground: oklch(0.65 0 0);
+  --accent: oklch(0.2 0 0);
+  --accent-foreground: oklch(0.98 0 0);
+  --destructive: oklch(0.7 0.19 22);
+  --border: oklch(0.2 0 0);
+  --input: oklch(0.2 0 0);
+  --ring: hsl(24.6, 95%, 53.1%);
 
   --chart-1: oklch(0.785 0.115 274.713);
   --chart-2: oklch(0.585 0.233 277.117);
@@ -120,14 +113,14 @@
   --chart-4: oklch(0.457 0.24 277.023);
   --chart-5: oklch(0.398 0.195 277.366);
 
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.585 0.233 277.117);
-  --sidebar-primary-foreground: oklch(0.962 0.018 272.314);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --sidebar: oklch(0.14 0 0);
+  --sidebar-foreground: oklch(0.98 0 0);
+  --sidebar-primary: hsl(24.6, 95%, 53.1%);
+  --sidebar-primary-foreground: oklch(0.98 0 0);
+  --sidebar-accent: oklch(0.2 0 0);
+  --sidebar-accent-foreground: oklch(0.98 0 0);
+  --sidebar-border: oklch(0.2 0 0);
+  --sidebar-ring: hsl(24.6, 95%, 53.1%);
 }
 
 @layer base {
@@ -205,5 +198,48 @@
   .animate-slide-up-d2,
   .animate-slide-up-d3 {
     animation: none;
+  }
+}
+
+/* Thermal Printer 80mm POS Styles */
+@media print {
+  @page {
+    margin: 0;
+    size: 80mm 297mm; /* 80mm width standard thermal */
+  }
+  
+  body {
+    margin: 0;
+    padding: 0;
+    background: white;
+    color: black;
+    font-size: 12px;
+    font-family: monospace, sans-serif;
+  }
+  
+  /* Hide UI elements not meant for receipt printing */
+  [data-sidebar="sidebar"],
+  [data-sidebar="trigger"],
+  header,
+  .no-print,
+  .lucide,
+  .kanban-board {
+    display: none !important;
+  }
+  
+  /* Reset layout constraints for print */
+  main,
+  [data-sidebar="inset"] {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    position: static !important;
+  }
+
+  .print-receipt-container {
+    display: block !important;
+    width: 80mm !important;
+    padding: 4mm !important;
+    box-sizing: border-box;
   }
 }
