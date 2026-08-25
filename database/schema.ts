@@ -233,6 +233,7 @@ export const menuItemsRelations = relations(menuItems, ({ one, many }) => ({
   variants: many(itemVariants),
   addOns: many(itemAddOns),
   orderItems: many(orderItems),
+  reviews: many(reviews),
 }));
 
 export const itemVariantsRelations = relations(itemVariants, ({ one }) => ({
@@ -275,5 +276,23 @@ export const orderItemsRelations = relations(orderItems, ({ one }) => ({
   variant: one(itemVariants, {
     fields: [orderItems.variantId],
     references: [itemVariants.id],
+  }),
+}));
+
+export const reviews = pgTable("reviews", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  menuItemId: uuid("menu_item_id")
+    .references(() => menuItems.id, { onDelete: "cascade" })
+    .notNull(),
+  customerName: varchar("customer_name", { length: 120 }).notNull(),
+  rating: integer("rating").notNull(),
+  comment: text("comment"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const reviewsRelations = relations(reviews, ({ one }) => ({
+  menuItem: one(menuItems, {
+    fields: [reviews.menuItemId],
+    references: [menuItems.id],
   }),
 }));

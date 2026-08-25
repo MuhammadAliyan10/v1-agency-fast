@@ -84,70 +84,67 @@ export async function upsertMenuItem(data: MenuItemValues, itemId?: string) {
   try {
     const slug = slugify(data.name);
 
-    await db.transaction(async (tx) => {
-      let targetItemId = itemId;
+    let targetItemId = itemId;
 
-      if (targetItemId) {
-        // UPDATE
-        await tx.update(menuItems)
-          .set({
-            name: data.name,
-            description: data.description || null,
-            categoryId: data.categoryId,
-            basePrice: data.basePrice,
-            imageUrl: data.imageUrl || null,
-            isAvailable: data.isAvailable,
-            isFeatured: data.isFeatured,
-            updatedAt: new Date(),
-          })
-          .where(eq(menuItems.id, targetItemId));
+    if (targetItemId) {
+      // UPDATE
+      await db.update(menuItems)
+        .set({
+          name: data.name,
+          description: data.description || null,
+          categoryId: data.categoryId,
+          basePrice: data.basePrice,
+          imageUrl: data.imageUrl || null,
+          isAvailable: data.isAvailable,
+          isFeatured: data.isFeatured,
+          updatedAt: new Date(),
+        })
+        .where(eq(menuItems.id, targetItemId));
 
-        // Delete existing variants and addons to replace them
-        await tx.delete(itemVariants).where(eq(itemVariants.menuItemId, targetItemId));
-        await tx.delete(itemAddOns).where(eq(itemAddOns.menuItemId, targetItemId));
-      } else {
-        // INSERT
-        // Note: handling slug collisions is important in a real app, assuming uniqueness here or using uuid suffix
-        const slugWithRandom = `${slug}-${Math.floor(Math.random() * 1000)}`;
+      // Delete existing variants and addons to replace them
+      await db.delete(itemVariants).where(eq(itemVariants.menuItemId, targetItemId));
+      await db.delete(itemAddOns).where(eq(itemAddOns.menuItemId, targetItemId));
+    } else {
+      // INSERT
+      const slugWithRandom = `${slug}-${Math.floor(Math.random() * 1000)}`;
+      
+      const [newItem] = await db.insert(menuItems)
+        .values({
+          name: data.name,
+          slug: slugWithRandom,
+          description: data.description || null,
+          categoryId: data.categoryId,
+          basePrice: data.basePrice,
+          imageUrl: data.imageUrl || null,
+          isAvailable: data.isAvailable,
+          isFeatured: data.isFeatured,
+        })
+        .returning({ id: menuItems.id });
         
-        const [newItem] = await tx.insert(menuItems)
-          .values({
-            name: data.name,
-            slug: slugWithRandom, // Simplified collision avoidance
-            description: data.description || null,
-            categoryId: data.categoryId,
-            basePrice: data.basePrice,
-            imageUrl: data.imageUrl || null,
-            isAvailable: data.isAvailable,
-            isFeatured: data.isFeatured,
-          })
-          .returning({ id: menuItems.id });
-          
-        targetItemId = newItem.id;
-      }
+      targetItemId = newItem.id;
+    }
 
-      // Re-insert variants
-      if (data.variants && data.variants.length > 0 && targetItemId) {
-        await tx.insert(itemVariants).values(
-          data.variants.map(v => ({
-            menuItemId: targetItemId as string,
-            name: v.name,
-            price: v.price,
-          }))
-        );
-      }
+    // Re-insert variants
+    if (data.variants && data.variants.length > 0 && targetItemId) {
+      await db.insert(itemVariants).values(
+        data.variants.map(v => ({
+          menuItemId: targetItemId as string,
+          name: v.name,
+          price: v.price,
+        }))
+      );
+    }
 
-      // Re-insert add-ons
-      if (data.addOns && data.addOns.length > 0 && targetItemId) {
-        await tx.insert(itemAddOns).values(
-          data.addOns.map(a => ({
-            menuItemId: targetItemId as string,
-            name: a.name,
-            price: a.price,
-          }))
-        );
-      }
-    });
+    // Re-insert add-ons
+    if (data.addOns && data.addOns.length > 0 && targetItemId) {
+      await db.insert(itemAddOns).values(
+        data.addOns.map(a => ({
+          menuItemId: targetItemId as string,
+          name: a.name,
+          price: a.price,
+        }))
+      );
+    }
 
     revalidatePath("/admin/menu");
     return { success: true };

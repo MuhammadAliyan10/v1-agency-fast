@@ -12,9 +12,12 @@ interface OrderCardProps {
   onUpdateStatus: (orderId: string, newStatus: OrderStatus) => void;
   onClick: () => void;
   isUpdating: boolean;
+  innerRef?: React.Ref<HTMLDivElement>;
+  draggableProps?: any;
+  dragHandleProps?: any;
 }
 
-export function OrderCard({ order, onUpdateStatus, onClick, isUpdating }: OrderCardProps) {
+export function OrderCard({ order, onUpdateStatus, onClick, isUpdating, innerRef, draggableProps, dragHandleProps }: OrderCardProps) {
   const timeAgo = order.createdAt ? formatDistanceToNow(new Date(order.createdAt), { addSuffix: true }) : "N/A";
   
   // Highlighting logic based on status and time
@@ -69,6 +72,9 @@ export function OrderCard({ order, onUpdateStatus, onClick, isUpdating }: OrderC
     <Card 
       className={`cursor-pointer transition-all hover:-translate-y-1 hover:shadow-md ${borderColor}`}
       onClick={onClick}
+      ref={innerRef}
+      {...draggableProps}
+      {...dragHandleProps}
     >
       <CardHeader className="p-4 pb-2 flex flex-row items-start justify-between space-y-0">
         <div>

@@ -1,9 +1,8 @@
 "use server";
 
 import { db } from "@/database/db";
-import { menuItems, categories, itemVariants, itemAddOns, orders, orderItems } from "@/database/schema";
+import { menuItems, categories, orders, orderItems } from "@/database/schema";
 import { eq, asc } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
 
 export async function getPublicMenu() {
   try {
@@ -14,6 +13,10 @@ export async function getPublicMenu() {
       .where(eq(categories.isActive, true))
       .orderBy(asc(categories.sortOrder));
 
+    if (activeCategories.length === 0) {
+      return { success: true, data: [] };
+    }
+
     // 2. Fetch available menu items
     const availableItems = await db
       .select()
@@ -22,14 +25,16 @@ export async function getPublicMenu() {
       .orderBy(asc(menuItems.name));
 
     if (availableItems.length === 0) {
-      return { success: true, data: { categories: activeCategories, items: [] } };
+      // Return categories with empty items array
+      return { 
+        success: true, 
+        data: activeCategories.map(c => ({ ...c, items: [] })) 
+      };
     }
 
     const itemIds = availableItems.map((i) => i.id);
 
     // 3. Fetch all related variants and add-ons
-    // We fetch all at once to avoid N+1 query problems
-    // using raw IN clause or multiple queries
     const allVariants = [];
     const allAddOns = [];
     
@@ -49,19 +54,27 @@ export async function getPublicMenu() {
       allAddOns.push(...a);
     }
 
-    // 4. Map everything together
-    const formattedItems = availableItems.map((item) => ({
-      ...item,
-      variants: allVariants.filter((v) => v.menuItemId === item.id),
-      addOns: allAddOns.filter((a) => a.menuItemId === item.id),
-    }));
+    // 4. Map everything together grouped by category
+    const formattedCategories = activeCategories.map(category => {
+      // Find items for this category
+      const catItems = availableItems.filter(item => item.categoryId === category.id);
+      
+      // Attach variants and addons to each item
+      const populatedItems = catItems.map(item => ({
+        ...item,
+        variants: allVariants.filter(v => v.menuItemId === item.id),
+        addOns: allAddOns.filter(a => a.menuItemId === item.id),
+      }));
+
+      return {
+        ...category,
+        items: populatedItems
+      };
+    });
 
     return {
       success: true,
-      data: {
-        categories: activeCategories,
-        items: formattedItems,
-      },
+      data: formattedCategories,
     };
   } catch (error) {
     console.error("Error fetching public menu:", error);
@@ -129,7 +142,6 @@ export async function createOrder(payload: OrderPayload) {
       }
     });
 
-    revalidatePath("/admin/orders");
     return { success: true, orderId };
   } catch (error) {
     console.error("Error creating order:", error);

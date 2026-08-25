@@ -67,26 +67,36 @@ export function MenuTable({ data, categories }: MenuTableProps) {
 
   // Update URL on search/filter changes
   useEffect(() => {
+    const currentSearch = searchParams.get("search") || "";
+    const currentCategory = searchParams.get("category") || "all";
+    
+    // Only push new URL if the filters actually changed in the state compared to the URL
+    // This prevents pagination from resetting to page 1 on every searchParams change
+    if (debouncedSearch === currentSearch && categoryFilter === currentCategory) {
+      return;
+    }
+
     const params = new URLSearchParams(searchParams.toString());
     
     if (debouncedSearch) {
       params.set("search", debouncedSearch);
-      params.set("page", "1"); // Reset to page 1 on new search
     } else {
       params.delete("search");
     }
 
     if (categoryFilter && categoryFilter !== "all") {
       params.set("category", categoryFilter);
-      params.set("page", "1");
     } else {
       params.delete("category");
     }
 
+    // Reset to page 1 because filters changed
+    params.set("page", "1");
+
     startTransition(() => {
       router.push(`${pathname}?${params.toString()}`);
     });
-  }, [debouncedSearch, categoryFilter, router, pathname, searchParams]);
+  }, [debouncedSearch, categoryFilter, pathname, router, searchParams]);
 
   const handlePageChange = (newPage: number) => {
     const params = new URLSearchParams(searchParams.toString());
