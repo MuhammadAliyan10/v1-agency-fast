@@ -2,7 +2,8 @@
 
 import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, Clock, ChefHat, Bike, PackageCheck, Loader2 } from "lucide-react";
+import { CheckCircle2, Clock, ChefHat, Bike, PackageCheck, Loader2, Copy } from "lucide-react";
+import { toast } from "sonner";
 import { getOrderTrackingStatus } from "@/server/actions/tracking";
 import { WhatsAppButton } from "@/components/features/storefront/whatsapp-button";
 import { STORE_CONSTANTS } from "@/lib/constants";
@@ -98,7 +99,19 @@ export default function TrackingPage({ params }: { params: Promise<{ orderId: st
     <div className="animate-in fade-in duration-500 w-full max-w-3xl mx-auto mb-24 pt-12 md:pt-16">
       <div className="text-center mb-12">
         <h1 className="text-4xl md:text-5xl font-heading font-black tracking-tight mb-3">Track Your Order</h1>
-        <p className="text-muted-foreground text-lg">Order ID: <span className="font-bold text-foreground">{data.id}</span></p>
+        <div className="flex items-center justify-center gap-2 text-muted-foreground text-lg">
+          <p>Order ID: <span className="font-bold text-foreground">{data.id}</span></p>
+          <button 
+            onClick={() => {
+              navigator.clipboard.writeText(data.id);
+              toast.success("Order ID copied to clipboard!");
+            }}
+            className="p-1.5 hover:bg-muted rounded-md transition-colors text-muted-foreground hover:text-foreground flex-shrink-0"
+            title="Copy Order ID"
+          >
+            <Copy className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-5 gap-8">

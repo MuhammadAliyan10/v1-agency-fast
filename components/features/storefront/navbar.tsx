@@ -85,7 +85,7 @@ export function Navbar() {
           className="flex-shrink-0 flex items-center justify-center transition-opacity hover:opacity-90"
         >
           <Image 
-            src="/Logo.png" 
+            src="/logo.png" 
             alt="Classy Crave Logo" 
             width={120} 
             height={40} 

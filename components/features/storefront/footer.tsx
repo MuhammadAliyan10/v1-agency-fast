@@ -21,7 +21,7 @@ export function Footer() {
           <div className="flex flex-col">
             <Link href="/" className="inline-block mb-6 transition-opacity hover:opacity-90">
               <Image 
-                src="/Logo.png" 
+                src="/logo.png" 
                 alt="Classy Crave Logo" 
                 width={160} 
                 height={60} 

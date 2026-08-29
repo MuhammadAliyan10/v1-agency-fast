@@ -72,7 +72,7 @@ export function AppSidebar() {
             <Link href="/admin/dashboard" className="flex items-center justify-center gap-0.5 transition-opacity hover:opacity-90">
               {state === "collapsed" ? (
                 <Image 
-                  src="/Logo.png" 
+                  src="/logo.png" 
                   alt="Classy Crave Logo" 
                   width={32} 
                   height={32} 

@@ -2,7 +2,7 @@
 
 import { db } from "@/database/db";
 import { orders, orderItems, users } from "@/database/schema";
-import { inArray, notInArray, eq, asc, and } from "drizzle-orm";
+import { inArray, notInArray, eq, asc, desc, and } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { revalidatePath } from "next/cache";
 
@@ -35,7 +35,7 @@ export async function getLiveOrders() {
       .leftJoin(users, eq(orders.customerId, users.id))
       .leftJoin(ridersAlias, eq(orders.riderId, ridersAlias.id))
       .where(notInArray(orders.status, ["delivered", "cancelled", "rejected"]))
-      .orderBy(asc(orders.createdAt));
+      .orderBy(desc(orders.createdAt));
 
     // Get order items for these orders
     const liveOrderIds = liveOrdersData.map(o => o.order.id);
