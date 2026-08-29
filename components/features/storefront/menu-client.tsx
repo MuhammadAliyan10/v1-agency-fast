@@ -62,63 +62,60 @@ export function MenuClient({ categories }: MenuClientProps) {
   }, [filteredCategories]);
 
   return (
-    <div className="flex flex-col w-full pb-24">
-      {/* Sticky Top Bar (Search & Filter) */}
-      <div className="sticky top-[64px] z-40 bg-background/95 backdrop-blur-xl border-b border-border/50 shadow-sm pt-4 pb-3">
-        <div className="max-w-7xl mx-auto px-4 md:px-8 lg:px-12 flex flex-col gap-3">
+    <div className="flex flex-col md:flex-row w-full max-w-[1400px] mx-auto pb-24 md:pb-12 pt-8 px-4 md:px-8 gap-8">
+      {/* Left Sidebar (Fixed on Desktop) */}
+      <aside className="w-full md:w-[25%] shrink-0 flex flex-col gap-6 md:sticky md:top-[100px] md:h-[calc(100vh-120px)] overflow-y-auto pr-2 md:pr-4 scrollbar-hide">
+        {/* Search Bar */}
+        <div className="relative w-full">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400" />
+          <Input
+            type="text"
+            placeholder="Search our menu..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-12 h-14 bg-white border-zinc-200 shadow-sm focus-visible:ring-[#5430E5] focus-visible:border-[#5430E5] rounded-xl text-base font-medium transition-all"
+          />
+        </div>
 
-          {/* Search Bar */}
-          <div className="relative w-full max-w-md">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="Search for your cravings..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-12 h-12 bg-white border-border/50 shadow-sm focus-visible:ring-primary/20 rounded-full text-base"
-            />
-          </div>
-
-          {/* Category Pills */}
-          <div className="flex overflow-x-auto gap-3 pb-2 -mx-4 px-4 md:mx-0 md:px-0 scrollbar-hide snap-x">
+        {/* Category Filters (Keyword Pills) */}
+        <div className="flex flex-wrap gap-2 mt-2">
+          <button
+            onClick={() => setActiveCategory("all")}
+            className={cn(
+              "px-4 py-2 rounded-full text-xs font-bold transition-all border",
+              activeCategory === "all"
+                ? "bg-zinc-900 border-zinc-900 text-white shadow-md"
+                : "bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50"
+            )}
+          >
+            All
+          </button>
+          {categories.map((category) => (
             <button
-              onClick={() => setActiveCategory("all")}
+              key={category.id}
+              onClick={() => setActiveCategory(category.slug)}
               className={cn(
-                "whitespace-nowrap px-6 py-2.5 rounded-full text-sm font-bold transition-all border snap-start",
-                activeCategory === "all"
-                  ? "bg-primary border-primary text-primary-foreground shadow-md"
-                  : "bg-white border-border text-foreground hover:bg-muted"
+                "px-4 py-2 rounded-full text-xs font-bold transition-all border",
+                activeCategory === category.slug
+                  ? "bg-zinc-900 border-zinc-900 text-white shadow-md"
+                  : "bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50"
               )}
             >
-              All
+              {category.name}
             </button>
-            {categories.map((category) => (
-              <button
-                key={category.id}
-                onClick={() => setActiveCategory(category.slug)}
-                className={cn(
-                  "whitespace-nowrap px-6 py-2.5 rounded-full text-sm font-bold transition-all border snap-start",
-                  activeCategory === category.slug
-                    ? "bg-primary border-primary text-primary-foreground shadow-md"
-                    : "bg-white border-border text-foreground hover:bg-muted"
-                )}
-              >
-                {category.name}
-              </button>
-            ))}
-          </div>
+          ))}
         </div>
-      </div>
+      </aside>
 
-      {/* Main Content Area */}
-      <div className="max-w-7xl mx-auto w-full px-4 md:px-8 lg:px-12 mt-8 md:mt-12">
+      {/* Main Content Area (Products Grid) */}
+      <main className="w-full md:w-[75%]">
         {flatItems.length === 0 ? (
-          <div className="px-4 py-16 text-center">
-            <h3 className="text-lg font-bold">No items found</h3>
-            <p className="text-sm text-muted-foreground mt-1">Try adjusting your search or filter.</p>
+          <div className="px-4 py-24 text-center bg-zinc-50 rounded-[24px] border border-zinc-100 flex flex-col items-center justify-center">
+            <h3 className="text-xl font-bold text-zinc-950">No items found</h3>
+            <p className="text-sm text-zinc-500 mt-2 font-medium">Try adjusting your search or category filter.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6 px-4 md:px-0">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6">
             {flatItems.map((item) => (
               <ProductCard
                 key={item.id}
@@ -134,7 +131,7 @@ export function MenuClient({ categories }: MenuClientProps) {
             ))}
           </div>
         )}
-      </div>
+      </main>
 
       <ProductDialog
         isOpen={!!selectedItem}

@@ -73,9 +73,8 @@ export default async function ProductPage({ params }: ProductPageProps) {
         {item.recommendedItems && item.recommendedItems.length > 0 && (
           <div className="mt-6 border-t pt-6">
             <TrendingSection 
-              items={item.recommendedItems} 
+              categories={[{ id: 'rec', name: 'Recommended', items: item.recommendedItems }]} 
               title="Recommended For You" 
-              description="Customers also bought these items"
             />
           </div>
         )}

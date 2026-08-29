@@ -10,13 +10,22 @@ import {
   Sun,
   Moon,
   Laptop,
-  Menu
+  Menu,
+  MapPin,
+  Search
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { usePathname } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { useCart } from "@/store/use-cart";
 import { CartSheet } from "./cart-sheet";
 import { cn } from "@/lib/utils";
@@ -33,15 +42,10 @@ import {
   DropdownMenuPortal,
 } from "@/components/ui/dropdown-menu";
 
-const navLinks = [
-  { name: "Home", href: "/" },
-  { name: "The Menu", href: "/menu" },
-  { name: "Track Order", href: "/track" },
-];
-
 export function Navbar() {
   const [mounted, setMounted] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const pathname = usePathname();
   
@@ -64,122 +68,180 @@ export function Navbar() {
   const totalItems = getTotalItems();
 
   return (
-    <header className={cn(
-      "fixed top-0 z-50 w-full transition-all duration-500 ease-out border-b",
-      isScrolled 
-        ? "bg-background/80 backdrop-blur-2xl border-border/50 shadow-sm py-3" 
-        : "bg-background border-transparent py-4 md:py-5"
-    )}>
-      <div className="max-w-7xl mx-auto flex items-center justify-between px-4 md:px-8 lg:px-12">
-        
-        {/* Left: Mobile Menu Toggle */}
-        <div className="md:hidden flex-1">
-          <Button variant="ghost" size="icon" className="rounded-full hover:bg-muted/50 text-muted-foreground -ml-2">
-            <Menu className="w-5 h-5" />
-          </Button>
-        </div>
-
-        {/* Brand */}
-        <Link 
-          href="/" 
-          className="flex-shrink-0 flex items-center justify-center transition-opacity hover:opacity-90"
-        >
-          <Image 
-            src="/logo.png" 
-            alt="Classy Crave Logo" 
-            width={120} 
-            height={40} 
-            className="h-10 w-auto rounded object-contain"
-            priority
-          />
-        </Link>
-        
-        {/* Desktop Navigation Links */}
-        <nav className="hidden md:flex flex-1 justify-center items-center gap-2">
-          {navLinks.map((link) => {
-            const isActive = pathname === link.href;
-            return (
-              <Link 
-                key={link.name}
-                href={link.href} 
-                className={cn(
-                  "px-4 py-2 rounded-full text-sm font-semibold transition-all duration-300",
-                  isActive 
-                    ? "bg-primary/10 text-primary" 
-                    : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
-                )}
-              >
-                {link.name}
-              </Link>
-            );
-          })}
-        </nav>
-        
-        {/* Right Actions */}
-        <div className="flex-1 flex justify-end items-center space-x-1 md:space-x-2 -mr-2 md:-mr-0">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="relative hover:bg-muted/50 transition-colors rounded-full text-foreground"
-            onClick={() => setIsCartOpen(true)}
-          >
-            <ShoppingBag className="h-4 w-4 md:h-5 md:w-5" />
-            {mounted && totalItems > 0 && (
-              <Badge 
-                className="absolute -right-1 -top-1 flex h-4 w-4 md:h-4 md:w-4 items-center justify-center rounded-full bg-primary p-0 text-[10px] text-primary-foreground font-black border-2 border-background"
-              >
-                {totalItems}
-              </Badge>
-            )}
-          </Button>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="rounded-full hover:bg-muted/50 text-foreground">
-                <User className="h-4 w-4 md:h-5 md:w-5" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56 rounded-2xl shadow-2xl border-border/50 p-2">
-              <DropdownMenuLabel className="font-bold text-xs uppercase tracking-widest text-muted-foreground px-2 py-3">Account</DropdownMenuLabel>
-              <DropdownMenuItem className="cursor-pointer gap-2 rounded-xl focus:bg-muted py-2">
-                <Receipt className="h-4 w-4 text-muted-foreground" />
-                <span className="font-medium text-sm">My Orders</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem className="cursor-pointer gap-2 rounded-xl focus:bg-muted py-2">
-                <User className="h-4 w-4 text-muted-foreground" />
-                <span className="font-medium text-sm">Profile</span>
-              </DropdownMenuItem>
-              
-              <DropdownMenuSeparator className="my-2 bg-border/50" />
-              
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger className="gap-2 cursor-pointer rounded-xl focus:bg-muted py-2">
-                  <Sun className="h-4 w-4 text-muted-foreground" />
-                  <span className="font-medium text-sm">Theme</span>
-                </DropdownMenuSubTrigger>
-                <DropdownMenuPortal>
-                  <DropdownMenuSubContent className="rounded-2xl p-2 shadow-xl border-border/50">
-                    <DropdownMenuItem onClick={() => setTheme("light")} className="cursor-pointer gap-2 rounded-xl focus:bg-muted py-2">
-                      <Sun className="h-4 w-4 text-muted-foreground" /> Light
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setTheme("dark")} className="cursor-pointer gap-2 rounded-xl focus:bg-muted py-2">
-                      <Moon className="h-4 w-4 text-muted-foreground" /> Dark
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setTheme("system")} className="cursor-pointer gap-2 rounded-xl focus:bg-muted py-2">
-                      <Laptop className="h-4 w-4 text-muted-foreground" /> System
-                    </DropdownMenuItem>
-                  </DropdownMenuSubContent>
-                </DropdownMenuPortal>
-              </DropdownMenuSub>
-              
-              <DropdownMenuSeparator className="my-2 bg-border/50" />
-              <DropdownMenuItem className="cursor-pointer font-bold text-sm text-primary focus:text-primary focus:bg-primary/10 rounded-xl py-2">
-                Sign In / Register
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+    <header className="sticky top-0 left-0 right-0 z-50 bg-white shadow-sm font-sans">
+      {/* Top Bar Equivalent */}
+      <div className={cn(
+        "w-full bg-primary/5 hidden md:flex transition-all duration-500 ease-out border-b border-zinc-200",
+        isScrolled ? "h-0 opacity-0 overflow-hidden" : "h-9 opacity-100"
+      )}>
+        <div className="max-w-screen-2xl mx-auto w-full flex items-center justify-between px-4 md:px-6">
+          <div className="flex items-center gap-1.5 font-bold tracking-widest uppercase text-[10px] text-zinc-500">
+            <MapPin className="w-3 h-3" />
+            <span>Sillanwali, Pakistan</span>
+          </div>
+          <div className="flex items-center gap-4 font-bold tracking-widest uppercase text-[10px] text-zinc-500">
+            <Link href="#" className="hover:text-zinc-950 transition-colors">Help</Link>
+            <span className="text-zinc-300">|</span>
+            <Link href="#" className="hover:text-zinc-950 transition-colors">Join Us</Link>
+            <span className="text-zinc-300">|</span>
+            <Link href="#" className="hover:text-zinc-950 transition-colors">Sign In</Link>
+          </div>
         </div>
       </div>
+
+      <div
+        className={cn(
+          "absolute bottom-0 left-0 right-0 h-[0.5px] transition-colors duration-300",
+          isScrolled ? "bg-zinc-200" : "bg-transparent"
+        )}
+      />
+
+      <nav className="mx-auto max-w-screen-2xl px-4 md:px-6">
+        <div className="flex items-center justify-between h-16 md:h-20">
+          
+          {/* Left: Mobile Menu Toggle / Desktop Links */}
+          <div className="flex items-center gap-10">
+            {/* Mobile Menu Toggle */}
+            <div className="md:hidden">
+              <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+                <SheetTrigger asChild>
+                  <Button variant="ghost" size="icon" className="rounded-full hover:bg-zinc-100 text-zinc-950 -ml-2" aria-label="Open menu">
+                    <Menu className="w-5 h-5 transition-colors duration-300" />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="left" className="w-[300px] border-zinc-200">
+                  <SheetHeader className="px-2 md:px-4">
+                    <SheetTitle className="font-serif text-2xl tracking-tighter text-left">
+                      Classy Crave
+                    </SheetTitle>
+                  </SheetHeader>
+                  <nav className="mt-8 flex flex-col gap-6 px-2 md:px-4">
+                    <Link
+                      href="/"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className={cn(
+                        "text-lg transition-colors",
+                        pathname === "/" ? "text-zinc-950 font-medium" : "text-zinc-600 hover:text-zinc-950"
+                      )}
+                    >
+                      Home
+                    </Link>
+                    {[
+                      { href: "/menu", label: "Menu" },
+                      { href: "/track", label: "Track" },
+                      { href: "/about", label: "About" },
+                      { href: "/contact", label: "Contact" }
+                    ].map((link) => {
+                      const isActive = pathname === link.href || pathname.startsWith(link.href + "/");
+                      return (
+                        <Link
+                          key={link.href}
+                          href={link.href}
+                          onClick={() => setIsMobileMenuOpen(false)}
+                          className={cn(
+                            "text-lg transition-colors",
+                            isActive ? "text-zinc-950 font-medium" : "text-zinc-600 hover:text-zinc-950"
+                          )}
+                        >
+                          {link.label}
+                        </Link>
+                      );
+                    })}
+                    <div className="h-px bg-zinc-100 my-2 w-full" />
+                    <Link
+                      href="#"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className="text-lg text-zinc-600 hover:text-zinc-950 flex items-center gap-2"
+                    >
+                      <User className="h-5 w-5" />
+                      Login
+                    </Link>
+                  </nav>
+                </SheetContent>
+              </Sheet>
+            </div>
+
+            {/* Desktop Navigation */}
+            <div className="hidden md:flex items-center gap-8">
+              {[
+                { href: "/menu", label: "Menu" },
+                { href: "/track", label: "Track" },
+                { href: "/about", label: "About" },
+                { href: "/contact", label: "Contact" }
+              ].map((link) => {
+                const isActive = pathname === link.href || pathname.startsWith(link.href + "/");
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className={cn(
+                      "relative text-[12px] uppercase tracking-widest transition-colors duration-300",
+                      isActive
+                        ? "text-zinc-950 font-medium"
+                        : "text-zinc-500 hover:text-zinc-950"
+                    )}
+                  >
+                    {link.label}
+                    {/* Active underline */}
+                    <span
+                      className={cn(
+                        "absolute -bottom-1 left-0 h-[1px] bg-current transition-transform duration-300 origin-left",
+                        isActive ? "w-full scale-x-100" : "w-full scale-x-0"
+                      )}
+                    />
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Center: Brand */}
+          <div className="absolute left-1/2 -translate-x-1/2">
+            <Link href="/" className="block">
+              <span className="font-serif text-xl md:text-2xl tracking-wider transition-colors duration-300 text-zinc-950">
+                Classy Crave
+              </span>
+            </Link>
+          </div>
+          
+          {/* Right Actions */}
+          <div className="flex items-center gap-2 md:gap-4">
+            {/* Inline Search */}
+            <div className="hidden lg:flex items-center relative w-[240px]">
+              <Search className="w-4 h-4 absolute left-3.5 text-zinc-400" />
+              <input 
+                type="text" 
+                placeholder="Search for products..." 
+                className="w-full bg-zinc-100/50 border border-zinc-200 rounded-full h-10 pl-10 pr-4 text-[13px] font-medium focus:outline-none focus:border-zinc-300 transition-colors placeholder:text-zinc-400 text-zinc-900"
+              />
+            </div>
+
+            <div className="hidden md:block">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="relative p-2 transition-colors duration-300 rounded-full text-zinc-950 hover:bg-transparent hover:text-zinc-600 h-auto w-auto"
+              >
+                <User className="h-5 w-5" />
+              </Button>
+            </div>
+            
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="relative p-2 transition-colors duration-300 rounded-full text-zinc-950 hover:bg-transparent hover:text-zinc-600 h-auto w-auto"
+              onClick={() => setIsCartOpen(true)}
+            >
+              <ShoppingBag className="h-5 w-5" />
+              {mounted && totalItems > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 h-4 w-4 flex items-center justify-center bg-zinc-950 text-white text-[9px] font-medium rounded-full">
+                  {totalItems}
+                </span>
+              )}
+            </Button>
+          </div>
+        </div>
+      </nav>
       <CartSheet open={isCartOpen} onOpenChange={setIsCartOpen} />
     </header>
   );

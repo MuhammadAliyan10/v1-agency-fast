@@ -1,9 +1,8 @@
 import { getPublicMenu } from "@/server/actions/storefront";
 import { CategoryBento } from "@/components/features/storefront/category-bento";
-import { PromoBanner } from "@/components/features/storefront/promo-banner";
 import { TrendingSection } from "@/components/features/storefront/trending-section";
-import { FeaturesSection } from "@/components/features/storefront/features-section";
 import { MapSection } from "@/components/features/storefront/map-section";
+import ScrollVelocity from "@/components/ui/scroll-velocity";
 import Image from "next/image";
 
 export default async function StorefrontPage() {
@@ -13,49 +12,58 @@ export default async function StorefrontPage() {
   const heroPlaceholder = "https://images.unsplash.com/photo-1550547660-d9450f859349?w=1600&h=600&fit=crop&q=80";
 
   return (
-    <div className="animate-in fade-in duration-500 flex flex-col gap-4 md:gap-8 w-full">
+    <div className="animate-in fade-in duration-500 flex flex-col w-full">
       {/* Hero Section */}
-      <section className="rounded-[2rem] overflow-hidden relative w-full h-[400px] md:h-[500px] shadow-xl">
-        <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/50 to-transparent z-10 flex flex-col justify-center px-6 md:px-16 text-white">
-          <div className="max-w-xl animate-in slide-in-from-bottom-4 duration-700">
-            <span className="text-primary font-bold uppercase tracking-[0.2em] text-xs md:text-sm mb-3 block drop-shadow-md">
-              Classy Crave Sillanwali
+      <section className="w-[100vw] h-[80vh] relative left-1/2 -translate-x-1/2 -mt-[120px]">
+        <div className="absolute inset-0 bg-black/50 z-10 flex flex-col items-center justify-center text-center px-4 md:px-6">
+          <div className="max-w-4xl mt-24 animate-in slide-in-from-bottom-4 duration-700">
+            <span className="text-white font-mono uppercase tracking-[0.2em] text-xs md:text-sm mb-4 block drop-shadow-md">
+              PREMIUM FAST FOOD • EST. 2024
             </span>
-            <h1 className="text-4xl md:text-6xl font-heading font-black leading-tight mb-5 drop-shadow-lg text-balance">
-              Craving Something <span className="text-primary">Extraordinary?</span>
+            <h1 className="text-5xl md:text-[6rem] font-serif font-black text-white leading-none mb-6 drop-shadow-2xl text-balance uppercase tracking-tight">
+              Classy Crave
             </h1>
-            <p className="text-sm md:text-lg text-white/90 max-w-md mb-8 drop-shadow-md leading-relaxed text-pretty">
-              Premium fast food crafted with the finest ingredients. Delivered hot and fresh right to your doorstep.
+            <p className="text-base md:text-xl text-white/90 max-w-2xl mx-auto mb-10 drop-shadow-md leading-relaxed text-pretty font-sans font-medium">
+              Based in Sillanwali, Pakistan. Crafted for the extraordinary craving.
             </p>
-            <div className="flex items-center gap-4">
-              <a href="/menu" className="inline-flex items-center justify-center h-12 px-8 rounded-full bg-primary text-primary-foreground font-bold hover:bg-primary/90 transition-transform active:scale-95 shadow-lg">
-                Order Now
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+              <a href="/menu" className="inline-flex items-center justify-center h-14 px-10 rounded-full bg-white text-zinc-950 font-bold hover:bg-zinc-100 transition-transform active:scale-95 shadow-xl font-sans tracking-wide uppercase text-sm">
+                Explore Menu
               </a>
-              <a href="#trending" className="inline-flex items-center justify-center h-12 px-8 rounded-full bg-white/10 text-white font-bold backdrop-blur-md hover:bg-white/20 transition-colors border border-white/20">
+              <a href="#trending" className="inline-flex items-center justify-center h-14 px-10 rounded-full bg-black/40 text-white font-bold backdrop-blur-md hover:bg-black/60 transition-colors border border-white/30 font-sans tracking-wide uppercase text-sm">
                 View Deals
               </a>
             </div>
           </div>
         </div>
-        <Image 
-          src={heroPlaceholder} 
-          className="object-cover" 
-          alt="Premium Fast Food Banner" 
+        <Image
+          src={heroPlaceholder}
+          className="object-cover"
+          alt="Classy Crave Hero Banner"
           fill
           priority
         />
       </section>
 
+      {/* Scroll Velocity Marquee */}
+      <div className="w-[100vw] relative left-1/2 -translate-x-1/2 bg-white py-3 border-b border-zinc-200 overflow-hidden -mt-1 z-20">
+        <ScrollVelocity
+          texts={['CLASSY CRAVE']}
+          velocity={40}
+          className="text-zinc-950 font-bold font-mono text-xs md:text-sm tracking-widest uppercase mx-4"
+          numCopies={10}
+          damping={50}
+          stiffness={400}
+        />
+      </div>
+
       {/* Trending Section */}
-      {categories.length > 0 && categories[0].items.length > 0 && (
-        <TrendingSection items={categories.flatMap(c => c.items).slice(0, 8)} />
+      {categories.length > 0 && (
+        <TrendingSection categories={categories} />
       )}
 
       {/* Category Bento Grid */}
       <CategoryBento categories={categories} />
-
-      {/* Promo Banner */}
-      <PromoBanner />
 
       {/* Empty State */}
       {categories.length === 0 && (
@@ -66,9 +74,6 @@ export default async function StorefrontPage() {
           </p>
         </div>
       )}
-
-      {/* Trust / Features Section */}
-      <FeaturesSection />
 
       {/* Location Map */}
       <MapSection />

@@ -1,8 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
-import { ShoppingCart, Star, Flame, Leaf, Plus, Settings2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Bookmark, MapPin, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { STORE_CONSTANTS } from "@/lib/constants";
 import { useCart } from "@/store/use-cart";
@@ -48,6 +48,7 @@ export function ProductCard({
   onCustomize,
   item,
 }: ProductCardProps) {
+  const router = useRouter();
   const { addItem } = useCart();
   const fallbackImage = "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=600&h=600&fit=crop&q=80";
 
@@ -56,12 +57,13 @@ export function ProductCard({
   const displayPrice = lowestPrice || basePrice;
 
   const handleAction = (e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
     
     if (outOfStock) return;
 
-    if (hasVariants) {
-      if (onCustomize) onCustomize(id);
+    if (hasVariants && onCustomize) {
+      onCustomize(id);
     } else {
       if (onAdd) {
         onAdd(id);
@@ -81,145 +83,71 @@ export function ProductCard({
 
   const handleCardClick = () => {
     if (outOfStock) return;
-    if (onCustomize) onCustomize(id);
+    router.push(`/product/${id}`);
   };
 
   return (
-    <article 
-      className={cn(
-        "group relative flex flex-col justify-between overflow-hidden rounded-2xl bg-card shadow-sm hover:shadow-xl transition-all duration-500",
-        outOfStock ? "opacity-75" : "hover:-translate-y-1",
-        "h-full"
-      )}
-    >
-      <Link href={`/product/${id}`} className="flex flex-col flex-1 cursor-pointer">
-        {/* Image Header (Top Section) */}
-      <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
-        <Image
-          src={imageUrl || fallbackImage}
-          alt={name}
-          fill
-          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-          className="object-cover transition-transform duration-700 group-hover:scale-110"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100 pointer-events-none" />
-        
-        {/* Badges */}
-        {tags?.isPopular && (
-          <div className="absolute top-3 left-3 bg-primary text-primary-foreground text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1 shadow-lg">
-            <Flame className="w-3 h-3" />
-            Popular
-          </div>
-        )}
-        
-        {discountPercentage && discountPercentage > 0 && (
-          <div className="absolute top-3 right-3 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-lg">
-            -{discountPercentage}% OFF
-          </div>
-        )}
-
-        {/* Out of Stock Overlay */}
-        {outOfStock && (
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] flex items-center justify-center">
-            <span className="text-white font-bold tracking-widest uppercase border-2 border-white/50 px-4 py-2 rounded-full rotate-[-15deg] shadow-2xl">
-              Currently Unavailable
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* Content Body (Middle Section) */}
-      <div className="flex flex-1 flex-col gap-2 p-5">
-        {/* Row 1: Title & Dietary */}
-        <div className="flex items-start justify-between gap-2">
-          <h3 className="font-heading font-bold text-xl leading-tight tracking-tight text-foreground line-clamp-1 group-hover:text-primary transition-colors">
-            {name}
-          </h3>
-          
-          {(tags?.isSpicy || tags?.isVeg) && (
-            <div className="flex gap-1 shrink-0 mt-0.5">
-              {tags?.isSpicy && (
-                <div className="bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-500 p-1 rounded-full" title="Spicy">
-                  <Flame className="w-3 h-3" />
-                </div>
-              )}
-              {tags?.isVeg && (
-                <div className="bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-500 p-1 rounded-full" title="Vegetarian">
-                  <Leaf className="w-3 h-3" />
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Row 2: Rating & Category */}
-        <div className="flex items-center text-xs text-muted-foreground gap-1.5 font-medium">
-          {rating ? (
-            <div className="flex items-center gap-0.5 text-amber-500">
-              <Star className="w-3.5 h-3.5 fill-current" />
-              <span className="text-foreground ml-0.5">{rating}</span>
-              {reviewCount > 0 && <span className="text-muted-foreground font-normal">({reviewCount})</span>}
-            </div>
-          ) : null}
-          
-          {rating && categoryName && <span>•</span>}
-          
-          {categoryName && (
-            <span className="truncate">{categoryName}</span>
-          )}
-        </div>
-
-        {/* Row 3: Description */}
-        <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed mt-1 flex-grow">
-          {description || "Fresh, delicious, and made just for you with the finest ingredients."}
-        </p>
-      </div>
-      </Link>
-
-      {/* Footer (Price & Action) */}
-      <div className="mt-auto flex items-center justify-between pt-2 px-5 pb-5 bg-card">
-        <div className="flex flex-col">
-          {hasVariants && (
-            <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground leading-none mb-1">
-              Starts from
-            </span>
-          )}
-          <div className="flex items-baseline gap-2 leading-none">
-            <span className="text-lg font-black text-foreground">
-              {STORE_CONSTANTS.CURRENCY} {displayPrice}
-            </span>
-            {discountPercentage && discountPercentage > 0 && (
-              <span className="text-xs font-medium text-muted-foreground line-through opacity-70">
-                {STORE_CONSTANTS.CURRENCY} {Math.round(displayPrice / (1 - discountPercentage / 100))}
-              </span>
+    <div className="w-full h-full group/card transition-transform duration-300 hover:scale-[1.02]">
+      <article 
+        onClick={handleCardClick}
+        className={cn(
+              "group relative flex flex-col justify-between overflow-hidden rounded-[24px] bg-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all duration-500 h-full p-2 md:p-3 pb-4 border border-zinc-100 cursor-pointer",
+              outOfStock ? "opacity-75" : ""
             )}
-          </div>
-        </div>
-        
-        <Button 
-          onClick={handleAction}
-          disabled={outOfStock}
-          variant={hasVariants ? "outline" : "default"}
-          className={cn(
-            "h-10 px-5 rounded-full font-bold shadow-md hover:shadow-lg transition-transform active:scale-95 shrink-0",
-            hasVariants ? "border-primary text-primary hover:bg-primary/10" : "bg-primary text-primary-foreground hover:bg-primary/90"
-          )}
-        >
-          {outOfStock ? (
-            "Sold Out"
-          ) : hasVariants ? (
-            <>
-              <Settings2 className="w-4 h-4 sm:mr-2" />
-              <span className="hidden sm:inline-block">Customize</span>
-            </>
-          ) : (
-            <>
-              <ShoppingCart className="w-4 h-4 sm:mr-2" />
-              <span className="hidden sm:inline-block">Add</span>
-            </>
-          )}
-        </Button>
-      </div>
-    </article>
+          >
+            <div className="flex flex-col flex-1">
+              {/* Image Header */}
+              <div className="relative aspect-[4/5] sm:aspect-square w-full overflow-hidden bg-zinc-50 rounded-2xl">
+                <Image
+                  src={imageUrl || fallbackImage}
+                  alt={name}
+                  fill
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                  className="object-cover transition-transform duration-700 group-hover:scale-105"
+                />
+              </div>
+
+              {/* Content Body */}
+              <div className="flex flex-col pt-4 px-2">
+                <div className="flex items-center gap-2">
+                  {rating ? (
+                    <div className="flex items-center gap-1 shrink-0 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100">
+                      <Star className="w-2.5 h-2.5 fill-amber-500 text-amber-500" />
+                      <span className="text-[10px] md:text-xs font-bold text-amber-900">{rating}</span>
+                    </div>
+                  ) : null}
+                  <h3 className="font-sans font-bold text-sm md:text-base leading-tight tracking-tight text-zinc-950 line-clamp-1 group-hover:text-[#5430E5] transition-colors">
+                    {name}
+                  </h3>
+                </div>
+                <p className="text-[10px] md:text-xs text-zinc-400 font-medium line-clamp-2 mt-1.5 leading-relaxed">
+                  {description || "Fresh, delicious, and made just for you with the finest ingredients."}
+                </p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="mt-5 flex items-center justify-between px-2 relative z-50">
+              <div className="flex items-baseline gap-1">
+                <span className="text-sm md:text-base font-black text-zinc-950 tracking-tight">
+                  {STORE_CONSTANTS.CURRENCY}{displayPrice}
+                </span>
+              </div>
+              
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleAction(e);
+                }}
+                disabled={outOfStock}
+                className="bg-emerald-50 hover:bg-emerald-100 text-emerald-600 text-[9px] md:text-[10px] font-bold uppercase tracking-wider px-4 py-1.5 h-auto rounded-md shadow-none transition-colors border-none relative z-[100] cursor-pointer pointer-events-auto"
+              >
+                {outOfStock ? "Sold Out" : hasVariants ? "Customize" : "Add to Cart"}
+              </button>
+            </div>
+          </article>
+    </div>
   );
 }
