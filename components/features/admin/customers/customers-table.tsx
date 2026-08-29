@@ -21,7 +21,7 @@ import { useRouter } from "next/navigation";
 interface CustomerData {
   id: string;
   name: string | null;
-  email: string;
+  email: string | null;
   phone: string | null;
   isActive: boolean | null;
   createdAt: Date | null;
@@ -38,7 +38,7 @@ export function CustomersTable({ data }: { data: CustomerData[] }) {
     const searchLower = searchTerm.toLowerCase();
     return (
       customer.name?.toLowerCase().includes(searchLower) ||
-      customer.email.toLowerCase().includes(searchLower) ||
+      customer.email?.toLowerCase().includes(searchLower) ||
       customer.phone?.toLowerCase().includes(searchLower)
     );
   });
@@ -103,7 +103,7 @@ export function CustomersTable({ data }: { data: CustomerData[] }) {
                     <div className="text-xs text-muted-foreground">ID: {customer.id.substring(0, 8)}...</div>
                   </TableCell>
                   <TableCell>
-                    <div className="text-sm">{customer.email}</div>
+                    <div className="text-sm">{customer.email || "N/A"}</div>
                     <div className="text-xs text-muted-foreground">{customer.phone || "No phone"}</div>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">

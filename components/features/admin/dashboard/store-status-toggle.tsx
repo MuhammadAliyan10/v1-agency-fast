@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Store, Storefront } from "lucide-react";
+import { Store } from "lucide-react";
 import { toggleStoreStatus } from "@/server/actions/settings";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";

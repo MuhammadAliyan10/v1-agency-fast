@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { MapPin, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -18,10 +19,14 @@ export function Footer() {
           
           {/* Column 1 (Brand) */}
           <div className="flex flex-col">
-            <Link href="/" className="inline-block mb-6">
-              <span className="font-heading font-black text-3xl tracking-tight text-primary">
-                Classy Crave<span className="text-white text-4xl leading-none -mt-1">.</span>
-              </span>
+            <Link href="/" className="inline-block mb-6 transition-opacity hover:opacity-90">
+              <Image 
+                src="/Logo.png" 
+                alt="Classy Crave Logo" 
+                width={160} 
+                height={60} 
+                className="h-12 w-auto rounded object-contain"
+              />
             </Link>
             <p className="text-sm text-zinc-400 mb-6 max-w-xs leading-relaxed">
               Elevating the fast-food experience in Sillanwali with premium ingredients and unmatched taste.

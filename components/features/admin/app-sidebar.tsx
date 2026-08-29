@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { LogOut, Settings, Sun, Moon, Monitor } from "lucide-react";
 import { useTheme } from "next-themes";
@@ -68,11 +69,20 @@ export function AppSidebar() {
       <SidebarHeader className="pt-5 pb-4 px-5 group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:items-center border-b border-sidebar-border">
         <SidebarMenu>
           <SidebarMenuItem>
-            <Link href="/admin/dashboard" className="flex items-center justify-center gap-0.5 font-heading font-black text-xl tracking-tight text-sidebar-foreground">
+            <Link href="/admin/dashboard" className="flex items-center justify-center gap-0.5 transition-opacity hover:opacity-90">
               {state === "collapsed" ? (
-                <span>C<span className="text-primary">.</span></span>
+                <Image 
+                  src="/Logo.png" 
+                  alt="Classy Crave Logo" 
+                  width={32} 
+                  height={32} 
+                  className="w-8 h-8 rounded object-contain"
+                  priority
+                />
               ) : (
-                <>Classy Crave<span className="text-primary">.</span></>
+                <span className="font-heading font-black text-xl tracking-tight text-sidebar-foreground">
+                  Classy Crave<span className="text-primary">.</span>
+                </span>
               )}
             </Link>
           </SidebarMenuItem>

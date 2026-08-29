@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { 
   ShoppingBag, 
   User, 
@@ -81,9 +82,16 @@ export function Navbar() {
         {/* Brand */}
         <Link 
           href="/" 
-          className="flex-shrink-0 flex items-center justify-center gap-0.5 font-heading font-black text-2xl md:text-3xl tracking-tight text-foreground group"
+          className="flex-shrink-0 flex items-center justify-center transition-opacity hover:opacity-90"
         >
-          Classy Crave<span className="text-primary group-hover:text-foreground transition-colors">.</span>
+          <Image 
+            src="/Logo.png" 
+            alt="Classy Crave Logo" 
+            width={120} 
+            height={40} 
+            className="h-10 w-auto rounded object-contain"
+            priority
+          />
         </Link>
         
         {/* Desktop Navigation Links */}

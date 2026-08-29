@@ -59,7 +59,6 @@ export function RiderDialogForm({ open, onOpenChange }: RiderDialogFormProps) {
       name: "",
       phone: "",
       email: "",
-      vehicleType: "bike",
       vehiclePlate: "",
       password: "",
     },

@@ -132,7 +132,7 @@ export default async function OrderDetailsPage({
             <div className="space-y-4 text-sm">
               <div className="flex items-start gap-3 text-muted-foreground">
                 <Clock className="w-5 h-5 shrink-0 text-muted-foreground/70" />
-                <span className="mt-0.5 leading-snug">{format(new Date(order.createdAt), "MMM d, yyyy 'at' h:mm a")}</span>
+                <span className="mt-0.5 leading-snug">{order.createdAt ? format(new Date(order.createdAt), "MMM d, yyyy 'at' h:mm a") : "Unknown Date"}</span>
               </div>
               <div className="flex items-start gap-3 text-muted-foreground">
                 <CheckCircle2 className="w-5 h-5 shrink-0 text-muted-foreground/70" />
