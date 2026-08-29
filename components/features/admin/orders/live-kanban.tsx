@@ -1,97 +1,157 @@
+// components/features/admin/orders/live-kanban.tsx
 "use client";
 
 import { useState, useEffect, useRef } from "react";
 import useSound from "use-sound";
-import { Bell } from "lucide-react";
+import { Bell, BellOff, RefreshCw, Clock } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { getLiveOrders, updateLiveOrderStatus, type OrderStatus } from "@/server/actions/live-orders";
+import { Button } from "@/components/ui/button";
+import { getLiveOrders, updateLiveOrderStatus, getAvailableRiders, assignRiderToOrder, type OrderStatus } from "@/server/actions/live-orders";
 import { OrderCard } from "./order-card";
 import { OrderDetailsSheet } from "./order-details-sheet";
 import { toast } from "sonner";
-import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
+
+const COLUMN_CONFIG = [
+  {
+    id: "pending",
+    title: "New Orders",
+    description: "Tap a card to start preparing",
+    statuses: ["pending", "approved"],
+    emptyLabel: "No pending orders",
+    emptyDesc: "New orders from customers will appear here",
+    headerClass: "text-amber-700 dark:text-amber-400",
+    countClass: "bg-amber-500 text-white",
+    bgClass: "bg-amber-50/50 dark:bg-amber-950/10 border-amber-200/50 dark:border-amber-800/30",
+  },
+  {
+    id: "preparing",
+    title: "Preparing",
+    description: "Kitchen is actively working",
+    statuses: ["preparing"],
+    emptyLabel: "Nothing preparing",
+    emptyDesc: "Move orders here when the kitchen starts",
+    headerClass: "text-blue-700 dark:text-blue-400",
+    countClass: "bg-blue-500 text-white",
+    bgClass: "bg-blue-50/50 dark:bg-blue-950/10 border-blue-200/50 dark:border-blue-800/30",
+  },
+  {
+    id: "out_for_delivery",
+    title: "Out for Delivery",
+    description: "On the way to customers",
+    statuses: ["out_for_delivery", "delayed"],
+    emptyLabel: "No active deliveries",
+    emptyDesc: "Orders sent out will appear here",
+    headerClass: "text-emerald-700 dark:text-emerald-400",
+    countClass: "bg-emerald-500 text-white",
+    bgClass: "bg-emerald-50/50 dark:bg-emerald-950/10 border-emerald-200/50 dark:border-emerald-800/30",
+  },
+];
 
 export function LiveKanban() {
   const [orders, setOrders] = useState<any[]>([]);
   const [isAlertsEnabled, setIsAlertsEnabled] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
-  const [isUpdating, setIsUpdating] = useState(false);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [isMounted, setIsMounted] = useState(false);
-  
-  // Track known IDs to detect newly arrived orders
-  const knownOrderIds = useRef<Set<string>>(new Set());
+  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+  const [availableRiders, setAvailableRiders] = useState<{ id: string; name: string }[]>([]);
 
-  // Only load the sound if it exists. Fallback handles missing file gracefully in use-sound.
+  const knownOrderIds = useRef<Set<string>>(new Set());
   const [playAlert] = useSound("/sounds/new-order-bell.mp3", { volume: 0.5 });
 
   const fetchOrders = async () => {
     const res = await getLiveOrders();
     if (res.success && res.data) {
-      const incomingIds = new Set(res.data.map(o => o.id));
-      
-      // Detect new orders for audio alert
+      const incomingIds = new Set(res.data.map((o) => o.id));
+
       if (isAlertsEnabled && knownOrderIds.current.size > 0) {
         let hasNewOrder = false;
-        incomingIds.forEach(id => {
+        incomingIds.forEach((id) => {
           if (!knownOrderIds.current.has(id)) hasNewOrder = true;
         });
-        
         if (hasNewOrder) {
           playAlert();
-          toast.info("New order arrived!");
+          toast.info("New order arrived!", { icon: "🔔" });
         }
       }
-      
+
       knownOrderIds.current = incomingIds;
       setOrders(res.data);
+      setLastRefresh(new Date());
     }
   };
 
-  // Initial fetch and polling setup (10s)
   useEffect(() => {
     setIsMounted(true);
     fetchOrders();
+    
+    // Fetch available riders once on mount
+    getAvailableRiders().then((res) => {
+      if (res.success && res.data) {
+        setAvailableRiders(res.data);
+      }
+    });
+
     const interval = setInterval(fetchOrders, 10000);
     return () => clearInterval(interval);
   }, [isAlertsEnabled]);
 
   const handleUpdateStatus = async (orderId: string, newStatus: OrderStatus) => {
-    setIsUpdating(true);
-    
-    // Optimistic Update
-    setOrders(currentOrders => 
-      currentOrders.map(o => o.id === orderId ? { ...o, status: newStatus } : o)
+    setUpdatingId(orderId);
+
+    // Optimistic update
+    setOrders((current) =>
+      current.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
     );
 
     const res = await updateLiveOrderStatus(orderId, newStatus);
     if (res.success) {
-      toast.success(`Order #${orderId} moved to ${newStatus}`);
+      const statusLabels: Record<OrderStatus, string> = {
+        pending: "Pending",
+        approved: "Approved",
+        preparing: "Preparing",
+        out_for_delivery: "Out for Delivery",
+        delivered: "Delivered",
+        cancelled: "Cancelled",
+        rejected: "Rejected",
+        delayed: "Delayed",
+      };
+      toast.success(`Order moved to ${statusLabels[newStatus]}`);
     } else {
-      toast.error("Failed to update status");
-      await fetchOrders(); // revert on failure
+      toast.error("Failed to update status. Reverting.");
+      await fetchOrders();
     }
-    setIsUpdating(false);
-    
-    // Close sheet if it's the active one being updated to a state that might remove it from kanban
+
+    setUpdatingId(null);
+
     if (selectedOrder?.id === orderId && ["delivered", "cancelled", "rejected"].includes(newStatus)) {
       setIsSheetOpen(false);
     }
   };
 
-  const onDragEnd = async (result: DropResult) => {
-    const { destination, source, draggableId } = result;
+  const handleAssignRider = async (orderId: string, riderId: string) => {
+    setUpdatingId(orderId);
+    
+    // Optimistic update
+    const rider = availableRiders.find(r => r.id === riderId);
+    setOrders((current) =>
+      current.map((o) => (o.id === orderId ? { ...o, rider: rider ? { name: rider.name } : null } : o))
+    );
+    if (selectedOrder && selectedOrder.id === orderId) {
+      setSelectedOrder({ ...selectedOrder, rider: rider ? { name: rider.name } : null });
+    }
 
-    if (!destination) return;
-    if (destination.droppableId === source.droppableId) return; // Dropped in the same column
-
-    let newStatus: OrderStatus;
-    if (destination.droppableId === "pending") newStatus = "pending";
-    else if (destination.droppableId === "preparing") newStatus = "preparing";
-    else if (destination.droppableId === "ready") newStatus = "out_for_delivery";
-    else return;
-
-    await handleUpdateStatus(draggableId, newStatus);
+    const res = await assignRiderToOrder(orderId, riderId);
+    if (res.success) {
+      toast.success("Rider assigned successfully");
+    } else {
+      toast.error("Failed to assign rider");
+      await fetchOrders();
+    }
+    
+    setUpdatingId(null);
   };
 
   const openOrderDetails = (order: any) => {
@@ -99,156 +159,91 @@ export function LiveKanban() {
     setIsSheetOpen(true);
   };
 
-  // Column filtering
-  const pendingOrders = orders.filter(o => ["pending", "approved"].includes(o.status));
-  const preparingOrders = orders.filter(o => o.status === "preparing");
-  const readyOrders = orders.filter(o => ["out_for_delivery", "delayed"].includes(o.status));
-
   if (!isMounted) return null;
 
+  const isUpdating = updatingId !== null;
+
   return (
-    <div className="flex flex-col h-full gap-4 kanban-board">
-      <div className="flex items-center justify-between bg-muted/40 p-4 rounded-lg border">
+    <div className="flex flex-col h-full gap-4">
+      {/* Toolbar */}
+      <div className="flex items-center justify-between bg-card border border-border rounded-lg px-4 py-3">
         <div>
-          <h2 className="text-lg font-bold">Kitchen Command Center</h2>
-          <p className="text-sm text-muted-foreground">Auto-refreshes every 10 seconds. Drag and drop orders to update status.</p>
+          <h2 className="text-sm font-semibold text-foreground">Kitchen Command Center</h2>
+          <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
+            <RefreshCw className="w-3 h-3" />
+            Auto-refreshes every 10 seconds · Last updated {lastRefresh.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+          </p>
         </div>
-        <div className="flex items-center space-x-2">
-          <Bell className={`w-4 h-4 ${isAlertsEnabled ? "text-primary" : "text-muted-foreground"}`} />
-          <Switch 
-            id="alerts-mode" 
-            checked={isAlertsEnabled}
-            onCheckedChange={setIsAlertsEnabled}
-          />
-          <Label htmlFor="alerts-mode" className="cursor-pointer font-medium">Audio Alerts</Label>
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={fetchOrders} disabled={isUpdating} className="text-xs gap-1.5 text-muted-foreground hover:text-foreground">
+            <RefreshCw className="w-3.5 h-3.5" />
+            Refresh
+          </Button>
+          <div className="flex items-center gap-2 border-l border-border pl-3">
+            {isAlertsEnabled ? <Bell className="w-4 h-4 text-primary" /> : <BellOff className="w-4 h-4 text-muted-foreground" />}
+            <Switch
+              id="alerts-mode"
+              checked={isAlertsEnabled}
+              onCheckedChange={setIsAlertsEnabled}
+            />
+            <Label htmlFor="alerts-mode" className="cursor-pointer text-sm font-medium select-none">
+              Audio Alerts
+            </Label>
+          </div>
         </div>
       </div>
 
-      <DragDropContext onDragEnd={onDragEnd}>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start h-full pb-10">
-          {/* Column 1: Pending */}
-          <Droppable droppableId="pending">
-            {(provided) => (
-              <div 
-                className="flex flex-col gap-4 bg-orange-500/5 p-4 rounded-xl border border-orange-500/10 min-h-[500px]"
-                ref={provided.innerRef}
-                {...provided.droppableProps}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-bold text-orange-600 dark:text-orange-400">New / Pending</h3>
-                  <span className="bg-orange-500 text-white text-xs px-2 py-1 rounded-full font-bold">
-                    {pendingOrders.length}
-                  </span>
+      {/* Kanban Columns */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 flex-1 min-h-0 pb-6 overflow-auto">
+        {COLUMN_CONFIG.map((col) => {
+          const colOrders = orders.filter((o) => col.statuses.includes(o.status));
+          return (
+            <div key={col.id} className={`flex flex-col rounded-xl border p-4 gap-3 ${col.bgClass}`}>
+              {/* Column Header */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className={`font-bold text-sm ${col.headerClass}`}>{col.title}</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">{col.description}</p>
                 </div>
-                {pendingOrders.map((order, index) => (
-                  <Draggable key={order.id} draggableId={order.id} index={index}>
-                    {(provided, snapshot) => (
-                      <div 
-                        ref={provided.innerRef}
-                        {...provided.draggableProps}
-                        {...provided.dragHandleProps}
-                        className={snapshot.isDragging ? "opacity-90 rotate-2 scale-105 transition-transform z-50 relative" : ""}
-                        style={provided.draggableProps.style}
-                      >
-                        <OrderCard 
-                          order={order} 
-                          onUpdateStatus={handleUpdateStatus}
-                          onClick={() => openOrderDetails(order)}
-                          isUpdating={isUpdating}
-                        />
-                      </div>
-                    )}
-                  </Draggable>
-                ))}
-                {provided.placeholder}
+                <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-black ${col.countClass}`}>
+                  {colOrders.length}
+                </span>
               </div>
-            )}
-          </Droppable>
 
-          {/* Column 2: Preparing */}
-          <Droppable droppableId="preparing">
-            {(provided) => (
-              <div 
-                className="flex flex-col gap-4 bg-yellow-500/5 p-4 rounded-xl border border-yellow-500/10 min-h-[500px]"
-                ref={provided.innerRef}
-                {...provided.droppableProps}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-bold text-yellow-600 dark:text-yellow-400">Preparing</h3>
-                  <span className="bg-yellow-500 text-white text-xs px-2 py-1 rounded-full font-bold">
-                    {preparingOrders.length}
-                  </span>
-                </div>
-                {preparingOrders.map((order, index) => (
-                  <Draggable key={order.id} draggableId={order.id} index={index}>
-                    {(provided, snapshot) => (
-                      <div 
-                        ref={provided.innerRef}
-                        {...provided.draggableProps}
-                        {...provided.dragHandleProps}
-                        className={snapshot.isDragging ? "opacity-90 rotate-2 scale-105 transition-transform z-50 relative" : ""}
-                        style={provided.draggableProps.style}
-                      >
-                        <OrderCard 
-                          order={order} 
-                          onUpdateStatus={handleUpdateStatus}
-                          onClick={() => openOrderDetails(order)}
-                          isUpdating={isUpdating}
-                        />
-                      </div>
-                    )}
-                  </Draggable>
-                ))}
-                {provided.placeholder}
+              {/* Order Cards */}
+              <div className="flex flex-col gap-3 flex-1 min-h-[200px]">
+                {colOrders.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center flex-1 text-center py-10 rounded-lg border border-dashed border-border/50">
+                    <Clock className="w-6 h-6 text-muted-foreground/40 mb-2" />
+                    <p className="text-xs font-semibold text-muted-foreground">{col.emptyLabel}</p>
+                    <p className="text-xs text-muted-foreground/70 mt-1 max-w-[150px]">{col.emptyDesc}</p>
+                  </div>
+                ) : (
+                  colOrders.map((order) => (
+                    <OrderCard
+                      key={order.id}
+                      order={order}
+                      onUpdateStatus={handleUpdateStatus}
+                      onClick={() => openOrderDetails(order)}
+                      isUpdating={isUpdating}
+                      updatingId={updatingId}
+                    />
+                  ))
+                )}
               </div>
-            )}
-          </Droppable>
-
-          {/* Column 3: Ready / Out */}
-          <Droppable droppableId="ready">
-            {(provided) => (
-              <div 
-                className="flex flex-col gap-4 bg-blue-500/5 p-4 rounded-xl border border-blue-500/10 min-h-[500px]"
-                ref={provided.innerRef}
-                {...provided.droppableProps}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-bold text-blue-600 dark:text-blue-400">Ready / Out</h3>
-                  <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full font-bold">
-                    {readyOrders.length}
-                  </span>
-                </div>
-                {readyOrders.map((order, index) => (
-                  <Draggable key={order.id} draggableId={order.id} index={index}>
-                    {(provided, snapshot) => (
-                      <div 
-                        ref={provided.innerRef}
-                        {...provided.draggableProps}
-                        {...provided.dragHandleProps}
-                        className={snapshot.isDragging ? "opacity-90 rotate-2 scale-105 transition-transform z-50 relative" : ""}
-                        style={provided.draggableProps.style}
-                      >
-                        <OrderCard 
-                          order={order} 
-                          onUpdateStatus={handleUpdateStatus}
-                          onClick={() => openOrderDetails(order)}
-                          isUpdating={isUpdating}
-                        />
-                      </div>
-                    )}
-                  </Draggable>
-                ))}
-                {provided.placeholder}
-              </div>
-            )}
-          </Droppable>
-        </div>
-      </DragDropContext>
+            </div>
+          );
+        })}
+      </div>
 
       <OrderDetailsSheet 
         order={selectedOrder} 
         open={isSheetOpen} 
-        onOpenChange={setIsSheetOpen} 
+        onOpenChange={setIsSheetOpen}
+        onUpdateStatus={handleUpdateStatus}
+        isUpdating={isUpdating}
+        availableRiders={availableRiders}
+        onAssignRider={handleAssignRider}
       />
     </div>
   );

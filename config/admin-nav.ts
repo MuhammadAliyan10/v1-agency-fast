@@ -7,6 +7,8 @@ import {
   Bike,
   Users,
   Settings,
+  History,
+  Contact,
 } from "lucide-react";
 
 export const adminNavConfig = {
@@ -21,6 +23,11 @@ export const adminNavConfig = {
       url: "/admin/orders",
       icon: ShoppingBag,
       badge: "3", // Placeholder
+    },
+    {
+      title: "Order History",
+      url: "/admin/orders/history",
+      icon: History,
     },
   ],
   store: [
@@ -41,6 +48,11 @@ export const adminNavConfig = {
     },
   ],
   people: [
+    {
+      title: "Customers",
+      url: "/admin/customers",
+      icon: Contact,
+    },
     {
       title: "Riders",
       url: "/admin/riders",

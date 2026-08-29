@@ -5,10 +5,12 @@ import { orders, orderItems, menuItems, itemVariants, itemAddOns } from "@/datab
 import { checkoutSchema, CheckoutValues } from "@/lib/validations/checkout";
 import { STORE_CONSTANTS } from "@/lib/constants";
 import { eq, inArray } from "drizzle-orm";
+import { getStoreStatus } from "@/server/actions/settings";
 import { revalidatePath } from "next/cache";
 import { CartItem } from "@/store/use-cart";
+import { randomBytes } from "crypto";
 
-export async function submitOrder(data: CheckoutValues, cartItems: CartItem[]) {
+export async function submitOrder(data: CheckoutValues, cartItems: CartItem[], idempotencyKey: string) {
   try {
     // 1. Validate Input
     const parsed = checkoutSchema.safeParse(data);
@@ -20,8 +22,23 @@ export async function submitOrder(data: CheckoutValues, cartItems: CartItem[]) {
       return { success: false, error: "Cart is empty" };
     }
 
+    // 1.5. Validate Store Status
+    const isStoreOpen = await getStoreStatus();
+    if (!isStoreOpen) {
+      return { success: false, error: "The restaurant is currently closed. We are not accepting new orders at this time." };
+    }
+
+    // Check Idempotency Key first
+    const existingOrder = await db.query.orders.findFirst({
+      where: eq(orders.idempotencyKey, idempotencyKey),
+    });
+
+    if (existingOrder) {
+      // If we've already processed this, return success immediately to prevent double-billing
+      return { success: true, orderId: existingOrder.id };
+    }
+
     // 2. Server-side validation of prices
-    // Fetch all relevant menu items, variants, and addons from the DB to prevent price tampering
     const menuItemIds = [...new Set(cartItems.map((item) => item.menuItemId))];
     
     const dbMenuItems = await db.select().from(menuItems).where(inArray(menuItems.id, menuItemIds));
@@ -77,32 +94,36 @@ export async function submitOrder(data: CheckoutValues, cartItems: CartItem[]) {
 
     const totalAmount = calculatedSubtotal + STORE_CONSTANTS.DELIVERY_FEE;
 
-    // 4. Generate readable order ID (e.g. CC-59123)
-    const randomDigits = Math.floor(10000 + Math.random() * 90000);
-    const orderId = `CC-${randomDigits}`;
+    // 4. Generate highly collision-resistant order ID
+    // Combine timestamp entropy with a cryptographically secure random segment
+    const entropy = randomBytes(2).toString("hex").toUpperCase();
+    const timestampStr = Date.now().toString().slice(-4);
+    const orderId = `CC-${timestampStr}${entropy}`;
 
-    // 5. Insert Order and Order Items sequentially (neon-http does not support transactions)
-    await db.insert(orders).values({
-      id: orderId,
-      customerName: parsed.data.customerName,
-      customerPhone: parsed.data.customerPhone,
-      deliveryAddress: parsed.data.deliveryAddress,
-      deliveryNotes: parsed.data.deliveryNotes || null,
-      paymentMethod: parsed.data.paymentMethod,
-      paymentStatus: parsed.data.paymentMethod === "COD" ? "unpaid" : "pending",
-      status: "pending",
-      subtotal: calculatedSubtotal,
-      deliveryFee: STORE_CONSTANTS.DELIVERY_FEE,
-      discountAmount: 0,
-      totalAmount: totalAmount,
-    });
-
-    await db.insert(orderItems).values(
-      orderItemsPayload.map((payload) => ({
-        orderId: orderId,
-        ...payload,
-      }))
-    );
+    // 5. Insert Order and Order Items atomically using db.batch
+    await db.batch([
+      db.insert(orders).values({
+        id: orderId,
+        customerName: parsed.data.customerName,
+        customerPhone: parsed.data.customerPhone,
+        deliveryAddress: parsed.data.deliveryAddress,
+        deliveryNotes: parsed.data.deliveryNotes || null,
+        paymentMethod: parsed.data.paymentMethod,
+        paymentStatus: "unpaid",
+        status: "pending",
+        subtotal: calculatedSubtotal,
+        deliveryFee: STORE_CONSTANTS.DELIVERY_FEE,
+        discountAmount: 0,
+        totalAmount: totalAmount,
+        idempotencyKey: idempotencyKey,
+      }),
+      db.insert(orderItems).values(
+        orderItemsPayload.map((payload) => ({
+          orderId: orderId,
+          ...payload,
+        }))
+      )
+    ]);
 
     revalidatePath("/admin/orders");
 

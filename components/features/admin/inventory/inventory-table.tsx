@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { Search, Plus, MoreHorizontal, Pencil, Trash2, ArrowUpDown } from "lucide-react";
 import { toast } from "sonner";
 import { useDebounce } from "use-debounce";
@@ -45,6 +45,7 @@ interface InventoryTableProps {
 export function InventoryTable({ data }: InventoryTableProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch] = useDebounce(searchTerm, 300);
+  const [isPending, startTransition] = useTransition();
   
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
   const [isAdjustDialogOpen, setIsAdjustDialogOpen] = useState(false);
@@ -60,16 +61,16 @@ export function InventoryTable({ data }: InventoryTableProps) {
 
   const confirmDelete = async () => {
     if (!itemToDelete) return;
-    
-    const res = await deleteInventoryItem(itemToDelete);
-    if (res.success) {
-      toast.success("Inventory item deleted");
-    } else {
-      toast.error(res.error || "Failed to delete item");
-    }
-    
-    setIsAlertOpen(false);
-    setItemToDelete(null);
+    startTransition(async () => {
+      const res = await deleteInventoryItem(itemToDelete);
+      if (res.success) {
+        toast.success("Inventory item deleted");
+      } else {
+        toast.error(res.error || "Failed to delete item");
+      }
+      setIsAlertOpen(false);
+      setItemToDelete(null);
+    });
   };
 
   const openDeleteAlert = (id: string) => {
@@ -208,8 +209,8 @@ export function InventoryTable({ data }: InventoryTableProps) {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Delete
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={isPending}>
+              {isPending ? "Deleting..." : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -5,11 +5,13 @@ import { menuItems, itemVariants, itemAddOns, categories } from "@/database/sche
 import { eq, ilike, and, desc, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import type { MenuItemValues } from "@/lib/validations/menu";
+import { requireAdmin } from "@/lib/auth/session";
 
 // Generate slug from name
 const slugify = (text: string) => text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
 
 export async function getPaginatedMenu(page = 1, limit = 10, search = "", categoryId = "") {
+  await requireAdmin();
   try {
     const offset = (page - 1) * limit;
     
@@ -81,6 +83,7 @@ export async function getPaginatedMenu(page = 1, limit = 10, search = "", catego
 }
 
 export async function upsertMenuItem(data: MenuItemValues, itemId?: string) {
+  await requireAdmin();
   try {
     const slug = slugify(data.name);
 
@@ -155,6 +158,7 @@ export async function upsertMenuItem(data: MenuItemValues, itemId?: string) {
 }
 
 export async function toggleItemAvailability(itemId: string, isAvailable: boolean) {
+  await requireAdmin();
   try {
     await db.update(menuItems)
       .set({ isAvailable, updatedAt: new Date() })
@@ -169,6 +173,7 @@ export async function toggleItemAvailability(itemId: string, isAvailable: boolea
 }
 
 export async function deleteMenuItem(itemId: string) {
+  await requireAdmin();
   try {
     // Hard delete (cascade will handle variants/addons if set in schema, otherwise manual)
     await db.delete(menuItems).where(eq(menuItems.id, itemId));
@@ -191,7 +196,25 @@ export async function deleteMenuItem(itemId: string) {
   }
 }
 
+export async function updateMenuItemPrice(itemId: string, newPrice: number) {
+  await requireAdmin();
+  if (isNaN(newPrice) || newPrice < 0) {
+    return { success: false, error: "Invalid price value." };
+  }
+  try {
+    await db.update(menuItems)
+      .set({ basePrice: newPrice, updatedAt: new Date() })
+      .where(eq(menuItems.id, itemId));
+    revalidatePath("/admin/menu");
+    return { success: true };
+  } catch (error) {
+    console.error("Error updating price:", error);
+    return { success: false, error: "Failed to update price." };
+  }
+}
+
 export async function getCategories() {
+  await requireAdmin();
   try {
     const data = await db.select().from(categories).orderBy(categories.name);
     return { success: true, data };

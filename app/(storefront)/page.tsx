@@ -15,17 +15,27 @@ export default async function StorefrontPage() {
   return (
     <div className="animate-in fade-in duration-500 flex flex-col gap-4 md:gap-8 w-full">
       {/* Hero Section */}
-      <section className="rounded-3xl overflow-hidden relative w-full h-[300px] md:h-[400px] shadow-2xl">
-        <div className="absolute inset-0 bg-gradient-to-r from-black/80 to-transparent z-10 flex flex-col justify-center px-6 md:px-16 text-white">
-          <span className="text-primary font-bold uppercase tracking-widest text-xs md:text-sm mb-2 shadow-black drop-shadow-md">
-            Classy Crave Sillanwali
-          </span>
-          <h1 className="text-3xl md:text-6xl font-black max-w-xl leading-tight mb-4 drop-shadow-lg">
-            Craving Something <span className="text-primary">Extraordinary?</span>
-          </h1>
-          <p className="text-sm md:text-lg text-white/90 max-w-md line-clamp-2 md:line-clamp-none drop-shadow-md">
-            Premium fast food crafted with the finest ingredients. Delivered hot and fresh right to your doorstep.
-          </p>
+      <section className="rounded-[2rem] overflow-hidden relative w-full h-[400px] md:h-[500px] shadow-xl">
+        <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/50 to-transparent z-10 flex flex-col justify-center px-6 md:px-16 text-white">
+          <div className="max-w-xl animate-in slide-in-from-bottom-4 duration-700">
+            <span className="text-primary font-bold uppercase tracking-[0.2em] text-xs md:text-sm mb-3 block drop-shadow-md">
+              Classy Crave Sillanwali
+            </span>
+            <h1 className="text-4xl md:text-6xl font-heading font-black leading-tight mb-5 drop-shadow-lg text-balance">
+              Craving Something <span className="text-primary">Extraordinary?</span>
+            </h1>
+            <p className="text-sm md:text-lg text-white/90 max-w-md mb-8 drop-shadow-md leading-relaxed text-pretty">
+              Premium fast food crafted with the finest ingredients. Delivered hot and fresh right to your doorstep.
+            </p>
+            <div className="flex items-center gap-4">
+              <a href="/menu" className="inline-flex items-center justify-center h-12 px-8 rounded-full bg-primary text-primary-foreground font-bold hover:bg-primary/90 transition-transform active:scale-95 shadow-lg">
+                Order Now
+              </a>
+              <a href="#trending" className="inline-flex items-center justify-center h-12 px-8 rounded-full bg-white/10 text-white font-bold backdrop-blur-md hover:bg-white/20 transition-colors border border-white/20">
+                View Deals
+              </a>
+            </div>
+          </div>
         </div>
         <Image 
           src={heroPlaceholder} 

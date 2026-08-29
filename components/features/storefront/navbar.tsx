@@ -63,17 +63,17 @@ export function Navbar() {
   const totalItems = getTotalItems();
 
   return (
-    <header className="fixed top-0 z-50 w-full transition-all duration-500 ease-out pt-4 px-4 md:px-6 pointer-events-none">
-      <div className={cn(
-        "max-w-[1200px] mx-auto transition-all duration-500 ease-out pointer-events-auto rounded-full border shadow-2xl flex items-center justify-between px-4 md:px-8",
-        isScrolled 
-          ? "h-16 bg-background/70 backdrop-blur-2xl border-border/50 shadow-black/10" 
-          : "h-20 bg-background/95 backdrop-blur-xl border-border/10 shadow-black/5"
-      )}>
+    <header className={cn(
+      "fixed top-0 z-50 w-full transition-all duration-500 ease-out border-b",
+      isScrolled 
+        ? "bg-background/80 backdrop-blur-2xl border-border/50 shadow-sm py-3" 
+        : "bg-background border-transparent py-4 md:py-5"
+    )}>
+      <div className="max-w-7xl mx-auto flex items-center justify-between px-4 md:px-8 lg:px-12">
         
         {/* Left: Mobile Menu Toggle */}
         <div className="md:hidden flex-1">
-          <Button variant="ghost" size="icon" className="rounded-full hover:bg-muted/50 text-muted-foreground">
+          <Button variant="ghost" size="icon" className="rounded-full hover:bg-muted/50 text-muted-foreground -ml-2">
             <Menu className="w-5 h-5" />
           </Button>
         </div>
@@ -81,13 +81,13 @@ export function Navbar() {
         {/* Brand */}
         <Link 
           href="/" 
-          className="flex-shrink-0 flex items-center justify-center gap-0.5 font-black text-xl md:text-2xl tracking-tighter text-foreground group"
+          className="flex-shrink-0 flex items-center justify-center gap-0.5 font-heading font-black text-2xl md:text-3xl tracking-tight text-foreground group"
         >
-          CLASSY CRAVE<span className="text-primary group-hover:text-foreground transition-colors">.</span>
+          Classy Crave<span className="text-primary group-hover:text-foreground transition-colors">.</span>
         </Link>
         
         {/* Desktop Navigation Links */}
-        <nav className="hidden md:flex flex-1 justify-center items-center gap-8 lg:gap-12">
+        <nav className="hidden md:flex flex-1 justify-center items-center gap-2">
           {navLinks.map((link) => {
             const isActive = pathname === link.href;
             return (
@@ -95,23 +95,20 @@ export function Navbar() {
                 key={link.name}
                 href={link.href} 
                 className={cn(
-                  "relative text-xs uppercase tracking-[0.2em] font-bold transition-colors py-2 group",
-                  isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"
+                  "px-4 py-2 rounded-full text-sm font-semibold transition-all duration-300",
+                  isActive 
+                    ? "bg-primary/10 text-primary" 
+                    : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                 )}
               >
                 {link.name}
-                {isActive ? (
-                  <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-primary" />
-                ) : (
-                  <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-0 h-0.5 bg-foreground transition-all duration-300 group-hover:w-full opacity-0 group-hover:opacity-100" />
-                )}
               </Link>
             );
           })}
         </nav>
         
         {/* Right Actions */}
-        <div className="flex-1 flex justify-end items-center space-x-1 md:space-x-2">
+        <div className="flex-1 flex justify-end items-center space-x-1 md:space-x-2 -mr-2 md:-mr-0">
           <Button 
             variant="ghost" 
             size="icon" 

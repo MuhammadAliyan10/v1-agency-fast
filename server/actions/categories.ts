@@ -5,8 +5,10 @@ import { categories, menuItems } from "@/database/schema";
 import { eq, asc, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import type { CategoryFormValues } from "@/lib/validations/category";
+import { requireAdmin } from "@/lib/auth/session";
 
 export async function getCategoriesWithItemCount() {
+  await requireAdmin();
   try {
     const result = await db
       .select({
@@ -32,6 +34,7 @@ export async function getCategoriesWithItemCount() {
 }
 
 export async function upsertCategory(data: CategoryFormValues, categoryId?: string) {
+  await requireAdmin();
   try {
     // Check if slug exists
     const existingSlug = await db
@@ -74,6 +77,7 @@ export async function upsertCategory(data: CategoryFormValues, categoryId?: stri
 }
 
 export async function toggleCategoryStatus(categoryId: string, isActive: boolean) {
+  await requireAdmin();
   try {
     await db.update(categories)
       .set({ isActive })
@@ -89,6 +93,7 @@ export async function toggleCategoryStatus(categoryId: string, isActive: boolean
 }
 
 export async function deleteCategory(categoryId: string) {
+  await requireAdmin();
   try {
     // Check for linked items
     const linkedItems = await db

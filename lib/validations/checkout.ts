@@ -14,7 +14,7 @@ export const checkoutSchema = z.object({
     .max(255, "Address must be less than 255 characters"),
   deliveryNotes: z.string().optional(),
   paymentMethod: z.enum(["COD", "JazzCash", "EasyPaisa"], {
-    required_error: "Please select a payment method",
+    message: "Please select a payment method",
   }),
 });
 

@@ -1,15 +1,23 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 
-const JWT_SECRET = process.env.JWT_SECRET || "fallback_secret_for_development_only";
-const key = new TextEncoder().encode(JWT_SECRET);
+// Keys will be generated dynamically to avoid build-time errors when env vars are missing
 
 export interface SessionPayload {
   id: string;
   role: string;
 }
 
+function getJwtKey() {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error("FATAL: JWT_SECRET environment variable is missing.");
+  }
+  return new TextEncoder().encode(secret);
+}
+
 export async function signToken(payload: SessionPayload): Promise<string> {
+  const key = getJwtKey();
   return await new SignJWT({ ...payload })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
@@ -19,6 +27,7 @@ export async function signToken(payload: SessionPayload): Promise<string> {
 
 export async function verifyToken(token: string): Promise<SessionPayload | null> {
   try {
+    const key = getJwtKey();
     const { payload } = await jwtVerify(token, key, {
       algorithms: ["HS256"],
     });
@@ -43,4 +52,20 @@ export async function createSession(userId: string, role: string) {
 export async function deleteSession() {
   const cookieStore = await cookies();
   cookieStore.delete("cc_admin_session");
+}
+
+export async function requireAdmin() {
+  const cookieStore = await cookies();
+  const sessionCookie = cookieStore.get("cc_admin_session");
+  
+  if (!sessionCookie || !sessionCookie.value) {
+    throw new Error("UNAUTHORIZED: Missing session cookie");
+  }
+  
+  const payload = await verifyToken(sessionCookie.value);
+  if (!payload || (payload.role !== "admin" && payload.role !== "manager")) {
+    throw new Error("UNAUTHORIZED: Invalid or insufficient permissions");
+  }
+  
+  return payload;
 }

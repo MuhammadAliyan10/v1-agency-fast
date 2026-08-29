@@ -1,23 +1,31 @@
-import { Construction } from "lucide-react";
+import { requireAdmin } from "@/lib/auth/session";
+import { getRiders } from "@/server/actions/riders";
 import { PageHeader } from "@/components/shared/page-header";
+import { RidersTable } from "@/components/features/admin/riders/riders-table";
+import { Bike } from "lucide-react";
 
-export default function RidersPage() {
+export const dynamic = "force-dynamic";
+
+export default async function RidersPage() {
+  await requireAdmin();
+  const result = await getRiders();
+
   return (
     <div className="space-y-6">
-      <PageHeader 
-        heading="Riders Management" 
-        description="Track and manage delivery personnel."
+      <PageHeader
+        heading="Riders Management"
+        description="Monitor and control all delivery personnel and their operational status."
       />
-      
-      <div className="flex flex-col items-center justify-center min-h-[400px] border rounded-md border-dashed bg-muted/20">
-        <div className="p-4 bg-muted rounded-full mb-4">
-          <Construction className="w-8 h-8 text-muted-foreground" />
+
+      {result.success ? (
+        <RidersTable data={result.data ?? []} />
+      ) : (
+        <div className="flex flex-col items-center justify-center min-h-[400px] border border-dashed border-border rounded-xl bg-muted/20 gap-3 text-muted-foreground">
+          <Bike className="w-10 h-10 opacity-30" />
+          <p className="font-semibold">Failed to load riders</p>
+          <p className="text-sm opacity-70">Please try refreshing the page.</p>
         </div>
-        <h3 className="text-lg font-semibold">Coming Soon</h3>
-        <p className="text-muted-foreground max-w-sm text-center mt-2">
-          The rider management module is currently under active development. Check back soon for updates.
-        </p>
-      </div>
+      )}
     </div>
   );
 }

@@ -1,7 +1,10 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+// components/features/admin/dashboard/metric-cards.tsx
+import { TrendingUp, TrendingDown, ShoppingBag, Receipt, AlertCircle, ArrowRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, TrendingDown, ShoppingBag, Receipt, AlertCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 import type { DashboardKPIs } from "@/types/analytics";
+import { cn } from "@/lib/utils";
 
 interface MetricCardsProps {
   data: DashboardKPIs;
@@ -9,74 +12,95 @@ interface MetricCardsProps {
 
 export function MetricCards({ data }: MetricCardsProps) {
   const isPositive = data.revenueComparison >= 0;
-  
+
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-      {/* Revenue Card */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Today's Sales</CardTitle>
-          <TrendingUp className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">Rs. {data.todayRevenue.toLocaleString()}</div>
-          <div className="flex items-center gap-2 mt-1">
-            <Badge variant={isPositive ? "default" : "destructive"} className={isPositive ? "bg-green-500/10 text-green-600 hover:bg-green-500/20" : ""}>
-              {isPositive ? <TrendingUp className="mr-1 h-3 w-3" /> : <TrendingDown className="mr-1 h-3 w-3" />}
+      {/* Today's Revenue — Primary KPI */}
+      <div className="bg-primary text-primary-foreground rounded-xl p-5 flex flex-col gap-3 shadow-sm">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-semibold text-primary-foreground/80">Today's Sales</span>
+          <div className="w-8 h-8 bg-primary-foreground/15 rounded-lg flex items-center justify-center">
+            <TrendingUp className="h-4 w-4" />
+          </div>
+        </div>
+        <div>
+          <div className="text-3xl font-black tracking-tight">Rs. {data.todayRevenue.toLocaleString()}</div>
+          <div className="flex items-center gap-1.5 mt-1.5">
+            <span className={cn(
+              "inline-flex items-center gap-0.5 text-xs font-bold px-1.5 py-0.5 rounded",
+              isPositive ? "bg-primary-foreground/20 text-primary-foreground" : "bg-red-500/30 text-red-100"
+            )}>
+              {isPositive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
               {Math.abs(data.revenueComparison).toFixed(1)}%
-            </Badge>
-            <p className="text-xs text-muted-foreground">vs yesterday</p>
+            </span>
+            <span className="text-xs text-primary-foreground/70">vs yesterday</span>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      {/* Orders Count Card */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Today's Orders</CardTitle>
-          <ShoppingBag className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{data.todayOrdersCount.toLocaleString()}</div>
-          <p className="text-xs text-muted-foreground mt-1">Total orders placed today</p>
-        </CardContent>
-      </Card>
-
-      {/* Average Order Value Card */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Average Ticket Size</CardTitle>
-          <Receipt className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">Rs. {data.averageOrderValue.toLocaleString()}</div>
-          <p className="text-xs text-muted-foreground mt-1">Average spend per order</p>
-        </CardContent>
-      </Card>
-
-      {/* Pending Orders Alert Card */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Active Orders</CardTitle>
-          <AlertCircle className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{data.pendingOrdersCount}</div>
-          <div className="flex items-center gap-2 mt-1">
-            {data.pendingOrdersCount > 0 ? (
-              <>
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500"></span>
-                </span>
-                <p className="text-xs text-orange-500 font-medium">Requires attention</p>
-              </>
-            ) : (
-              <p className="text-xs text-muted-foreground">Kitchen is clear</p>
-            )}
+      {/* Active Orders — Operational Alert */}
+      <div className={cn(
+        "rounded-xl p-5 flex flex-col gap-3 shadow-sm border",
+        data.pendingOrdersCount > 0
+          ? "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800"
+          : "bg-card border-border"
+      )}>
+        <div className="flex items-center justify-between">
+          <span className={cn(
+            "text-sm font-semibold",
+            data.pendingOrdersCount > 0 ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground"
+          )}>
+            Active Orders
+          </span>
+          <div className={cn(
+            "w-8 h-8 rounded-lg flex items-center justify-center",
+            data.pendingOrdersCount > 0 ? "bg-amber-200/60 dark:bg-amber-900/60" : "bg-muted"
+          )}>
+            <AlertCircle className={cn(
+              "h-4 w-4",
+              data.pendingOrdersCount > 0 ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"
+            )} />
           </div>
-        </CardContent>
-      </Card>
+        </div>
+        <div>
+          <div className="text-3xl font-black tracking-tight">{data.pendingOrdersCount}</div>
+          {data.pendingOrdersCount > 0 ? (
+            <Link href="/admin/orders" className="inline-flex items-center gap-1 text-xs font-bold text-amber-600 dark:text-amber-400 mt-1.5 hover:underline">
+              View kitchen board <ArrowRight className="h-3 w-3" />
+            </Link>
+          ) : (
+            <span className="text-xs text-muted-foreground mt-1.5 block">Kitchen is clear</span>
+          )}
+        </div>
+      </div>
+
+      {/* Today's Orders Count */}
+      <div className="bg-card rounded-xl p-5 flex flex-col gap-3 shadow-sm border border-border">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-semibold text-muted-foreground">Orders Today</span>
+          <div className="w-8 h-8 bg-muted rounded-lg flex items-center justify-center">
+            <ShoppingBag className="h-4 w-4 text-muted-foreground" />
+          </div>
+        </div>
+        <div>
+          <div className="text-3xl font-black tracking-tight">{data.todayOrdersCount.toLocaleString()}</div>
+          <span className="text-xs text-muted-foreground mt-1.5 block">Total orders placed today</span>
+        </div>
+      </div>
+
+      {/* Average Ticket Size */}
+      <div className="bg-card rounded-xl p-5 flex flex-col gap-3 shadow-sm border border-border">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-semibold text-muted-foreground">Avg. Ticket Size</span>
+          <div className="w-8 h-8 bg-muted rounded-lg flex items-center justify-center">
+            <Receipt className="h-4 w-4 text-muted-foreground" />
+          </div>
+        </div>
+        <div>
+          <div className="text-3xl font-black tracking-tight">Rs. {data.averageOrderValue.toLocaleString()}</div>
+          <span className="text-xs text-muted-foreground mt-1.5 block">Average spend per order</span>
+        </div>
+      </div>
     </div>
   );
 }

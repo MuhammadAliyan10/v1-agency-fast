@@ -96,17 +96,17 @@ export default function TrackingPage({ params }: { params: Promise<{ orderId: st
 
   return (
     <div className="animate-in fade-in duration-500 w-full max-w-3xl mx-auto mb-24 pt-12 md:pt-16">
-      <div className="text-center mb-10">
-        <h1 className="text-3xl font-black tracking-tight mb-2">Track Your Order</h1>
-        <p className="text-muted-foreground">Order ID: <span className="font-bold text-foreground">{data.id}</span></p>
+      <div className="text-center mb-12">
+        <h1 className="text-4xl md:text-5xl font-heading font-black tracking-tight mb-3">Track Your Order</h1>
+        <p className="text-muted-foreground text-lg">Order ID: <span className="font-bold text-foreground">{data.id}</span></p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
         
         {/* Left Column: Tracking Status (Visual Stepper) */}
-        <div className="md:col-span-3 bg-card border rounded-3xl p-6 md:p-8 shadow-sm relative overflow-hidden">
+        <div className="md:col-span-3 bg-white border border-border/30 rounded-[2rem] p-8 md:p-10 shadow-sm relative overflow-hidden">
           {/* Decorative background element */}
-          <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-bl-full -z-10" />
+          <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-bl-[4rem] -z-10" />
           
           <h2 className="text-xl font-bold mb-8">Live Status</h2>
 
@@ -167,8 +167,8 @@ export default function TrackingPage({ params }: { params: Promise<{ orderId: st
 
         {/* Right Column: Order Details */}
         <div className="md:col-span-2 space-y-6">
-          <div className="bg-muted/30 border rounded-3xl p-6">
-            <h3 className="font-bold text-lg mb-4">Order Details</h3>
+          <div className="bg-white border border-border/30 shadow-sm rounded-3xl p-6 md:p-8">
+            <h3 className="font-heading font-black text-2xl mb-6">Order Details</h3>
             
             <div className="space-y-4 text-sm">
               <div>

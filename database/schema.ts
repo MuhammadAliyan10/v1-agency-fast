@@ -18,6 +18,7 @@ import { relations } from "drizzle-orm";
 export const userRoleEnum = pgEnum("user_role", [
   "admin",
   "manager",
+  "kitchen",
   "rider",
   "customer",
 ]);
@@ -201,6 +202,12 @@ export const orderItems = pgTable(
     menuItemIdIdx: index("order_items_menu_item_id_idx").on(table.menuItemId),
   })
 );
+
+export const storeSettings = pgTable("store_settings", {
+  key: varchar("key", { length: 100 }).primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
 
 // -----------------------------------------------------------------------------
 // Relations

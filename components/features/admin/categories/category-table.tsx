@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { Search, Plus, MoreHorizontal, Pencil, Trash2, FolderTree } from "lucide-react";
 import { toast } from "sonner";
 import { useDebounce } from "use-debounce";
@@ -45,6 +45,7 @@ interface CategoryTableProps {
 export function CategoryTable({ data }: CategoryTableProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch] = useDebounce(searchTerm, 300);
+  const [isPending, startTransition] = useTransition();
   
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
@@ -59,30 +60,32 @@ export function CategoryTable({ data }: CategoryTableProps) {
   );
 
   const handleToggleStatus = async (id: string, currentStatus: boolean) => {
-    const res = await toggleCategoryStatus(id, !currentStatus);
-    if (res.success) {
-      toast.success("Category status updated");
-    } else {
-      toast.error(res.error || "Failed to update status");
-    }
+    startTransition(async () => {
+      const res = await toggleCategoryStatus(id, !currentStatus);
+      if (res.success) {
+        toast.success("Category status updated");
+      } else {
+        toast.error(res.error || "Failed to update status");
+      }
+    });
   };
 
   const confirmDelete = async () => {
     if (!itemToDelete) return;
-    
-    const res = await deleteCategory(itemToDelete);
-    if (res.success) {
-      toast.success("Category deleted successfully");
-    } else {
-      if (res.warning) {
-        toast.warning(res.warning, { duration: 6000 });
+    startTransition(async () => {
+      const res = await deleteCategory(itemToDelete);
+      if (res.success) {
+        toast.success("Category deleted successfully");
       } else {
-        toast.error(res.error || "Failed to delete category");
+        if (res.warning) {
+          toast.warning(res.warning, { duration: 6000 });
+        } else {
+          toast.error(res.error || "Failed to delete category");
+        }
       }
-    }
-    
-    setIsAlertOpen(false);
-    setItemToDelete(null);
+      setIsAlertOpen(false);
+      setItemToDelete(null);
+    });
   };
 
   const openDeleteAlert = (id: string) => {
@@ -163,7 +166,8 @@ export function CategoryTable({ data }: CategoryTableProps) {
                   <TableCell className="text-center">
                     <Switch 
                       checked={item.isActive} 
-                      onCheckedChange={() => handleToggleStatus(item.id, item.isActive)} 
+                      onCheckedChange={() => handleToggleStatus(item.id, item.isActive)}
+                      disabled={isPending}
                     />
                   </TableCell>
                   <TableCell className="text-right">
@@ -216,8 +220,8 @@ export function CategoryTable({ data }: CategoryTableProps) {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Delete
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={isPending}>
+              {isPending ? "Deleting..." : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

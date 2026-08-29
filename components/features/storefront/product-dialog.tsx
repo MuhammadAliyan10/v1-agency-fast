@@ -101,7 +101,7 @@ export function ProductDialog({ isOpen, onClose, item }: ProductDialogProps) {
           <DialogTitle>{item.name}</DialogTitle>
         </DialogHeader>
         
-        <DialogClose className="absolute right-4 top-4 z-50 rounded-lg bg-background/50 backdrop-blur-md p-2 hover:bg-background/80 transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-primary">
+        <DialogClose className="absolute right-4 top-4 z-50 rounded-full bg-white/80 backdrop-blur-md p-2 hover:bg-white transition-colors shadow-md focus:outline-none focus:ring-2 focus:ring-primary">
           <X className="h-5 w-5 text-foreground" />
           <span className="sr-only">Close</span>
         </DialogClose>
@@ -131,7 +131,7 @@ export function ProductDialog({ isOpen, onClose, item }: ProductDialogProps) {
             <ScrollArea className="flex-1 px-6 pt-6 md:px-8 md:pt-8 pb-32">
               <div className="hidden md:block mb-8">
                 <div className="flex items-center gap-2 mb-3">
-                  <h2 className="text-2xl font-bold leading-tight tracking-tight text-foreground">{item.name}</h2>
+                  <h2 className="font-heading text-3xl font-bold leading-tight tracking-tight text-foreground">{item.name}</h2>
                   {(item.tags?.isSpicy || item.tags?.isVeg) && (
                     <div className="flex gap-1 shrink-0">
                       {item.tags?.isSpicy && (
@@ -169,8 +169,8 @@ export function ProductDialog({ isOpen, onClose, item }: ProductDialogProps) {
                         key={variant.id}
                         htmlFor={`variant-${variant.id}`}
                         className={cn(
-                          "flex items-center justify-between p-4 border rounded-xl cursor-pointer transition-all hover:bg-muted/50",
-                          selectedVariant?.id === variant.id ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "border-border/50"
+                          "flex items-center justify-between p-4 border rounded-2xl cursor-pointer transition-all hover:bg-muted/50",
+                          selectedVariant?.id === variant.id ? "border-primary bg-primary/5 ring-1 ring-primary/20 shadow-sm" : "border-border/50 bg-white"
                         )}
                       >
                         <div className="flex items-center gap-3">
@@ -199,8 +199,8 @@ export function ProductDialog({ isOpen, onClose, item }: ProductDialogProps) {
                         key={addon.id}
                         htmlFor={`addon-${addon.id}`}
                         className={cn(
-                          "flex items-center justify-between p-4 border rounded-xl cursor-pointer transition-all hover:bg-muted/50",
-                          selectedAddOns.includes(addon.id) ? "border-primary/50 bg-primary/5" : "border-border/50"
+                          "flex items-center justify-between p-4 border rounded-2xl cursor-pointer transition-all hover:bg-muted/50",
+                          selectedAddOns.includes(addon.id) ? "border-primary/50 bg-primary/5 shadow-sm" : "border-border/50 bg-white"
                         )}
                       >
                         <div className="flex items-center gap-3">
@@ -225,21 +225,21 @@ export function ProductDialog({ isOpen, onClose, item }: ProductDialogProps) {
             <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 bg-background/95 backdrop-blur-md border-t border-border/50 z-20">
               <div className="flex items-center gap-4 max-w-full">
                 {/* Quantity Controls */}
-                <div className="flex items-center bg-muted rounded-xl p-1 border border-border/50">
+                <div className="flex items-center bg-white rounded-full p-1 border border-border/50 shadow-sm">
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-10 w-10 rounded-lg shrink-0 hover:bg-background"
+                    className="h-12 w-12 rounded-full shrink-0 hover:bg-muted"
                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
                     disabled={quantity <= 1}
                   >
                     <Minus className="h-4 w-4" />
                   </Button>
-                  <span className="w-8 text-center font-bold text-base">{quantity}</span>
+                  <span className="w-10 text-center font-bold text-lg">{quantity}</span>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-10 w-10 rounded-lg shrink-0 hover:bg-background"
+                    className="h-12 w-12 rounded-full shrink-0 hover:bg-muted"
                     onClick={() => setQuantity(quantity + 1)}
                   >
                     <Plus className="h-4 w-4" />
@@ -249,7 +249,7 @@ export function ProductDialog({ isOpen, onClose, item }: ProductDialogProps) {
                 {/* Add to Cart Button */}
                 <Button 
                   onClick={handleAddToCart} 
-                  className="flex-1 h-12 rounded-xl font-bold shadow-sm hover:shadow-md transition-all text-sm px-2 sm:px-6 tracking-wide"
+                  className="flex-1 h-14 rounded-full font-bold shadow-lg hover:shadow-xl transition-all text-base px-2 sm:px-6 tracking-wide active:scale-[0.98]"
                 >
                   <span className="hidden sm:inline">Add to Cart • </span>
                   <span className="sm:hidden">Add • </span>

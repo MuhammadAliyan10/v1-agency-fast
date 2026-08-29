@@ -29,7 +29,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
         <ProductGallery 
           imageUrl={item.imageUrl} 
           name={item.name} 
-          categoryName={item.categoryName}
+          categoryName={item.category?.name || ""}
         />
       </div>
       
@@ -37,10 +37,10 @@ export default async function ProductPage({ params }: ProductPageProps) {
       <main className="max-w-2xl mx-auto px-4 py-4 w-full">
         {/* Title & Price Row */}
         <div className="flex items-start justify-between gap-4">
-          <h1 className="text-xl md:text-2xl font-bold tracking-tight text-foreground">
+          <h1 className="text-3xl md:text-4xl font-heading font-bold tracking-tight text-foreground">
             {item.name}
           </h1>
-          <span className="text-lg font-bold text-primary shrink-0">
+          <span className="text-2xl font-black text-foreground shrink-0 mt-1">
             Rs. {item.basePrice}
           </span>
         </div>

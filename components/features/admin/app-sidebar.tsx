@@ -65,14 +65,14 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className="pt-5 pb-2 px-5">
+      <SidebarHeader className="pt-5 pb-4 px-5 group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:items-center border-b border-sidebar-border">
         <SidebarMenu>
           <SidebarMenuItem>
-            <Link href="/admin/dashboard" className="flex items-center gap-0.5 font-bold text-lg tracking-tight">
+            <Link href="/admin/dashboard" className="flex items-center justify-center gap-0.5 font-heading font-black text-xl tracking-tight text-sidebar-foreground">
               {state === "collapsed" ? (
-                <span>C<span className="text-orange-500">.</span></span>
+                <span>C<span className="text-primary">.</span></span>
               ) : (
-                <>Classy Crave<span className="text-orange-500">.</span></>
+                <>Classy Crave<span className="text-primary">.</span></>
               )}
             </Link>
           </SidebarMenuItem>
@@ -82,25 +82,30 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="px-2">
+      <SidebarContent className="px-2 group-data-[collapsible=icon]:px-0">
         {Object.entries(adminNavConfig).map(([key, items]) => (
           <SidebarGroup key={key} className="pt-3">
-            <SidebarGroupLabel className="text-[11px] font-medium text-muted-foreground/70 px-3 mb-0.5">
+            <SidebarGroupLabel className="text-[11px] font-medium text-muted-foreground/70 px-3 mb-0.5 capitalize">
               {key === "Main" ? "Platform" : key}
             </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu className="gap-0.5">
                 {items.map((item) => {
-                  const isActive = pathname === item.url || pathname.startsWith(item.url + "/");
+                  // Exact match for leaf routes to prevent parent/child bleeding
+                  // e.g. /admin/orders should NOT activate when on /admin/orders/history
+                  const hasChildren = items.some(
+                    (other) => other.url !== item.url && other.url.startsWith(item.url + "/")
+                  );
+                  const isActive = pathname === item.url || (hasChildren ? false : pathname.startsWith(item.url + "/"));
                   return (
                     <SidebarMenuItem key={item.title}>
                       <SidebarMenuButton 
                         asChild 
                         isActive={isActive}
-                        className={`font-medium transition-colors ${
+                        className={`font-medium transition-colors rounded-lg ${
                           isActive 
-                            ? "bg-orange-500/15 text-orange-600 dark:text-orange-400 hover:bg-orange-500/25" 
-                            : "text-foreground/80 hover:text-foreground hover:bg-muted/50"
+                            ? "bg-primary/10 text-primary hover:bg-primary/15" 
+                            : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
                         }`}
                       >
                         <Link href={item.url} className="flex items-center gap-2.5">
@@ -111,12 +116,12 @@ export function AppSidebar() {
                       </SidebarMenuButton>
                       {item.url === "/admin/orders" ? (
                         pendingOrdersCount > 0 && (
-                          <SidebarMenuBadge className="bg-orange-500 text-white rounded-full px-1.5 py-0 text-[9px] animate-pulse shadow-[0_0_8px_rgba(249,115,22,0.6)]">
+                          <SidebarMenuBadge className="bg-primary text-white rounded-full px-1.5 py-0 text-[9px] font-bold">
                             {pendingOrdersCount}
                           </SidebarMenuBadge>
                         )
                       ) : (item as any).badge ? (
-                        <SidebarMenuBadge className="bg-orange-500 text-white rounded-full px-1.5 py-0 text-[9px]">
+                        <SidebarMenuBadge className="bg-primary text-white rounded-full px-1.5 py-0 text-[9px] font-bold">
                           {(item as any).badge}
                         </SidebarMenuBadge>
                       ) : null}
@@ -130,7 +135,7 @@ export function AppSidebar() {
         ))}
       </SidebarContent>
 
-      <SidebarFooter className="border-t p-4">
+      <SidebarFooter className="border-t p-4 group-data-[collapsible=icon]:p-2">
         <SidebarMenu>
           <SidebarMenuItem>
             <DropdownMenu>

@@ -5,8 +5,10 @@ import { inventoryItems } from "@/database/schema";
 import { eq, asc, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import type { InventoryItemFormValues, StockAdjustmentFormValues } from "@/lib/validations/inventory";
+import { requireAdmin } from "@/lib/auth/session";
 
 export async function getInventoryItems() {
+  await requireAdmin();
   try {
     const data = await db
       .select()
@@ -21,6 +23,7 @@ export async function getInventoryItems() {
 }
 
 export async function upsertInventoryItem(data: InventoryItemFormValues, itemId?: string) {
+  await requireAdmin();
   try {
     if (itemId) {
       await db.update(inventoryItems)
@@ -50,6 +53,7 @@ export async function upsertInventoryItem(data: InventoryItemFormValues, itemId?
 }
 
 export async function adjustStockQuantity(data: StockAdjustmentFormValues) {
+  await requireAdmin();
   try {
     let updateSql;
     
@@ -80,6 +84,7 @@ export async function adjustStockQuantity(data: StockAdjustmentFormValues) {
 }
 
 export async function deleteInventoryItem(itemId: string) {
+  await requireAdmin();
   try {
     await db.delete(inventoryItems).where(eq(inventoryItems.id, itemId));
     

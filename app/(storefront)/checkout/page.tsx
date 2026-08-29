@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -10,6 +10,7 @@ import { useCart } from "@/store/use-cart";
 import { STORE_CONSTANTS } from "@/lib/constants";
 import { checkoutSchema, CheckoutValues } from "@/lib/validations/checkout";
 import { submitOrder } from "@/server/actions/checkout";
+import { getStoreStatus } from "@/server/actions/settings";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -30,6 +31,8 @@ export default function CheckoutPage() {
   const [mounted, setMounted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
+  const [isStoreOpen, setIsStoreOpen] = useState(true);
+  const [isCheckingStore, setIsCheckingStore] = useState(true);
   const { items, getCartTotal, clearCart } = useCart();
 
   const form = useForm<CheckoutValues>({
@@ -43,8 +46,25 @@ export default function CheckoutPage() {
     },
   });
 
+  const idempotencyKeyRef = React.useRef<string>("");
+  
   useEffect(() => {
     setMounted(true);
+    idempotencyKeyRef.current = window.crypto.randomUUID();
+    
+    // Check if store is open
+    const checkStoreStatus = async () => {
+      try {
+        const isOpen = await getStoreStatus();
+        setIsStoreOpen(isOpen);
+      } catch (error) {
+        console.error("Failed to check store status", error);
+      } finally {
+        setIsCheckingStore(false);
+      }
+    };
+    
+    checkStoreStatus();
   }, []);
 
   const handleGetLocation = () => {
@@ -115,8 +135,11 @@ export default function CheckoutPage() {
   const onSubmit = async (data: CheckoutValues) => {
     setIsSubmitting(true);
     
+    // Use the persisted idempotency key for this checkout session
+    const idempotencyKey = idempotencyKeyRef.current;
+    
     try {
-      const result = await submitOrder(data, items);
+      const result = await submitOrder(data, items, idempotencyKey);
       
       if (result.success && result.orderId) {
         toast.success("Order placed successfully!");
@@ -135,9 +158,20 @@ export default function CheckoutPage() {
   return (
     <div className="animate-in fade-in duration-500 pb-24">
       <div className="mb-8 md:mb-12">
-        <h1 className="text-4xl md:text-5xl font-black tracking-tight mb-3">Checkout</h1>
+        <h1 className="text-4xl md:text-5xl font-heading font-black tracking-tight mb-3">Checkout</h1>
         <p className="text-muted-foreground text-lg">Please provide your details to complete your order.</p>
       </div>
+
+      {/* Closed Banner */}
+      {!isCheckingStore && !isStoreOpen && (
+        <div className="mb-8 p-5 rounded-2xl border border-destructive/20 bg-destructive/5 text-destructive flex items-start gap-4">
+          <div className="mt-0.5"><Navigation className="w-6 h-6" /></div>
+          <div>
+            <h3 className="font-bold text-lg">The Restaurant is Currently Closed</h3>
+            <p className="opacity-90 mt-1">We are not accepting new orders at this time. Please check back later during our normal operating hours.</p>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
         {/* Left Column: Form */}
@@ -146,9 +180,9 @@ export default function CheckoutPage() {
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
               
               {/* Delivery Details */}
-              <div className="bg-card border border-border/50 p-6 md:p-8 shadow-sm">
+              <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-border/30">
                 <h2 className="text-xl font-bold mb-6 flex items-center gap-3">
-                  <span className="flex items-center justify-center w-7 h-7 bg-primary/10 text-primary text-sm font-black">1</span>
+                  <span className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary text-sm font-black">1</span>
                   Delivery Details
                 </h2>
                 <div className="space-y-5">
@@ -160,7 +194,7 @@ export default function CheckoutPage() {
                         <FormItem>
                           <FormLabel className="font-semibold text-foreground/80">Full Name</FormLabel>
                           <FormControl>
-                            <Input placeholder="Ali Khan" {...field} className="bg-background h-11" />
+                            <Input placeholder="Ali Khan" {...field} className="bg-white h-12 rounded-xl shadow-sm border-border/50" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -173,7 +207,7 @@ export default function CheckoutPage() {
                         <FormItem>
                           <FormLabel className="font-semibold text-foreground/80">Phone Number</FormLabel>
                           <FormControl>
-                            <Input placeholder="03XXXXXXXXX" {...field} className="bg-background h-11" />
+                            <Input placeholder="03XXXXXXXXX" {...field} className="bg-white h-12 rounded-xl shadow-sm border-border/50" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -201,7 +235,7 @@ export default function CheckoutPage() {
                           </Button>
                         </div>
                         <FormControl>
-                          <Input placeholder="Street, Mohallah, House Number (Sillanwali)" {...field} className="bg-background h-11" />
+                          <Input placeholder="Street, Mohallah, House Number (Sillanwali)" {...field} className="bg-white h-12 rounded-xl shadow-sm border-border/50" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -218,7 +252,7 @@ export default function CheckoutPage() {
                           <Textarea 
                             placeholder="e.g. Ring the bell, beware of dog" 
                             {...field} 
-                            className="bg-background resize-none min-h-[100px]" 
+                            className="bg-white resize-none min-h-[100px] rounded-xl shadow-sm border-border/50" 
                           />
                         </FormControl>
                         <FormMessage />
@@ -229,9 +263,9 @@ export default function CheckoutPage() {
               </div>
 
               {/* Payment Method */}
-              <div className="bg-card border border-border/50 p-6 md:p-8 shadow-sm">
+              <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-border/30">
                 <h2 className="text-xl font-bold mb-6 flex items-center gap-3">
-                  <span className="flex items-center justify-center w-7 h-7 bg-primary/10 text-primary text-sm font-black">2</span>
+                  <span className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary text-sm font-black">2</span>
                   Payment Method
                 </h2>
                 
@@ -244,30 +278,36 @@ export default function CheckoutPage() {
                         <RadioGroup
                           onValueChange={field.onChange}
                           defaultValue={field.value}
-                          className="grid grid-cols-1 md:grid-cols-3 gap-4"
+                          className="flex flex-col gap-3"
                         >
-                          <FormItem className="relative flex flex-col items-center justify-center p-5 border border-border/50 cursor-pointer hover:bg-muted/30 transition-colors [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/5 [&:has([data-state=checked])]:shadow-sm">
+                          <FormItem className="relative flex items-center gap-4 p-4 border rounded-2xl cursor-pointer transition-all hover:bg-muted/30 [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/5 [&:has([data-state=checked])]:shadow-sm">
                             <FormControl>
-                              <RadioGroupItem value="COD" className="absolute top-4 left-4" />
+                              <RadioGroupItem value="COD" />
                             </FormControl>
-                            <FormLabel className="font-bold mt-2 cursor-pointer text-center text-foreground">Cash on Delivery</FormLabel>
-                            <span className="text-xs text-muted-foreground mt-1 text-center font-medium">Pay when you receive</span>
+                            <div className="flex flex-col cursor-pointer">
+                              <FormLabel className="font-bold text-foreground cursor-pointer text-base">Cash on Delivery</FormLabel>
+                              <span className="text-sm text-muted-foreground mt-0.5 font-medium">Pay when you receive your food</span>
+                            </div>
                           </FormItem>
 
-                          <FormItem className="relative flex flex-col items-center justify-center p-5 border border-border/50 cursor-pointer hover:bg-muted/30 transition-colors [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/5 [&:has([data-state=checked])]:shadow-sm">
+                          <FormItem className="relative flex items-center gap-4 p-4 border rounded-2xl cursor-pointer transition-all hover:bg-muted/30 [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/5 [&:has([data-state=checked])]:shadow-sm">
                             <FormControl>
-                              <RadioGroupItem value="JazzCash" className="absolute top-4 left-4" />
+                              <RadioGroupItem value="JazzCash" />
                             </FormControl>
-                            <FormLabel className="font-bold mt-2 cursor-pointer text-center text-foreground">JazzCash</FormLabel>
-                            <span className="text-xs text-muted-foreground mt-1 text-center font-medium">Manual Verification</span>
+                            <div className="flex flex-col cursor-pointer">
+                              <FormLabel className="font-bold text-foreground cursor-pointer text-base">JazzCash</FormLabel>
+                              <span className="text-sm text-muted-foreground mt-0.5 font-medium">Manual payment verification</span>
+                            </div>
                           </FormItem>
                           
-                          <FormItem className="relative flex flex-col items-center justify-center p-5 border border-border/50 cursor-pointer hover:bg-muted/30 transition-colors [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/5 [&:has([data-state=checked])]:shadow-sm">
+                          <FormItem className="relative flex items-center gap-4 p-4 border rounded-2xl cursor-pointer transition-all hover:bg-muted/30 [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/5 [&:has([data-state=checked])]:shadow-sm">
                             <FormControl>
-                              <RadioGroupItem value="EasyPaisa" className="absolute top-4 left-4" />
+                              <RadioGroupItem value="EasyPaisa" />
                             </FormControl>
-                            <FormLabel className="font-bold mt-2 cursor-pointer text-center text-foreground">EasyPaisa</FormLabel>
-                            <span className="text-xs text-muted-foreground mt-1 text-center font-medium">Manual Verification</span>
+                            <div className="flex flex-col cursor-pointer">
+                              <FormLabel className="font-bold text-foreground cursor-pointer text-base">EasyPaisa</FormLabel>
+                              <span className="text-sm text-muted-foreground mt-0.5 font-medium">Manual payment verification</span>
+                            </div>
                           </FormItem>
                         </RadioGroup>
                       </FormControl>
@@ -280,11 +320,19 @@ export default function CheckoutPage() {
               <div className="hidden lg:block pt-4">
                 <Button 
                   type="submit" 
-                  disabled={isSubmitting}
-                  className="w-full h-16 text-lg font-black tracking-wide shadow-xl hover:shadow-2xl transition-all"
+                  disabled={isSubmitting || !isStoreOpen}
+                  className="w-full h-14 rounded-full text-lg font-black tracking-wide shadow-lg hover:shadow-xl transition-all"
                 >
-                  {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <ShoppingBag className="w-5 h-5 mr-3" />}
-                  {isSubmitting ? "Processing your order..." : `Place Order - ${STORE_CONSTANTS.CURRENCY} ${total}`}
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                      Processing your order...
+                    </>
+                  ) : !isStoreOpen ? (
+                    "Store is Closed"
+                  ) : (
+                    `Place Order - ${STORE_CONSTANTS.CURRENCY} ${total}`
+                  )}
                 </Button>
               </div>
             </form>
@@ -293,8 +341,8 @@ export default function CheckoutPage() {
 
         {/* Right Column: Order Summary */}
         <div className="lg:col-span-5 xl:col-span-4 order-1 lg:order-2">
-          <div className="bg-card border border-border/50 p-6 md:p-8 sticky top-28 shadow-sm">
-            <h3 className="font-black text-xl mb-6">Order Summary</h3>
+          <div className="bg-white rounded-3xl border border-border/30 p-6 md:p-8 sticky top-28 shadow-sm">
+            <h3 className="font-heading font-black text-2xl mb-6">Order Summary</h3>
             
             <div className="space-y-5 max-h-[45vh] overflow-y-auto no-scrollbar pr-2 mb-6">
               {items.map((item) => (

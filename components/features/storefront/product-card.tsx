@@ -70,7 +70,6 @@ export function ProductCard({
           menuItemId: id,
           name: name,
           imageUrl: imageUrl || fallbackImage,
-          basePrice: basePrice,
           quantity: 1,
           unitPrice: basePrice,
           subtotal: basePrice,
@@ -88,8 +87,8 @@ export function ProductCard({
   return (
     <article 
       className={cn(
-        "group relative flex flex-col justify-between overflow-hidden rounded-xl bg-card border border-border/50 shadow-sm transition-all duration-500",
-        outOfStock ? "opacity-75" : "hover:-translate-y-1 hover:shadow-xl dark:hover:shadow-primary/5",
+        "group relative flex flex-col justify-between overflow-hidden rounded-2xl bg-card shadow-sm hover:shadow-xl transition-all duration-500",
+        outOfStock ? "opacity-75" : "hover:-translate-y-1",
         "h-full"
       )}
     >
@@ -133,7 +132,7 @@ export function ProductCard({
       <div className="flex flex-1 flex-col gap-2 p-5">
         {/* Row 1: Title & Dietary */}
         <div className="flex items-start justify-between gap-2">
-          <h3 className="font-bold text-lg leading-tight tracking-tight text-foreground line-clamp-1 group-hover:text-primary transition-colors">
+          <h3 className="font-heading font-bold text-xl leading-tight tracking-tight text-foreground line-clamp-1 group-hover:text-primary transition-colors">
             {name}
           </h3>
           
@@ -178,7 +177,7 @@ export function ProductCard({
       </Link>
 
       {/* Footer (Price & Action) */}
-      <div className="mt-auto flex items-center justify-between pt-4 border-t border-border/50 px-5 pb-5 bg-card/50">
+      <div className="mt-auto flex items-center justify-between pt-2 px-5 pb-5 bg-card">
         <div className="flex flex-col">
           {hasVariants && (
             <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground leading-none mb-1">
@@ -186,7 +185,7 @@ export function ProductCard({
             </span>
           )}
           <div className="flex items-baseline gap-2 leading-none">
-            <span className="text-xl font-black text-primary">
+            <span className="text-lg font-black text-foreground">
               {STORE_CONSTANTS.CURRENCY} {displayPrice}
             </span>
             {discountPercentage && discountPercentage > 0 && (
@@ -198,12 +197,11 @@ export function ProductCard({
         </div>
         
         <Button 
-          size="sm" 
           onClick={handleAction}
           disabled={outOfStock}
           variant={hasVariants ? "outline" : "default"}
           className={cn(
-            "rounded-xl font-bold shadow-sm hover:shadow-md transition-transform active:scale-95 shrink-0 px-4",
+            "h-10 px-5 rounded-full font-bold shadow-md hover:shadow-lg transition-transform active:scale-95 shrink-0",
             hasVariants ? "border-primary text-primary hover:bg-primary/10" : "bg-primary text-primary-foreground hover:bg-primary/90"
           )}
         >

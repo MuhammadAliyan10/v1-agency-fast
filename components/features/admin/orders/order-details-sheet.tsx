@@ -1,7 +1,7 @@
 "use client";
 
 import { format } from "date-fns";
-import { Printer, Phone, X } from "lucide-react";
+import { Printer, Phone, X, Bike, CheckCircle2, Loader2, ChevronDown, ChefHat } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -12,6 +12,13 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import type { OrderStatus } from "@/server/actions/live-orders";
 
 interface OrderItem {
   id: string;
@@ -39,15 +46,28 @@ interface OrderData {
   totalAmount: number;
   createdAt: Date | null;
   items: OrderItem[];
+  rider: { name: string; phone?: string } | null;
 }
 
 interface OrderDetailsSheetProps {
   order: OrderData | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onUpdateStatus?: (orderId: string, status: OrderStatus) => Promise<void>;
+  isUpdating?: boolean;
+  availableRiders?: { id: string; name: string }[];
+  onAssignRider?: (orderId: string, riderId: string) => Promise<void>;
 }
 
-export function OrderDetailsSheet({ order, open, onOpenChange }: OrderDetailsSheetProps) {
+export function OrderDetailsSheet({ 
+  order, 
+  open, 
+  onOpenChange,
+  onUpdateStatus,
+  isUpdating,
+  availableRiders = [],
+  onAssignRider
+}: OrderDetailsSheetProps) {
   if (!order) return null;
 
   return (
@@ -83,6 +103,55 @@ export function OrderDetailsSheet({ order, open, onOpenChange }: OrderDetailsShe
                   {order.deliveryNotes && (
                     <div className="mt-2 p-2 bg-yellow-500/10 border border-yellow-500/20 rounded text-yellow-700 dark:text-yellow-500">
                       <strong>Note:</strong> {order.deliveryNotes}
+                    </div>
+                  )}
+                </div>
+              </section>
+
+              {/* Status and Rider Assignment */}
+              <section>
+                <h3 className="font-semibold mb-3">Delivery & Status</h3>
+                <div className="bg-muted/40 p-4 rounded-lg space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Order Status</span>
+                    <Badge variant="outline" className="capitalize">{order.status.replace("_", " ")}</Badge>
+                  </div>
+                  
+                  {(order.status === "preparing" || order.status === "out_for_delivery") && (
+                    <div className="flex items-center justify-between border-t border-border/50 pt-4">
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium">Assigned Rider</span>
+                        {order.rider ? (
+                          <span className="text-xs text-muted-foreground">{order.rider.name}</span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground italic">Unassigned</span>
+                        )}
+                      </div>
+                      
+                      {onAssignRider && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm" className="gap-2" disabled={isUpdating}>
+                              {order.rider ? "Change Rider" : "Assign Rider"}
+                              <ChevronDown className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-[200px]">
+                            {availableRiders.length === 0 ? (
+                              <div className="p-2 text-xs text-muted-foreground text-center">No active riders</div>
+                            ) : (
+                              availableRiders.map((rider) => (
+                                <DropdownMenuItem 
+                                  key={rider.id}
+                                  onClick={() => onAssignRider(order.id, rider.id)}
+                                >
+                                  {rider.name}
+                                </DropdownMenuItem>
+                              ))
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
                     </div>
                   )}
                 </div>
@@ -143,6 +212,43 @@ export function OrderDetailsSheet({ order, open, onOpenChange }: OrderDetailsShe
               </section>
             </div>
           </ScrollArea>
+          
+          <div className="p-4 border-t bg-muted/20 flex flex-col gap-3">
+            {order.status === "pending" || order.status === "approved" ? (
+              <Button 
+                className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold" 
+                size="lg"
+                disabled={isUpdating}
+                onClick={() => onUpdateStatus?.(order.id, "preparing")}
+              >
+                {isUpdating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ChefHat className="mr-2 h-4 w-4" />}
+                Start Preparing
+              </Button>
+            ) : order.status === "preparing" ? (
+              <Button 
+                className="w-full bg-indigo-500 hover:bg-indigo-600 text-white font-bold" 
+                size="lg"
+                disabled={isUpdating}
+                onClick={() => onUpdateStatus?.(order.id, "out_for_delivery")}
+              >
+                {isUpdating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Bike className="mr-2 h-4 w-4" />}
+                Send Out for Delivery
+              </Button>
+            ) : order.status === "out_for_delivery" ? (
+              <Button 
+                className="w-full bg-green-600 hover:bg-green-700 text-white font-bold" 
+                size="lg"
+                disabled={isUpdating}
+                onClick={() => onUpdateStatus?.(order.id, "delivered")}
+              >
+                {isUpdating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
+                Mark as Delivered
+              </Button>
+            ) : null}
+            <Button variant="outline" className="w-full" onClick={() => onOpenChange(false)}>
+              Close Details
+            </Button>
+          </div>
         </div>
 
         {/* PRINT ONLY TEMPLATE (Hidden from screen UI) */}

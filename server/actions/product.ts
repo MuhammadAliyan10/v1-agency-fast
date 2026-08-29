@@ -10,6 +10,7 @@ export async function getProductDetails(id: string) {
     const item = await db.query.menuItems.findFirst({
       where: eq(menuItems.id, id),
       with: {
+        category: true,
         variants: true,
         addOns: true,
         reviews: {

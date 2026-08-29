@@ -69,25 +69,25 @@ export function MenuClient({ categories }: MenuClientProps) {
 
           {/* Search Bar */}
           <div className="relative w-full max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
             <Input
               type="text"
               placeholder="Search for your cravings..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 bg-muted/50 border-transparent focus-visible:ring-primary/20 rounded-xl"
+              className="pl-12 h-12 bg-white border-border/50 shadow-sm focus-visible:ring-primary/20 rounded-full text-base"
             />
           </div>
 
           {/* Category Pills */}
-          <div className="flex overflow-x-auto gap-2 no-scrollbar pb-1 -mx-4 px-4 md:mx-0 md:px-0">
+          <div className="flex overflow-x-auto gap-3 pb-2 -mx-4 px-4 md:mx-0 md:px-0 scrollbar-hide snap-x">
             <button
               onClick={() => setActiveCategory("all")}
               className={cn(
-                "whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold transition-colors border",
+                "whitespace-nowrap px-6 py-2.5 rounded-full text-sm font-bold transition-all border snap-start",
                 activeCategory === "all"
-                  ? "bg-primary border-primary text-primary-foreground shadow-sm"
-                  : "bg-background border-border/50 text-muted-foreground hover:bg-muted"
+                  ? "bg-primary border-primary text-primary-foreground shadow-md"
+                  : "bg-white border-border text-foreground hover:bg-muted"
               )}
             >
               All
@@ -97,10 +97,10 @@ export function MenuClient({ categories }: MenuClientProps) {
                 key={category.id}
                 onClick={() => setActiveCategory(category.slug)}
                 className={cn(
-                  "whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold transition-colors border",
+                  "whitespace-nowrap px-6 py-2.5 rounded-full text-sm font-bold transition-all border snap-start",
                   activeCategory === category.slug
-                    ? "bg-primary border-primary text-primary-foreground shadow-sm"
-                    : "bg-background border-border/50 text-muted-foreground hover:bg-muted"
+                    ? "bg-primary border-primary text-primary-foreground shadow-md"
+                    : "bg-white border-border text-foreground hover:bg-muted"
                 )}
               >
                 {category.name}
@@ -111,7 +111,7 @@ export function MenuClient({ categories }: MenuClientProps) {
       </div>
 
       {/* Main Content Area */}
-      <div className="max-w-8xl mx-auto w-full px-4 md:px-8 lg:px-12 mt-6 md:mt-8">
+      <div className="max-w-7xl mx-auto w-full px-4 md:px-8 lg:px-12 mt-8 md:mt-12">
         {flatItems.length === 0 ? (
           <div className="px-4 py-16 text-center">
             <h3 className="text-lg font-bold">No items found</h3>

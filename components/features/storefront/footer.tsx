@@ -19,8 +19,8 @@ export function Footer() {
           {/* Column 1 (Brand) */}
           <div className="flex flex-col">
             <Link href="/" className="inline-block mb-6">
-              <span className="font-black text-2xl tracking-tight text-primary">
-                Classy Crave<span className="text-white text-3xl leading-none -mt-1">.</span>
+              <span className="font-heading font-black text-3xl tracking-tight text-primary">
+                Classy Crave<span className="text-white text-4xl leading-none -mt-1">.</span>
               </span>
             </Link>
             <p className="text-sm text-zinc-400 mb-6 max-w-xs leading-relaxed">
