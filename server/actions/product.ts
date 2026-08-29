@@ -23,6 +23,32 @@ export async function getProductDetails(id: string) {
       return { success: false, error: "Product not found" };
     }
 
+    // Fetch recommended items (same category, excluding current item, limit 6)
+    const recommendedItems = await db.query.menuItems.findMany({
+      where: (menuItems, { and, eq, ne }) => and(
+        eq(menuItems.categoryId, item.categoryId),
+        ne(menuItems.id, id),
+        eq(menuItems.isAvailable, true)
+      ),
+      limit: 6,
+    });
+
+    // Fetch drinks
+    const drinksCategory = await db.query.categories.findFirst({
+      where: (categories, { ilike }) => ilike(categories.name, '%drink%')
+    });
+    let drinks: any[] = [];
+    if (drinksCategory) {
+      drinks = await db.query.menuItems.findMany({
+        where: (menuItems, { and, eq, ne }) => and(
+          eq(menuItems.categoryId, drinksCategory.id),
+          eq(menuItems.isAvailable, true),
+          ne(menuItems.id, id) // don't suggest the current drink as a side drink
+        ),
+        limit: 4,
+      });
+    }
+
     const reviewList = item.reviews || [];
     const averageRating = reviewList.length > 0 
       ? reviewList.reduce((acc, r) => acc + r.rating, 0) / reviewList.length 
@@ -34,6 +60,8 @@ export async function getProductDetails(id: string) {
         ...item,
         averageRating: Number(averageRating.toFixed(1)),
         reviewCount: reviewList.length,
+        recommendedItems,
+        drinks,
       } 
     };
   } catch (error) {

@@ -9,13 +9,15 @@ import { STORE_CONSTANTS } from "@/lib/constants";
 
 interface ProductOrderFormProps {
   item: any;
+  drinks?: any[];
 }
 
-export function ProductOrderForm({ item }: ProductOrderFormProps) {
+export function ProductOrderForm({ item, drinks = [] }: ProductOrderFormProps) {
   const { addItem } = useCart();
   
   const [selectedVariant, setSelectedVariant] = useState<any>(null);
   const [selectedAddOns, setSelectedAddOns] = useState<string[]>([]);
+  const [specialInstructions, setSpecialInstructions] = useState("");
   const [quantity, setQuantity] = useState(1);
 
   const variants = item.variants || [];
@@ -35,10 +37,21 @@ export function ProductOrderForm({ item }: ProductOrderFormProps) {
     );
   };
 
+  const handleDrinkToggle = (drinkId: string) => {
+    setSelectedAddOns((prev) => 
+      prev.includes(drinkId) 
+        ? prev.filter(id => id !== drinkId)
+        : [...prev, drinkId]
+    );
+  };
+
   const currentPrice = (selectedVariant ? selectedVariant.price : item.basePrice) + 
     selectedAddOns.reduce((sum, id) => {
       const addon = addOns.find((a: any) => a.id === id);
-      return sum + (addon ? addon.price : 0);
+      if (addon) return sum + addon.price;
+      const drink = drinks.find((d: any) => d.id === id);
+      if (drink) return sum + drink.basePrice;
+      return sum;
     }, 0);
 
   const totalPrice = currentPrice * quantity;
@@ -46,8 +59,11 @@ export function ProductOrderForm({ item }: ProductOrderFormProps) {
   const handleAddToCart = () => {
     const selectedAddOnsData = selectedAddOns.map(id => {
       const a = addOns.find((addon: any) => addon.id === id);
-      return { name: a.name, price: a.price };
-    }).filter(Boolean);
+      if (a) return { name: a.name, price: a.price };
+      const d = drinks.find((drink: any) => drink.id === id);
+      if (d) return { name: d.name, price: d.basePrice };
+      return null;
+    }).filter(Boolean) as { name: string; price: number }[];
 
     addItem({
       menuItemId: item.id,
@@ -58,6 +74,7 @@ export function ProductOrderForm({ item }: ProductOrderFormProps) {
       unitPrice: currentPrice,
       subtotal: totalPrice,
       imageUrl: item.imageUrl || undefined,
+      specialInstructions: specialInstructions.trim() !== "" ? specialInstructions.trim() : undefined,
     });
     
     toast.success(`${item.name} added to cart!`);
@@ -131,6 +148,42 @@ export function ProductOrderForm({ item }: ProductOrderFormProps) {
           </div>
         </div>
       )}
+
+      {drinks.length > 0 && (
+        <div>
+          <h3 className="text-sm font-bold mt-6 mb-3 uppercase tracking-wider text-muted-foreground">Add a Cold Drink</h3>
+          <div className="grid grid-cols-2 gap-3">
+            {drinks.map((drink: any) => (
+              <label
+                key={drink.id}
+                className="relative cursor-pointer group"
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedAddOns.includes(drink.id)}
+                  onChange={() => handleDrinkToggle(drink.id)}
+                  className="peer sr-only"
+                />
+                <div className="border border-muted bg-transparent p-3 rounded-lg transition-all peer-checked:border-primary peer-checked:bg-primary/5 flex flex-col justify-center items-center text-center">
+                  <span className="font-medium text-sm text-foreground leading-tight">{drink.name}</span>
+                  <span className="text-xs text-muted-foreground mt-0.5">+ Rs. {drink.basePrice}</span>
+                </div>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Special Instructions */}
+      <div className="mt-6 mb-2">
+        <h3 className="text-sm font-bold mb-3 uppercase tracking-wider text-muted-foreground">Special Instructions</h3>
+        <textarea
+          value={specialInstructions}
+          onChange={(e) => setSpecialInstructions(e.target.value)}
+          placeholder="e.g. No mayo, extra spicy..."
+          className="w-full bg-transparent border border-muted rounded-lg p-3 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary min-h-[80px] resize-none"
+        />
+      </div>
 
       {/* Spacer for mobile fixed bottom bar */}
       <div className="h-20" />

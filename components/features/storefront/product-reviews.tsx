@@ -23,6 +23,13 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { submitReview } from "@/server/actions/product";
 
 const reviewSchema = z.object({
@@ -68,8 +75,18 @@ export function ProductReviews({ menuItemId, reviews, averageRating, reviewCount
   }
 
   return (
-    <div className="w-full">
-      <h2 className="text-base font-bold mb-4 text-foreground">Customer Reviews</h2>
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button variant="outline" className="w-full h-12 font-bold flex items-center justify-center gap-2 border-border/50 hover:bg-muted/50 rounded-xl mt-8">
+          <MessageSquare className="w-4 h-4" />
+          View {reviewCount} Reviews
+        </Button>
+      </DialogTrigger>
+      
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto w-[90vw]">
+        <DialogHeader>
+          <DialogTitle className="text-xl font-heading font-black tracking-tight mb-2 text-foreground">Customer Reviews</DialogTitle>
+        </DialogHeader>
 
       <Accordion type="single" collapsible className="w-full mb-6">
         <AccordionItem value="write-review" className="border border-border/50 rounded-xl bg-muted/10 px-4 data-[state=open]:bg-muted/30 transition-colors">
@@ -182,6 +199,7 @@ export function ProductReviews({ menuItemId, reviews, averageRating, reviewCount
           ))
         )}
       </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

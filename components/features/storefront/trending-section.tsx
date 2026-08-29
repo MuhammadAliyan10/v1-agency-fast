@@ -14,9 +14,11 @@ import {
 
 interface TrendingSectionProps {
   items: any[];
+  title?: string;
+  description?: string;
 }
 
-export function TrendingSection({ items }: TrendingSectionProps) {
+export function TrendingSection({ items, title = "Trending Now", description = "Our most loved signature dishes" }: TrendingSectionProps) {
   const [selectedItem, setSelectedItem] = React.useState<any | null>(null);
 
   if (!items || items.length === 0) return null;
@@ -31,8 +33,8 @@ export function TrendingSection({ items }: TrendingSectionProps) {
         className="w-full"
       >
         <SectionHeader 
-          title="Trending Now" 
-          description="Our most loved signature dishes" 
+          title={title} 
+          description={description} 
           actionLabel="View Menu" 
           actionHref="/?category=all" 
         >

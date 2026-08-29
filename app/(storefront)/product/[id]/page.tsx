@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ProductGallery } from "@/components/features/storefront/product-gallery";
 import { ProductOrderForm } from "@/components/features/storefront/product-order-form";
 import { ProductReviews } from "@/components/features/storefront/product-reviews";
+import { TrendingSection } from "@/components/features/storefront/trending-section";
 import { Star } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 
@@ -23,7 +24,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
   const item = result.data;
 
   return (
-    <div className="min-h-screen bg-background flex flex-col pb-24">
+    <div className="min-h-screen flex flex-col pb-24">
       {/* Top Image Section (Full Width Banner) */}
       <div className="w-screen relative left-1/2 -ml-[50vw] -mt-[120px]">
         <ProductGallery 
@@ -34,7 +35,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
       </div>
       
       {/* Content Container */}
-      <main className="max-w-2xl mx-auto px-4 py-4 w-full">
+      <main className="max-w-7xl xl:max-w-8xl mx-auto px-4 py-4 w-full">
         {/* Title & Price Row */}
         <div className="flex items-start justify-between gap-4">
           <h1 className="text-3xl md:text-4xl font-heading font-bold tracking-tight text-foreground">
@@ -57,7 +58,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
           {item.description || "Fresh, delicious, and made just for you with the finest ingredients."}
         </p>
 
-        <ProductOrderForm item={item} />
+        <ProductOrderForm item={item} drinks={item.drinks} />
 
         <Separator className="my-6 bg-border/50" />
 
@@ -67,6 +68,17 @@ export default async function ProductPage({ params }: ProductPageProps) {
           averageRating={item.averageRating || 0}
           reviewCount={item.reviewCount || 0}
         />
+
+        {/* Recommended Items Slider */}
+        {item.recommendedItems && item.recommendedItems.length > 0 && (
+          <div className="mt-6 border-t pt-6">
+            <TrendingSection 
+              items={item.recommendedItems} 
+              title="Recommended For You" 
+              description="Customers also bought these items"
+            />
+          </div>
+        )}
       </main>
     </div>
   );

@@ -50,16 +50,16 @@
 
 :root {
   /* Classy Crave Light Mode - Warm Premium */
-  --background: oklch(0.985 0.01 85); /* #FCFBF9 */
+  --background: oklch(1 0 0); /* #FFFFFF */
   --foreground: oklch(0.25 0.02 80); /* #2C2825 */
   --card: oklch(1 0 0); /* #FFFFFF */
   --card-foreground: oklch(0.25 0.02 80);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.25 0.02 80);
   
-  /* Primary Terracotta/Rust */
-  --primary: oklch(0.55 0.16 45); /* #C85A17 */
-  --primary-foreground: oklch(0.98 0 0);
+  /* Primary requested by user */
+  --primary: #B88954;
+  --primary-foreground: #FFFFFF;
   
   /* Secondary/Beige Accent */
   --secondary: oklch(0.92 0.02 85); /* #E6DFD5 */
@@ -76,7 +76,7 @@
   
   --border: oklch(0.93 0.01 85); /* #EAE5DF */
   --input: oklch(0.93 0.01 85);
-  --ring: oklch(0.55 0.16 45);
+  --ring: #B88954;
 
   --chart-1: oklch(0.55 0.16 45);
   --chart-2: oklch(0.65 0.12 75);
@@ -106,8 +106,8 @@
   --popover: oklch(0.22 0.02 80);
   --popover-foreground: oklch(0.96 0.01 85);
   
-  --primary: oklch(0.55 0.16 45); /* #C85A17 */
-  --primary-foreground: oklch(0.98 0 0);
+  --primary: #B88954; 
+  --primary-foreground: #FFFFFF;
   
   --secondary: oklch(0.28 0.02 80); /* #35312C */
   --secondary-foreground: oklch(0.96 0.01 85);
@@ -123,7 +123,7 @@
   
   --border: oklch(0.28 0.02 80);
   --input: oklch(0.28 0.02 80);
-  --ring: oklch(0.55 0.16 45);
+  --ring: #B88954;
 
   --chart-1: oklch(0.55 0.16 45);
   --chart-2: oklch(0.65 0.12 75);

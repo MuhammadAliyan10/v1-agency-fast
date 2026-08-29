@@ -11,6 +11,7 @@ export interface CartItem {
   unitPrice: number;
   subtotal: number;
   imageUrl?: string;
+  specialInstructions?: string;
 }
 
 interface CartStore {
@@ -32,8 +33,9 @@ export const useCart = create<CartStore>()(
         const addOnsKey = item.addOns 
           ? item.addOns.map((a) => a.name).sort().join("|") 
           : "";
+        const instructionsKey = item.specialInstructions ? `|instr:${item.specialInstructions}` : "";
         
-        const cartItemId = `${item.menuItemId}-${item.variantName || "base"}-${addOnsKey}`;
+        const cartItemId = `${item.menuItemId}-${item.variantName || "base"}-${addOnsKey}${instructionsKey}`;
         
         const existingIndex = state.items.findIndex((i) => i.cartItemId === cartItemId);
         

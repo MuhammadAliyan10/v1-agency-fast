@@ -89,6 +89,7 @@ export async function submitOrder(data: CheckoutValues, cartItems: CartItem[], i
         unitPrice: unitPrice,
         subtotal: itemSubtotal,
         selectedAddOns: matchedAddOns.length > 0 ? matchedAddOns : null,
+        specialInstructions: item.specialInstructions || null,
       });
     }
 

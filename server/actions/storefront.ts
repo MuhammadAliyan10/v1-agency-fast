@@ -117,3 +117,48 @@ export async function getOrderStatus(orderId: string) {
     return { success: false, error: "Failed to fetch order status" };
   }
 }
+
+export async function getOrderDetails(orderId: string) {
+  try {
+    const orderData = await db.query.orders.findFirst({
+      where: eq(orders.id, orderId),
+      with: {
+        items: true,
+      }
+    });
+
+    if (!orderData) {
+      return { success: false, error: "Order not found" };
+    }
+
+    return { success: true, data: orderData };
+  } catch (error) {
+    console.error("Error fetching order details:", error);
+    return { success: false, error: "Failed to fetch order details" };
+  }
+}
+
+export async function cancelOrder(orderId: string) {
+  try {
+    const order = await db.query.orders.findFirst({
+      where: eq(orders.id, orderId),
+      columns: { status: true }
+    });
+
+    if (!order) return { success: false, error: "Order not found" };
+    
+    // Only allow cancellation if pending
+    if (order.status !== "pending") {
+      return { success: false, error: "Order can no longer be cancelled because it is " + order.status };
+    }
+
+    await db.update(orders)
+      .set({ status: "cancelled" })
+      .where(eq(orders.id, orderId));
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error cancelling order:", error);
+    return { success: false, error: "Failed to cancel order" };
+  }
+}

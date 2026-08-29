@@ -8,12 +8,22 @@ export async function getOrderTrackingStatus(orderId: string) {
   try {
     const order = await db.query.orders.findFirst({
       where: eq(orders.id, orderId),
-      columns: {
-        id: true,
-        status: true,
-        totalAmount: true,
-        createdAt: true,
-        deliveryAddress: true,
+      with: {
+        items: {
+          with: {
+            menuItem: {
+              columns: {
+                imageUrl: true,
+              }
+            }
+          }
+        },
+        rider: {
+          columns: {
+            name: true,
+            phone: true,
+          }
+        }
       }
     });
 
