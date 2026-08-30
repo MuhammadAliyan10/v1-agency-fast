@@ -110,24 +110,25 @@ export function Navbar() {
                   </Button>
                 </SheetTrigger>
                 <SheetContent side="left" className="w-[300px] border-zinc-200">
-                  <SheetHeader className="px-2 md:px-4">
+                  <SheetHeader className="px-4">
                     <SheetTitle className="font-serif text-2xl tracking-tighter text-left">
                       Classy Crave
                     </SheetTitle>
                   </SheetHeader>
-                  <nav className="mt-8 flex flex-col gap-6 px-2 md:px-4">
+                  <nav className="mt-6 flex flex-col gap-4 px-4">
                     <Link
                       href="/"
                       onClick={() => setIsMobileMenuOpen(false)}
                       className={cn(
-                        "text-lg transition-colors",
-                        pathname === "/" ? "text-zinc-950 font-medium" : "text-zinc-600 hover:text-zinc-950"
+                        "text-sm uppercase tracking-widest transition-colors",
+                        pathname === "/" ? "text-zinc-950 font-bold" : "text-zinc-600 hover:text-zinc-950 font-semibold"
                       )}
                     >
                       Home
                     </Link>
                     {[
                       { href: "/menu", label: "Menu" },
+                      { href: "/deals", label: "Deals 🔥" },
                       { href: "/track", label: "Track" },
                       { href: "/about", label: "About" },
                       { href: "/contact", label: "Contact" }
@@ -139,8 +140,8 @@ export function Navbar() {
                           href={link.href}
                           onClick={() => setIsMobileMenuOpen(false)}
                           className={cn(
-                            "text-lg transition-colors",
-                            isActive ? "text-zinc-950 font-medium" : "text-zinc-600 hover:text-zinc-950"
+                            "text-sm uppercase tracking-widest transition-colors",
+                            isActive ? "text-zinc-950 font-bold" : "text-zinc-600 hover:text-zinc-950 font-semibold"
                           )}
                         >
                           {link.label}
@@ -151,9 +152,9 @@ export function Navbar() {
                     <Link
                       href="#"
                       onClick={() => setIsMobileMenuOpen(false)}
-                      className="text-lg text-zinc-600 hover:text-zinc-950 flex items-center gap-2"
+                      className="text-sm uppercase tracking-widest text-zinc-600 hover:text-zinc-950 font-semibold flex items-center gap-2"
                     >
-                      <User className="h-5 w-5" />
+                      <User className="h-4 w-4" />
                       Login
                     </Link>
                   </nav>
@@ -165,6 +166,7 @@ export function Navbar() {
             <div className="hidden md:flex items-center gap-8">
               {[
                 { href: "/menu", label: "Menu" },
+                { href: "/deals", label: "Deals 🔥" },
                 { href: "/track", label: "Track" },
                 { href: "/about", label: "About" },
                 { href: "/contact", label: "Contact" }

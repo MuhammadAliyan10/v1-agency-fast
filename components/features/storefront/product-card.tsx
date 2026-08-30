@@ -88,16 +88,16 @@ export function ProductCard({
 
   return (
     <div className="w-full h-full group/card transition-transform duration-300 hover:scale-[1.02]">
-      <article 
-        onClick={handleCardClick}
-        className={cn(
-              "group relative flex flex-col justify-between overflow-hidden rounded-[24px] bg-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all duration-500 h-full p-2 md:p-3 pb-4 border border-zinc-100 cursor-pointer",
+          <article 
+            onClick={handleCardClick}
+            className={cn(
+              "group relative flex flex-col justify-between overflow-hidden rounded-[20px] md:rounded-[24px] bg-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all duration-500 h-full p-2 md:p-3 pb-3 md:pb-4 border border-zinc-100 cursor-pointer",
               outOfStock ? "opacity-75" : ""
             )}
           >
             <div className="flex flex-col flex-1">
               {/* Image Header */}
-              <div className="relative aspect-[4/5] sm:aspect-square w-full overflow-hidden bg-zinc-50 rounded-2xl">
+              <div className="relative aspect-square w-full overflow-hidden bg-zinc-50 rounded-[14px] md:rounded-2xl">
                 <Image
                   src={imageUrl || fallbackImage}
                   alt={name}
@@ -108,28 +108,28 @@ export function ProductCard({
               </div>
 
               {/* Content Body */}
-              <div className="flex flex-col pt-4 px-2">
-                <div className="flex items-center gap-2">
+              <div className="flex flex-col pt-3 md:pt-4 px-1 md:px-2">
+                <div className="flex items-center gap-1.5 md:gap-2">
                   {rating ? (
-                    <div className="flex items-center gap-1 shrink-0 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100">
-                      <Star className="w-2.5 h-2.5 fill-amber-500 text-amber-500" />
-                      <span className="text-[10px] md:text-xs font-bold text-amber-900">{rating}</span>
+                    <div className="flex items-center gap-0.5 md:gap-1 shrink-0 bg-amber-50 px-1.5 md:px-2 py-0.5 rounded-full border border-amber-100">
+                      <Star className="w-2 h-2 md:w-2.5 md:h-2.5 fill-amber-500 text-amber-500" />
+                      <span className="text-[9px] md:text-xs font-bold text-amber-900">{rating}</span>
                     </div>
                   ) : null}
-                  <h3 className="font-sans font-bold text-sm md:text-base leading-tight tracking-tight text-zinc-950 line-clamp-1 group-hover:text-[#5430E5] transition-colors">
+                  <h3 className="font-sans font-bold text-xs md:text-base leading-tight tracking-tight text-zinc-950 line-clamp-1 group-hover:text-[#5430E5] transition-colors">
                     {name}
                   </h3>
                 </div>
-                <p className="text-[10px] md:text-xs text-zinc-400 font-medium line-clamp-2 mt-1.5 leading-relaxed">
+                <p className="text-[9px] md:text-xs text-zinc-400 font-medium line-clamp-2 mt-1 md:mt-1.5 leading-relaxed">
                   {description || "Fresh, delicious, and made just for you with the finest ingredients."}
                 </p>
               </div>
             </div>
 
             {/* Footer */}
-            <div className="mt-5 flex items-center justify-between px-2 relative z-50">
+            <div className="mt-3 md:mt-5 flex items-center justify-between px-1 md:px-2 relative z-[50]">
               <div className="flex items-baseline gap-1">
-                <span className="text-sm md:text-base font-black text-zinc-950 tracking-tight">
+                <span className="text-xs md:text-base font-black text-zinc-950 tracking-tight">
                   {STORE_CONSTANTS.CURRENCY}{displayPrice}
                 </span>
               </div>
@@ -142,7 +142,7 @@ export function ProductCard({
                   handleAction(e);
                 }}
                 disabled={outOfStock}
-                className="bg-emerald-50 hover:bg-emerald-100 text-emerald-600 text-[9px] md:text-[10px] font-bold uppercase tracking-wider px-4 py-1.5 h-auto rounded-md shadow-none transition-colors border-none relative z-[100] cursor-pointer pointer-events-auto"
+                className="bg-emerald-50 hover:bg-emerald-100 text-emerald-600 text-[8px] md:text-[10px] font-bold uppercase tracking-wider px-2 md:px-4 py-1.5 h-auto rounded-md shadow-none transition-colors border-none relative z-[100] cursor-pointer pointer-events-auto shrink-0"
               >
                 {outOfStock ? "Sold Out" : hasVariants ? "Customize" : "Add to Cart"}
               </button>

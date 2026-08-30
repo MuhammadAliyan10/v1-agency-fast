@@ -96,7 +96,7 @@ export function ProductDialog({ isOpen, onClose, item }: ProductDialogProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-[90vw] md:max-w-4xl p-0 overflow-hidden bg-background border-border sm:rounded-xl shadow-2xl flex flex-col max-h-[90vh]">
+      <DialogContent className="w-full max-w-full sm:max-w-4xl h-[100dvh] sm:h-auto sm:max-h-[90vh] p-0 m-0 overflow-hidden bg-background border-none sm:border-solid sm:border-border rounded-none sm:rounded-xl shadow-2xl flex flex-col gap-0 duration-200">
         <DialogHeader className="sr-only">
           <DialogTitle>{item.name}</DialogTitle>
         </DialogHeader>
@@ -108,7 +108,7 @@ export function ProductDialog({ isOpen, onClose, item }: ProductDialogProps) {
 
         <div className="flex flex-col md:flex-row h-full overflow-hidden">
           {/* Left: Image Area */}
-          <div className="relative w-full md:w-1/2 aspect-video md:aspect-auto md:h-full shrink-0 bg-muted">
+          <div className="relative w-full md:w-1/2 aspect-[4/3] md:aspect-auto md:h-full shrink-0 bg-muted">
             <Image
               src={item.imageUrl || fallbackImage}
               alt={item.name}
@@ -128,7 +128,7 @@ export function ProductDialog({ isOpen, onClose, item }: ProductDialogProps) {
 
           {/* Right: Details & Config */}
           <div className="flex flex-col flex-1 w-full md:w-1/2 h-full max-h-full overflow-hidden bg-card relative">
-            <ScrollArea className="flex-1 px-6 pt-6 md:px-8 md:pt-8 pb-32">
+            <ScrollArea className="flex-1 px-4 pt-4 md:px-8 md:pt-8 pb-28 md:pb-32">
               <div className="hidden md:block mb-8">
                 <div className="flex items-center gap-2 mb-3">
                   <h2 className="font-heading text-3xl font-bold leading-tight tracking-tight text-foreground">{item.name}</h2>
@@ -169,15 +169,15 @@ export function ProductDialog({ isOpen, onClose, item }: ProductDialogProps) {
                         key={variant.id}
                         htmlFor={`variant-${variant.id}`}
                         className={cn(
-                          "flex items-center justify-between p-4 border rounded-2xl cursor-pointer transition-all hover:bg-muted/50",
+                          "flex items-center justify-between p-3 md:p-4 border rounded-lg md:rounded-xl cursor-pointer transition-all hover:bg-muted/50",
                           selectedVariant?.id === variant.id ? "border-primary bg-primary/5 ring-1 ring-primary/20 shadow-sm" : "border-border/50 bg-white"
                         )}
                       >
                         <div className="flex items-center gap-3">
                           <RadioGroupItem value={variant.id?.toString()} id={`variant-${variant.id}`} />
-                          <span className="font-medium text-sm">{variant.name}</span>
+                          <span className="font-medium text-xs md:text-sm">{variant.name}</span>
                         </div>
-                        <span className="font-semibold text-foreground text-sm">
+                        <span className="font-semibold text-foreground text-xs md:text-sm">
                           {STORE_CONSTANTS.CURRENCY} {variant.price}
                         </span>
                       </Label>
@@ -199,7 +199,7 @@ export function ProductDialog({ isOpen, onClose, item }: ProductDialogProps) {
                         key={addon.id}
                         htmlFor={`addon-${addon.id}`}
                         className={cn(
-                          "flex items-center justify-between p-4 border rounded-2xl cursor-pointer transition-all hover:bg-muted/50",
+                          "flex items-center justify-between p-3 md:p-4 border rounded-lg md:rounded-xl cursor-pointer transition-all hover:bg-muted/50",
                           selectedAddOns.includes(addon.id) ? "border-primary/50 bg-primary/5 shadow-sm" : "border-border/50 bg-white"
                         )}
                       >
@@ -209,9 +209,9 @@ export function ProductDialog({ isOpen, onClose, item }: ProductDialogProps) {
                             checked={selectedAddOns.includes(addon.id)}
                             onCheckedChange={() => handleAddOnToggle(addon.id)}
                           />
-                          <span className="font-medium text-sm">{addon.name}</span>
+                          <span className="font-medium text-xs md:text-sm">{addon.name}</span>
                         </div>
-                        <span className="text-muted-foreground font-medium text-sm">
+                        <span className="text-muted-foreground font-medium text-xs md:text-sm">
                           +{STORE_CONSTANTS.CURRENCY} {addon.price}
                         </span>
                       </Label>
@@ -222,34 +222,34 @@ export function ProductDialog({ isOpen, onClose, item }: ProductDialogProps) {
             </ScrollArea>
 
             {/* Bottom Actions Footer */}
-            <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 bg-background/95 backdrop-blur-md border-t border-border/50 z-20">
-              <div className="flex items-center gap-4 max-w-full">
+            <div className="absolute bottom-0 left-0 right-0 p-3 md:p-6 bg-background/95 backdrop-blur-md border-t border-border/50 z-20">
+              <div className="flex items-center gap-3 md:gap-4 max-w-full">
                 {/* Quantity Controls */}
-                <div className="flex items-center bg-white rounded-full p-1 border border-border/50 shadow-sm">
+                <div className="flex items-center bg-white rounded-lg md:rounded-xl p-1 border border-border/50 shadow-sm shrink-0">
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-12 w-12 rounded-full shrink-0 hover:bg-muted"
+                    className="h-10 w-10 md:h-12 md:w-12 rounded-md md:rounded-lg shrink-0 hover:bg-muted"
                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
                     disabled={quantity <= 1}
                   >
-                    <Minus className="h-4 w-4" />
+                    <Minus className="h-3 w-3 md:h-4 md:w-4" />
                   </Button>
-                  <span className="w-10 text-center font-bold text-lg">{quantity}</span>
+                  <span className="w-6 md:w-10 text-center font-bold text-sm md:text-lg">{quantity}</span>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-12 w-12 rounded-full shrink-0 hover:bg-muted"
+                    className="h-10 w-10 md:h-12 md:w-12 rounded-md md:rounded-lg shrink-0 hover:bg-muted"
                     onClick={() => setQuantity(quantity + 1)}
                   >
-                    <Plus className="h-4 w-4" />
+                    <Plus className="h-3 w-3 md:h-4 md:w-4" />
                   </Button>
                 </div>
 
                 {/* Add to Cart Button */}
                 <Button 
                   onClick={handleAddToCart} 
-                  className="flex-1 h-14 rounded-full font-bold shadow-lg hover:shadow-xl transition-all text-base px-2 sm:px-6 tracking-wide active:scale-[0.98]"
+                  className="flex-1 h-12 md:h-14 rounded-xl md:rounded-2xl font-bold shadow-lg hover:shadow-xl transition-all text-sm md:text-base px-2 sm:px-6 tracking-wide active:scale-[0.98]"
                 >
                   <span className="hidden sm:inline">Add to Cart • </span>
                   <span className="sm:hidden">Add • </span>

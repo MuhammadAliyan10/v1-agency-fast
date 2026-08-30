@@ -26,9 +26,9 @@ export function CategoryBento({ categories }: CategoryBentoProps) {
     <section className="py-12 w-full">
       <SectionHeader title="Explore Our Menu" actionLabel="View All" actionHref="/menu?category=all" />
       
-      <div className="grid grid-cols-1 md:grid-cols-3 md:grid-rows-2 gap-4 h-auto md:h-[500px]">
+      <div className="grid grid-cols-2 md:grid-cols-3 md:grid-rows-2 gap-3 md:gap-4 px-4 h-auto md:h-[500px]">
         {displayCategories.map((category, index) => {
-          // First item spans 2 cols, 2 rows on desktop
+          // First item spans 2 cols on mobile, and 2 cols/2 rows on desktop
           const isFeatured = index === 0;
           
           return (
@@ -36,24 +36,24 @@ export function CategoryBento({ categories }: CategoryBentoProps) {
               key={category.id || index}
               href={`/menu?category=${category.slug || "all"}`}
               className={cn(
-                "group relative overflow-hidden rounded-xl flex flex-col justify-end min-h-[250px] md:min-h-0",
-                isFeatured ? "md:col-span-2 md:row-span-2" : "md:col-span-1 md:row-span-1"
+                "group relative overflow-hidden rounded-xl flex flex-col justify-end min-h-[160px] md:min-h-0",
+                isFeatured ? "col-span-2 md:col-span-2 md:row-span-2" : "col-span-1 md:col-span-1 md:row-span-1"
               )}
             >
               <Image
                 src={defaultImages[index % defaultImages.length]}
                 alt={category.name || "Category"}
                 fill
-                sizes={isFeatured ? "(max-width: 768px) 100vw, 66vw" : "(max-width: 768px) 100vw, 33vw"}
+                sizes={isFeatured ? "(max-width: 768px) 100vw, 66vw" : "(max-width: 768px) 50vw, 33vw"}
                 className="object-cover group-hover:scale-105 transition-transform duration-700 ease-in-out"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none transition-opacity duration-500 group-hover:opacity-90" />
               
-              <div className="relative z-10 p-5 md:p-8">
-                <h3 className="text-2xl md:text-3xl font-serif font-bold text-white mb-1 md:mb-2 tracking-tight">
+              <div className="relative z-10 p-4 md:p-8">
+                <h3 className="text-xl md:text-3xl font-serif font-bold text-white mb-1 md:mb-2 tracking-tight leading-tight">
                   {category.name}
                 </h3>
-                <p className="text-xs md:text-sm text-zinc-300 font-medium line-clamp-1">
+                <p className="text-[10px] md:text-sm text-zinc-300 font-medium line-clamp-1">
                   {category.description || "Discover our premium selection"}
                 </p>
               </div>

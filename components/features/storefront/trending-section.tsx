@@ -73,10 +73,32 @@ export function TrendingSection({ categories, title = "Trending" }: TrendingSect
         </div>
 
         {/* Main Body */}
-        <div className="flex gap-4 md:gap-8 items-stretch">
-          {/* Vertical Sidebar */}
-          <div className="w-16 sm:w-20 shrink-0 flex flex-col justify-center gap-6 py-8 items-center pl-2 md:pl-4 relative">
-            {displayCategories.map((cat, index) => {
+        <div className="flex flex-col md:flex-row gap-4 md:gap-8 items-stretch">
+          
+          {/* Mobile Categories (Horizontal Pills) */}
+          <div className="flex md:hidden overflow-x-auto gap-2 pl-4 pr-4 pb-2 scrollbar-hide snap-x relative z-10 w-full">
+            {displayCategories.map((cat) => {
+              const isActive = activeCategoryId === cat.id;
+              return (
+                <button
+                  key={cat.id}
+                  onClick={() => setActiveCategoryId(cat.id)}
+                  className={cn(
+                    "px-4 py-2 rounded-full text-xs font-bold transition-all border snap-start whitespace-nowrap",
+                    isActive
+                      ? "bg-zinc-900 border-zinc-900 text-white shadow-md"
+                      : "bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50"
+                  )}
+                >
+                  {cat.name.charAt(0).toUpperCase() + cat.name.slice(1).toLowerCase()}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Desktop Categories (Vertical Sidebar) */}
+          <div className="hidden md:flex w-20 shrink-0 flex-col justify-center gap-6 py-8 items-center pl-4 relative">
+            {displayCategories.map((cat) => {
               const isActive = activeCategoryId === cat.id;
               const displayName = cat.name.charAt(0).toUpperCase() + cat.name.slice(1).toLowerCase();
               
@@ -85,7 +107,7 @@ export function TrendingSection({ categories, title = "Trending" }: TrendingSect
                   key={cat.id}
                   onClick={() => setActiveCategoryId(cat.id)}
                   className={cn(
-                    "relative text-[10px] md:text-xs font-bold tracking-wide transition-all duration-300 py-4 px-2 whitespace-nowrap",
+                    "relative text-xs font-bold tracking-wide transition-all duration-300 py-4 px-2 whitespace-nowrap",
                     isActive
                       ? "text-[#5430E5]"
                       : "text-zinc-300 hover:text-zinc-500"
@@ -105,12 +127,12 @@ export function TrendingSection({ categories, title = "Trending" }: TrendingSect
           </div>
 
           {/* Carousel Viewport */}
-          <div className="flex-1 overflow-hidden pb-8 pt-4">
-            <CarouselContent className="-ml-2 md:-ml-4">
+          <div className="flex-1 overflow-hidden pb-8 md:pt-4">
+            <CarouselContent className="ml-0 md:-ml-4">
               {activeItems.map((item, index) => (
                 <CarouselItem
                   key={item.id || index}
-                  className="pl-2 md:pl-4 basis-[85%] sm:basis-1/2 md:basis-[40%] lg:basis-1/3 xl:basis-[28%] 2xl:basis-1/4"
+                  className="pl-2 md:pl-4 basis-[55%] sm:basis-[45%] md:basis-[40%] lg:basis-1/3 xl:basis-[28%] 2xl:basis-1/4"
                 >
                   <div className="h-full">
                     <ProductCard

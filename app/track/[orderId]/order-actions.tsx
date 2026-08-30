@@ -6,20 +6,31 @@ import { toast } from "sonner";
 import { Loader2, XCircle, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cancelOrder } from "@/server/actions/storefront";
+import { useCart } from "@/store/use-cart";
+
+interface OrderItem {
+  menuItemId?: string;
+  menuItem?: { id: string; imageUrl?: string | null };
+  itemName: string;
+  variantName?: string | null;
+  selectedAddOns?: { name: string; price: number }[] | null;
+  quantity: number;
+  unitPrice: number;
+  subtotal: number;
+}
 
 interface OrderActionsProps {
   orderId: string;
   status: string;
+  items: OrderItem[];
 }
 
-export function OrderActions({ orderId, status }: OrderActionsProps) {
+export function OrderActions({ orderId, status, items }: OrderActionsProps) {
   const router = useRouter();
+  const { clearCart, addItem } = useCart();
   const [isCancelling, setIsCancelling] = useState(false);
   const [isReordering, setIsReordering] = useState(false);
 
-  // According to prompt: "both button Cancel and reorder will be descable if the stus will be preparing"
-  // Assuming they mean disabled if the order is currently active/preparing. 
-  // We'll disable Cancel if it's not pending.
   const canCancel = status === "pending";
   const isPreparing = status === "preparing";
   
@@ -38,12 +49,30 @@ export function OrderActions({ orderId, status }: OrderActionsProps) {
     }
   };
 
-  const handleReorder = async () => {
+  const handleReorder = () => {
+    if (!items || items.length === 0) {
+      toast.error("No items found to reorder.");
+      return;
+    }
+
     setIsReordering(true);
-    toast.success("Redirecting to menu...");
-    setTimeout(() => {
-      router.push("/");
-    }, 1000);
+    clearCart();
+
+    items.forEach((item) => {
+      addItem({
+        menuItemId: item.menuItem?.id || item.menuItemId || item.itemName,
+        name: item.itemName,
+        variantName: item.variantName || undefined,
+        addOns: item.selectedAddOns && item.selectedAddOns.length > 0 ? item.selectedAddOns : undefined,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        subtotal: item.subtotal,
+        imageUrl: item.menuItem?.imageUrl || undefined,
+      });
+    });
+
+    toast.success(`${items.length} item(s) added to your cart!`);
+    router.push("/checkout");
   };
 
   return (

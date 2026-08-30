@@ -9,6 +9,7 @@ import { getStoreStatus } from "@/server/actions/settings";
 import { revalidatePath } from "next/cache";
 import { CartItem } from "@/store/use-cart";
 import { randomBytes } from "crypto";
+import { validateCoupon, calculateCouponDiscount, incrementCouponUsage } from "./coupons";
 
 export async function submitOrder(data: CheckoutValues, cartItems: CartItem[], idempotencyKey: string) {
   try {
@@ -34,7 +35,6 @@ export async function submitOrder(data: CheckoutValues, cartItems: CartItem[], i
     });
 
     if (existingOrder) {
-      // If we've already processed this, return success immediately to prevent double-billing
       return { success: true, orderId: existingOrder.id };
     }
 
@@ -55,7 +55,6 @@ export async function submitOrder(data: CheckoutValues, cartItems: CartItem[], i
 
       let unitPrice = dbItem.basePrice;
 
-      // Check variant price
       let matchedVariantId = null;
       if (item.variantName) {
         const dbVariant = dbVariants.find(v => v.menuItemId === item.menuItemId && v.name === item.variantName);
@@ -65,7 +64,6 @@ export async function submitOrder(data: CheckoutValues, cartItems: CartItem[], i
         }
       }
 
-      // Check addons price
       const matchedAddOns = [];
       if (item.addOns && item.addOns.length > 0) {
         for (const addon of item.addOns) {
@@ -93,28 +91,53 @@ export async function submitOrder(data: CheckoutValues, cartItems: CartItem[], i
       });
     }
 
-    const totalAmount = calculatedSubtotal + STORE_CONSTANTS.DELIVERY_FEE;
+    // 4. Delivery fee: Rs. 0 for pickup
+    const isPickup = parsed.data.orderType === "pickup";
+    const deliveryFee = isPickup ? 0 : STORE_CONSTANTS.DELIVERY_FEE;
 
-    // 4. Generate highly collision-resistant order ID
-    // Combine timestamp entropy with a cryptographically secure random segment
+    // 5. Coupon validation and discount
+    let discountAmount = 0;
+    let validCouponCode: string | null = null;
+
+    if (parsed.data.couponCode) {
+      const couponResult = await validateCoupon(
+        parsed.data.couponCode,
+        calculatedSubtotal
+      );
+      if (couponResult.valid) {
+        discountAmount = await calculateCouponDiscount(
+          couponResult,
+          orderItemsPayload.map(i => ({ menuItemId: i.menuItemId, subtotal: i.subtotal }))
+        );
+        validCouponCode = parsed.data.couponCode.toUpperCase().trim();
+      }
+    }
+
+    const totalAmount = calculatedSubtotal + deliveryFee - discountAmount;
+
+    // 6. Generate order ID
     const entropy = randomBytes(2).toString("hex").toUpperCase();
     const timestampStr = Date.now().toString().slice(-4);
     const orderId = `CC-${timestampStr}${entropy}`;
 
-    // 5. Insert Order and Order Items atomically using db.batch
+    // 7. Insert Order and Order Items atomically
     await db.batch([
       db.insert(orders).values({
         id: orderId,
         customerName: parsed.data.customerName,
         customerPhone: parsed.data.customerPhone,
-        deliveryAddress: parsed.data.deliveryAddress,
+        orderType: parsed.data.orderType,
+        deliveryAddress: isPickup ? null : (parsed.data.deliveryAddress || null),
         deliveryNotes: parsed.data.deliveryNotes || null,
+        latitude: parsed.data.latitude || null,
+        longitude: parsed.data.longitude || null,
         paymentMethod: parsed.data.paymentMethod,
         paymentStatus: "unpaid",
         status: "pending",
         subtotal: calculatedSubtotal,
-        deliveryFee: STORE_CONSTANTS.DELIVERY_FEE,
-        discountAmount: 0,
+        deliveryFee: deliveryFee,
+        discountAmount: discountAmount,
+        couponCode: validCouponCode,
         totalAmount: totalAmount,
         idempotencyKey: idempotencyKey,
       }),
@@ -123,8 +146,13 @@ export async function submitOrder(data: CheckoutValues, cartItems: CartItem[], i
           orderId: orderId,
           ...payload,
         }))
-      )
+      ),
     ]);
+
+    // 8. Increment coupon usage count
+    if (validCouponCode) {
+      await incrementCouponUsage(validCouponCode);
+    }
 
     revalidatePath("/admin/orders");
 

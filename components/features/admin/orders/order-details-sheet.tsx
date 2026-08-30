@@ -1,7 +1,7 @@
 "use client";
 
 import { format } from "date-fns";
-import { Printer, Phone, X, Bike, CheckCircle2, Loader2, ChevronDown, ChefHat } from "lucide-react";
+import { Printer, Phone, Bike, CheckCircle2, Loader2, ChevronDown, ChefHat, MapPin, Home, Store, CreditCard } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -35,14 +35,18 @@ interface OrderData {
   id: string;
   customerName: string;
   customerPhone: string;
-  deliveryAddress: string;
+  orderType?: "delivery" | "pickup";
+  deliveryAddress: string | null;
   deliveryNotes: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   status: string;
   paymentMethod: string;
   paymentStatus: string;
   subtotal: number;
   deliveryFee: number;
   discountAmount: number;
+  couponCode?: string | null;
   totalAmount: number;
   createdAt: Date | null;
   items: OrderItem[];
@@ -54,6 +58,7 @@ interface OrderDetailsSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onUpdateStatus?: (orderId: string, status: OrderStatus) => Promise<void>;
+  onMarkPaid?: (orderId: string) => Promise<void>;
   isUpdating?: boolean;
   availableRiders?: { id: string; name: string }[];
   onAssignRider?: (orderId: string, riderId: string) => Promise<void>;
@@ -64,11 +69,16 @@ export function OrderDetailsSheet({
   open, 
   onOpenChange,
   onUpdateStatus,
+  onMarkPaid,
   isUpdating,
   availableRiders = [],
   onAssignRider
 }: OrderDetailsSheetProps) {
   if (!order) return null;
+  const isPickup = order.orderType === "pickup";
+  const mapsUrl = order.latitude && order.longitude
+    ? `https://maps.google.com/?q=${order.latitude},${order.longitude}`
+    : order.deliveryAddress ? `https://maps.google.com/?q=${encodeURIComponent(order.deliveryAddress)}` : null;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -76,12 +86,24 @@ export function OrderDetailsSheet({
         <div className="kanban-board h-full flex flex-col">
           <SheetHeader className="p-6 pb-4 border-b">
             <div className="flex items-center justify-between">
-              <SheetTitle className="text-2xl font-bold">Order #{order.id}</SheetTitle>
+              <div>
+                <SheetTitle className="text-xl font-bold">Order #{order.id}</SheetTitle>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 border ${ isPickup ? "border-purple-300 bg-purple-50 text-purple-700" : "border-blue-300 bg-blue-50 text-blue-700" }`}>
+                    {isPickup ? <><Store className="w-3 h-3" /> Pickup</> : <><Home className="w-3 h-3" /> Delivery</>}
+                  </span>
+                  {order.paymentStatus === "paid" ? (
+                    <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 border border-green-300 bg-green-50 text-green-700"><CreditCard className="w-3 h-3" /> Paid</span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 border border-orange-300 bg-orange-50 text-orange-700"><CreditCard className="w-3 h-3" /> Unpaid</span>
+                  )}
+                </div>
+              </div>
               <Button size="icon" variant="outline" onClick={() => window.print()} title="Print Receipt">
                 <Printer className="h-4 w-4" />
               </Button>
             </div>
-            <div className="text-sm text-muted-foreground mt-1">
+            <div className="text-xs text-muted-foreground mt-1">
               Placed at: {order.createdAt ? format(new Date(order.createdAt), "PP pp") : "N/A"}
             </div>
           </SheetHeader>
@@ -99,7 +121,19 @@ export function OrderDetailsSheet({
                       {order.customerPhone}
                     </a>
                   </div>
-                  <p className="text-muted-foreground break-words">{order.deliveryAddress}</p>
+                  {isPickup ? (
+                    <p className="text-purple-700 font-medium text-xs">Self Pickup — will collect at store</p>
+                  ) : (
+                    <>
+                      {order.deliveryAddress && <p className="text-muted-foreground break-words">{order.deliveryAddress}</p>}
+                      {mapsUrl && (
+                        <a href={mapsUrl} target="_blank" rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:text-blue-800">
+                          <MapPin className="w-3 h-3" /> Open in Google Maps
+                        </a>
+                      )}
+                    </>
+                  )}
                   {order.deliveryNotes && (
                     <div className="mt-2 p-2 bg-yellow-500/10 border border-yellow-500/20 rounded text-yellow-700 dark:text-yellow-500">
                       <strong>Note:</strong> {order.deliveryNotes}
@@ -167,12 +201,13 @@ export function OrderDetailsSheet({
                         <span>{item.quantity}x {item.itemName}</span>
                         <span>Rs. {item.subtotal.toLocaleString()}</span>
                       </div>
-                      {item.variantName && (
-                        <span className="text-sm text-muted-foreground ml-5">- {item.variantName}</span>
+                      {item.variantName && <span className="text-sm text-muted-foreground ml-5">Size: {item.variantName}</span>}
+                      {item.selectedAddOns && Array.isArray(item.selectedAddOns) && item.selectedAddOns.length > 0 && (
+                        <span className="text-xs text-muted-foreground ml-5">+ {(item.selectedAddOns as any[]).map((a: any) => a.name).join(", ")}</span>
                       )}
                       {item.specialInstructions && (
                         <div className="mt-1 ml-5 text-xs p-1.5 bg-red-500/10 text-red-600 rounded border border-red-500/20 inline-block font-medium">
-                          Instructions: {item.specialInstructions}
+                          📝 {item.specialInstructions}
                         </div>
                       )}
                     </div>
@@ -203,11 +238,23 @@ export function OrderDetailsSheet({
                   <span>Rs. {order.totalAmount.toLocaleString()}</span>
                 </div>
                 
-                <div className="flex gap-2 mt-4">
+                {order.couponCode && (
+                  <div className="flex justify-between text-sm text-green-600">
+                    <span>Coupon ({order.couponCode})</span>
+                    <span>- Rs. {order.discountAmount.toLocaleString()}</span>
+                  </div>
+                )}
+                <div className="flex gap-2 mt-4 flex-wrap">
                   <Badge variant="outline">{order.paymentMethod}</Badge>
                   <Badge variant={order.paymentStatus === "paid" ? "default" : "secondary"}>
                     {order.paymentStatus.toUpperCase()}
                   </Badge>
+                  {order.paymentStatus !== "paid" && onMarkPaid && (
+                    <Button size="sm" variant="outline" className="h-6 text-xs rounded-sm px-2 border-green-400 text-green-700 hover:bg-green-50"
+                      onClick={() => onMarkPaid(order.id)}>
+                      Mark as Paid
+                    </Button>
+                  )}
                 </div>
               </section>
             </div>

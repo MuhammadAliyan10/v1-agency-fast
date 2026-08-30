@@ -33,7 +33,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" suppressHydrationWarning className={cn("h-full antialiased", geistMono.variable, dmSans.variable, bodoni.variable, inter.variable, playfair.variable, figtree.variable)}>
-      <body className="min-h-full flex flex-col bg-background text-foreground">
+      <body suppressHydrationWarning className="min-h-full flex flex-col bg-background text-foreground">
         <ThemeProvider
           attribute="class"
           defaultTheme="light"

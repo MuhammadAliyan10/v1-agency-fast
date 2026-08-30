@@ -196,18 +196,18 @@ export function ProductOrderForm({ item, drinks = [] }: ProductOrderFormProps) {
               type="button"
               variant="ghost"
               size="icon"
-              className="h-9 w-9 rounded-md shrink-0 text-foreground"
+              className="h-10 w-10 md:h-12 md:w-12 rounded-md shrink-0 text-foreground hover:bg-background"
               onClick={() => setQuantity(Math.max(1, quantity - 1))}
               disabled={quantity <= 1}
             >
               <Minus className="h-4 w-4" />
             </Button>
-            <span className="w-8 text-center font-bold text-sm">{quantity}</span>
+            <span className="w-8 md:w-12 text-center font-bold text-sm md:text-lg">{quantity}</span>
             <Button
               type="button"
               variant="ghost"
               size="icon"
-              className="h-9 w-9 rounded-md shrink-0 text-foreground"
+              className="h-10 w-10 md:h-12 md:w-12 rounded-md shrink-0 text-foreground hover:bg-background"
               onClick={() => setQuantity(quantity + 1)}
             >
               <Plus className="h-4 w-4" />
@@ -216,7 +216,7 @@ export function ProductOrderForm({ item, drinks = [] }: ProductOrderFormProps) {
 
           <Button 
             onClick={handleAddToCart} 
-            className="flex-1 h-10 rounded-lg font-bold shadow-sm text-sm"
+            className="flex-1 h-12 md:h-14 rounded-xl font-bold shadow-sm text-sm md:text-base active:scale-[0.98] transition-transform"
           >
             Add • {STORE_CONSTANTS.CURRENCY} {totalPrice}
           </Button>

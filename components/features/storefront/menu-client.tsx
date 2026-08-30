@@ -66,19 +66,19 @@ export function MenuClient({ categories }: MenuClientProps) {
       {/* Left Sidebar (Fixed on Desktop) */}
       <aside className="w-full md:w-[25%] shrink-0 flex flex-col gap-6 md:sticky md:top-[100px] md:h-[calc(100vh-120px)] overflow-y-auto pr-2 md:pr-4 scrollbar-hide">
         {/* Search Bar */}
-        <div className="relative w-full">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400" />
+        <div className="relative w-full group">
+          <Search className="absolute left-0 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400 group-focus-within:text-zinc-950 transition-colors stroke-[1.5]" />
           <Input
             type="text"
             placeholder="Search our menu..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-12 h-14 bg-white border-zinc-200 shadow-sm focus-visible:ring-[#5430E5] focus-visible:border-[#5430E5] rounded-xl text-base font-medium transition-all"
+            className="pl-8 h-12 bg-transparent border-0 border-b border-zinc-200 shadow-none focus-visible:ring-0 focus-visible:border-zinc-950 rounded-none text-base md:text-lg font-serif transition-colors px-0 placeholder:text-zinc-400 placeholder:font-sans placeholder:text-base"
           />
         </div>
 
         {/* Category Filters (Keyword Pills) */}
-        <div className="flex flex-wrap gap-2 mt-2">
+        <div className="flex flex-wrap gap-2 mt-6">
           <button
             onClick={() => setActiveCategory("all")}
             className={cn(
@@ -115,7 +115,7 @@ export function MenuClient({ categories }: MenuClientProps) {
             <p className="text-sm text-zinc-500 mt-2 font-medium">Try adjusting your search or category filter.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-3 gap-2 md:gap-6">
             {flatItems.map((item) => (
               <ProductCard
                 key={item.id}

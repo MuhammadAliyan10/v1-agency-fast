@@ -1,3 +1,4 @@
+// database/schema.ts
 import {
   pgTable,
   uuid,
@@ -9,6 +10,7 @@ import {
   pgEnum,
   jsonb,
   index,
+  real,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -27,12 +29,15 @@ export const orderStatusEnum = pgEnum("order_status", [
   "pending",
   "approved",
   "preparing",
+  "ready_for_pickup",
   "delayed",
   "out_for_delivery",
   "delivered",
   "rejected",
   "cancelled",
 ]);
+
+export const orderTypeEnum = pgEnum("order_type", ["delivery", "pickup"]);
 
 export const paymentMethodEnum = pgEnum("payment_method", [
   "COD",
@@ -51,6 +56,10 @@ export const riderStatusEnum = pgEnum("rider_status", [
   "busy",
   "offline",
 ]);
+
+export const dealTypeEnum = pgEnum("deal_type", ["combo", "event"]);
+
+export const discountTypeEnum = pgEnum("discount_type", ["flat", "percent"]);
 
 // -----------------------------------------------------------------------------
 // Tables
@@ -110,6 +119,14 @@ export const menuItems = pgTable(
     imageUrl: varchar("image_url", { length: 500 }),
     isAvailable: boolean("is_available").default(true),
     isFeatured: boolean("is_featured").default(false),
+    // tags: { isSpicy, isVeg, isNew, isPopular }
+    tags: jsonb("tags").$type<{
+      isSpicy?: boolean;
+      isVeg?: boolean;
+      isNew?: boolean;
+      isPopular?: boolean;
+    }>(),
+    preparationTime: integer("preparation_time"), // in minutes
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
   },
@@ -147,6 +164,67 @@ export const inventoryItems = pgTable("inventory_items", {
   lowStockThreshold: integer("low_stock_threshold").notNull().default(10),
 });
 
+// -----------------------------------------------------------------------------
+// Deals — fixed combos and event-based discounts
+// -----------------------------------------------------------------------------
+export const deals = pgTable(
+  "deals",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    name: varchar("name", { length: 150 }).notNull(),
+    description: text("description"),
+    imageUrl: varchar("image_url", { length: 500 }),
+    dealType: dealTypeEnum("deal_type").default("combo").notNull(),
+    // Event tag e.g. "Eid Special", "Friday Deal"
+    eventLabel: varchar("event_label", { length: 100 }),
+    originalPrice: integer("original_price").notNull(),
+    dealPrice: integer("deal_price").notNull(),
+    // items: [{ menuItemId, quantity, variantId? }]
+    items: jsonb("items")
+      .$type<{ menuItemId: string; quantity: number; variantId?: string; itemName: string; unitPrice: number }[]>()
+      .notNull(),
+    validFrom: timestamp("valid_from"),
+    validUntil: timestamp("valid_until"),
+    isActive: boolean("is_active").default(true).notNull(),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => ({
+    activeIdx: index("deals_is_active_idx").on(table.isActive),
+    validUntilIdx: index("deals_valid_until_idx").on(table.validUntil),
+  })
+);
+
+// -----------------------------------------------------------------------------
+// Coupons — per-item scoped discount codes
+// -----------------------------------------------------------------------------
+export const coupons = pgTable(
+  "coupons",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    code: varchar("code", { length: 50 }).notNull().unique(),
+    description: varchar("description", { length: 255 }),
+    discountType: discountTypeEnum("discount_type").notNull(),
+    discountValue: integer("discount_value").notNull(), // flat=PKR amount, percent=% integer
+    // Null = applies to all items; populated = applies only to listed menuItemIds
+    applicableItemIds: jsonb("applicable_item_ids").$type<string[]>(),
+    minOrderAmount: integer("min_order_amount").default(0),
+    maxUses: integer("max_uses"), // null = unlimited
+    usedCount: integer("used_count").default(0).notNull(),
+    validFrom: timestamp("valid_from"),
+    validUntil: timestamp("valid_until"),
+    isActive: boolean("is_active").default(true).notNull(),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => ({
+    codeIdx: index("coupons_code_idx").on(table.code),
+    activeIdx: index("coupons_is_active_idx").on(table.isActive),
+  })
+);
+
+// -----------------------------------------------------------------------------
+// Orders
+// -----------------------------------------------------------------------------
 export const orders = pgTable(
   "orders",
   {
@@ -155,8 +233,12 @@ export const orders = pgTable(
     riderId: uuid("rider_id").references(() => users.id, { onDelete: "set null" }),
     customerName: varchar("customer_name", { length: 120 }).notNull(),
     customerPhone: varchar("customer_phone", { length: 20 }).notNull(),
-    deliveryAddress: text("delivery_address").notNull(),
+    orderType: orderTypeEnum("order_type").default("delivery").notNull(),
+    deliveryAddress: text("delivery_address"),
     deliveryNotes: text("delivery_notes"),
+    // GPS coordinates for Google Maps deep-link
+    latitude: real("latitude"),
+    longitude: real("longitude"),
     status: orderStatusEnum("status").default("pending").notNull(),
     delayReason: text("delay_reason"),
     rejectionReason: text("rejection_reason"),
@@ -165,6 +247,7 @@ export const orders = pgTable(
     subtotal: integer("subtotal").notNull(),
     deliveryFee: integer("delivery_fee").default(0).notNull(),
     discountAmount: integer("discount_amount").default(0).notNull(),
+    couponCode: varchar("coupon_code", { length: 50 }),
     totalAmount: integer("total_amount").notNull(),
     idempotencyKey: varchar("idempotency_key", { length: 100 }).unique(),
     createdAt: timestamp("created_at").defaultNow(),
@@ -172,6 +255,7 @@ export const orders = pgTable(
   },
   (table) => ({
     statusIdx: index("orders_status_idx").on(table.status),
+    orderTypeIdx: index("orders_order_type_idx").on(table.orderType),
     customerPhoneIdx: index("orders_customer_phone_idx").on(table.customerPhone),
     createdAtIdx: index("orders_created_at_idx").on(table.createdAt),
     riderIdIdx: index("orders_rider_id_idx").on(table.riderId),
@@ -207,6 +291,17 @@ export const storeSettings = pgTable("store_settings", {
   key: varchar("key", { length: 100 }).primaryKey(),
   value: text("value").notNull(),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const reviews = pgTable("reviews", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  menuItemId: uuid("menu_item_id")
+    .references(() => menuItems.id, { onDelete: "cascade" })
+    .notNull(),
+  customerName: varchar("customer_name", { length: 120 }).notNull(),
+  rating: integer("rating").notNull(),
+  comment: text("comment"),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 // -----------------------------------------------------------------------------
@@ -285,17 +380,6 @@ export const orderItemsRelations = relations(orderItems, ({ one }) => ({
     references: [itemVariants.id],
   }),
 }));
-
-export const reviews = pgTable("reviews", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  menuItemId: uuid("menu_item_id")
-    .references(() => menuItems.id, { onDelete: "cascade" })
-    .notNull(),
-  customerName: varchar("customer_name", { length: 120 }).notNull(),
-  rating: integer("rating").notNull(),
-  comment: text("comment"),
-  createdAt: timestamp("created_at").defaultNow(),
-});
 
 export const reviewsRelations = relations(reviews, ({ one }) => ({
   menuItem: one(menuItems, {

@@ -29,11 +29,14 @@ type OrderStatus = "pending" | "approved" | "preparing" | "delayed" | "out_for_d
 interface TrackingData {
   id: string;
   status: OrderStatus;
+  orderType?: "delivery" | "pickup";
   totalAmount: number;
   subtotal: number;
   deliveryFee: number;
   createdAt: Date;
-  deliveryAddress: string;
+  deliveryAddress?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   customerName: string;
   customerPhone: string;
   paymentMethod: string;
@@ -102,17 +105,32 @@ export default function TrackingPage({ params }: { params: Promise<{ orderId: st
     );
   }
 
-  const steps = [
+  const isPickup = data.orderType === "pickup";
+
+  const deliverySteps = [
     { key: "pending", label: "Order Placed", desc: "Waiting for confirmation", icon: Clock },
     { key: "preparing", label: "Preparing", desc: "Chefs are cooking", icon: ChefHat },
     { key: "out_for_delivery", label: "On the Way", desc: "Rider is heading to you", icon: Bike },
     { key: "delivered", label: "Delivered", desc: "Enjoy your meal!", icon: PackageCheck },
   ];
 
+  const pickupSteps = [
+    { key: "pending", label: "Order Placed", desc: "Waiting for confirmation", icon: Clock },
+    { key: "preparing", label: "Preparing", desc: "Chefs are cooking", icon: ChefHat },
+    { key: "ready_for_pickup", label: "Ready!", desc: "Come collect your order", icon: PackageCheck },
+    { key: "delivered", label: "Collected", desc: "Enjoy your meal!", icon: CheckCircle2 },
+  ];
+
+  const steps = isPickup ? pickupSteps : deliverySteps;
+
   const getStepIndex = (status: OrderStatus) => {
-    if (status === "cancelled") return -1;
+    if (status === "cancelled" || status === "rejected") return -1;
     return steps.findIndex(s => s.key === status);
   };
+
+  const mapsUrl = data.latitude && data.longitude
+    ? `https://maps.google.com/?q=${data.latitude},${data.longitude}`
+    : data.deliveryAddress ? `https://maps.google.com/?q=${encodeURIComponent(data.deliveryAddress)}` : null;
 
   const currentStepIndex = getStepIndex(data.status);
   const isCancelled = data.status === "cancelled";
@@ -164,7 +182,7 @@ export default function TrackingPage({ params }: { params: Promise<{ orderId: st
           </div>
           
           <div className="shrink-0">
-            <OrderActions orderId={data.id} status={data.status} />
+            <OrderActions orderId={data.id} status={data.status} items={data.items} />
           </div>
         </div>
 

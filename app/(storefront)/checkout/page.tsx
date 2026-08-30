@@ -1,30 +1,27 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ShoppingBag, Loader2, Navigation, CheckCircle2 } from "lucide-react";
+import {
+  ShoppingBag, Loader2, Navigation, CheckCircle2, Copy,
+  Home, Store, Tag, X, CheckCheck
+} from "lucide-react";
 import { toast } from "sonner";
 import { useCart } from "@/store/use-cart";
 import { STORE_CONSTANTS } from "@/lib/constants";
 import { checkoutSchema, CheckoutValues } from "@/lib/validations/checkout";
 import { submitOrder } from "@/server/actions/checkout";
 import { getStoreStatus } from "@/server/actions/settings";
-
+import { validateCoupon } from "@/server/actions/coupons";
 import { Button } from "@/components/ui/button";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -34,117 +31,126 @@ export default function CheckoutPage() {
   const [isStoreOpen, setIsStoreOpen] = useState(true);
   const [isCheckingStore, setIsCheckingStore] = useState(true);
   const [successOrderId, setSuccessOrderId] = useState<string | null>(null);
+  const [couponInput, setCouponInput] = useState("");
+  const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
+  const [appliedCoupon, setAppliedCoupon] = useState<{
+    code: string; discountType: "flat" | "percent"; discountValue: number;
+    applicableItemIds: string[] | null;
+  } | null>(null);
   const { items, getCartTotal, clearCart } = useCart();
+  const idempotencyKeyRef = useRef<string>("");
 
   const form = useForm<CheckoutValues>({
     resolver: zodResolver(checkoutSchema),
     mode: "onChange",
     defaultValues: {
+      orderType: "delivery",
       customerName: "",
       customerPhone: "",
       deliveryAddress: "",
       deliveryNotes: "",
       paymentMethod: "COD",
+      couponCode: "",
     },
   });
 
   const { isValid } = form.formState;
+  const orderType = useWatch({ control: form.control, name: "orderType" });
+  const isDelivery = orderType === "delivery";
 
-  const idempotencyKeyRef = React.useRef<string>("");
-  
   useEffect(() => {
     setMounted(true);
     idempotencyKeyRef.current = window.crypto.randomUUID();
-    
-    // Check if store is open
-    const checkStoreStatus = async () => {
-      try {
-        const isOpen = await getStoreStatus();
-        setIsStoreOpen(isOpen);
-      } catch (error) {
-        console.error("Failed to check store status", error);
-      } finally {
-        setIsCheckingStore(false);
-      }
+    const check = async () => {
+      try { setIsStoreOpen(await getStoreStatus()); }
+      catch { /* silent */ }
+      finally { setIsCheckingStore(false); }
     };
-    
-    checkStoreStatus();
+    check();
   }, []);
 
   const handleGetLocation = () => {
-    if (!navigator.geolocation) {
-      toast.error("Geolocation is not supported by your browser");
-      return;
-    }
-
+    if (!navigator.geolocation) { toast.error("Geolocation not supported"); return; }
     setIsLocating(true);
-    toast.loading("Fetching your location...", { id: "location-toast" });
-
+    toast.loading("Fetching your location...", { id: "loc" });
     navigator.geolocation.getCurrentPosition(
-      async (position) => {
+      async (pos) => {
         try {
-          const { latitude, longitude } = position.coords;
-          // Reverse geocode using OpenStreetMap Nominatim
+          const { latitude, longitude } = pos.coords;
           const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
-          if (!res.ok) throw new Error("Failed to fetch address");
           const data = await res.json();
-          
-          if (data && data.display_name) {
+          if (data?.display_name) {
             form.setValue("deliveryAddress", data.display_name, { shouldValidate: true });
-            toast.success("Location found!", { id: "location-toast" });
-          } else {
-            throw new Error("Address not found");
-          }
-        } catch (error) {
-          console.error("Geocoding error:", error);
-          toast.error("Could not determine address. Please enter manually.", { id: "location-toast" });
-        } finally {
-          setIsLocating(false);
-        }
+            form.setValue("latitude", latitude);
+            form.setValue("longitude", longitude);
+            toast.success("Location found!", { id: "loc" });
+          } else throw new Error("Not found");
+        } catch { toast.error("Could not determine address.", { id: "loc" }); }
+        finally { setIsLocating(false); }
       },
-      (error) => {
-        console.error("Geolocation error:", error);
-        toast.error("Permission denied or location unavailable.", { id: "location-toast" });
-        setIsLocating(false);
-      },
+      () => { toast.error("Permission denied.", { id: "loc" }); setIsLocating(false); },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
   };
 
-  // Prevent rendering if not mounted to avoid hydration mismatch
-  if (!mounted) {
-    return <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
-  }
+  const handleApplyCoupon = async () => {
+    if (!couponInput.trim()) return;
+    setIsValidatingCoupon(true);
+    try {
+      const result = await validateCoupon(couponInput.trim(), getCartTotal());
+      if (result.valid) {
+        setAppliedCoupon({
+          code: couponInput.trim().toUpperCase(),
+          discountType: result.discountType!,
+          discountValue: result.discountValue!,
+          applicableItemIds: result.applicableItemIds ?? null,
+        });
+        form.setValue("couponCode", couponInput.trim().toUpperCase());
+        toast.success("Coupon applied!");
+      } else {
+        toast.error(result.message || "Invalid coupon");
+      }
+    } finally { setIsValidatingCoupon(false); }
+  };
 
-  // Redirect if cart is empty and not in success state
+  const removeCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponInput("");
+    form.setValue("couponCode", "");
+  };
+
+  const getCouponDiscount = () => {
+    if (!appliedCoupon) return 0;
+    const eligible = appliedCoupon.applicableItemIds
+      ? items.filter(i => appliedCoupon.applicableItemIds!.includes(i.menuItemId))
+      : items;
+    const eligibleSubtotal = eligible.reduce((s, i) => s + i.subtotal, 0);
+    if (appliedCoupon.discountType === "flat") return Math.min(appliedCoupon.discountValue, eligibleSubtotal);
+    return Math.floor((eligibleSubtotal * appliedCoupon.discountValue) / 100);
+  };
+
+  if (!mounted) return <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
+
   if (items.length === 0 && !successOrderId) {
     return (
-      <div className="flex flex-col items-center justify-center py-24 text-center max-w-md mx-auto">
+      <div className="flex flex-col items-center justify-center py-24 text-center max-w-md mx-auto px-4">
         <ShoppingBag className="w-20 h-20 text-muted-foreground opacity-20 mb-6" />
         <h2 className="text-2xl font-bold mb-2">Your cart is empty</h2>
-        <p className="text-muted-foreground mb-8">
-          You need to add some delicious items to your cart before checking out!
-        </p>
-        <Button onClick={() => router.push("/")} className="w-full">
-          Browse Menu
-        </Button>
+        <p className="text-muted-foreground mb-8">Add some delicious items before checking out!</p>
+        <Button onClick={() => router.push("/")} className="w-full">Browse Menu</Button>
       </div>
     );
   }
 
   const subtotal = getCartTotal();
-  const deliveryFee = STORE_CONSTANTS.DELIVERY_FEE;
-  const total = subtotal + deliveryFee;
+  const deliveryFee = isDelivery ? STORE_CONSTANTS.DELIVERY_FEE : 0;
+  const couponDiscount = getCouponDiscount();
+  const total = subtotal + deliveryFee - couponDiscount;
 
   const onSubmit = async (data: CheckoutValues) => {
     setIsSubmitting(true);
-    
-    // Use the persisted idempotency key for this checkout session
-    const idempotencyKey = idempotencyKeyRef.current;
-    
     try {
-      const result = await submitOrder(data, items, idempotencyKey);
-      
+      const result = await submitOrder(data, items, idempotencyKeyRef.current);
       if (result.success && result.orderId) {
         toast.success("Order placed successfully!");
         clearCart();
@@ -153,242 +159,202 @@ export default function CheckoutPage() {
         toast.error(result.error || "Failed to place order");
         setIsSubmitting(false);
       }
-    } catch (error) {
-      toast.error("An unexpected error occurred");
-      setIsSubmitting(false);
-    }
+    } catch { toast.error("An unexpected error occurred"); setIsSubmitting(false); }
   };
 
   if (successOrderId) {
     return (
       <div className="animate-in fade-in zoom-in-95 duration-500 py-12 lg:py-20 px-4 flex flex-col items-center justify-center max-w-md mx-auto w-full">
-        <div className="bg-white border border-border/40 rounded-sm p-8 w-full text-center">
-          <div className="mx-auto w-16 h-16 bg-green-50 text-green-500 flex items-center justify-center mb-6">
+        <div className="relative bg-white p-8 w-full text-center drop-shadow-md mb-8">
+          <div className="absolute -top-[10px] left-0 w-full h-[10px] z-10"
+            style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='10'%3E%3Cpolygon points='0,10 10,0 20,10' fill='white'/%3E%3C/svg%3E")`, backgroundRepeat: "repeat-x" }}
+          />
+          <div className="mx-auto w-16 h-16 bg-green-50 rounded-full text-green-500 flex items-center justify-center mb-6">
             <CheckCircle2 className="w-8 h-8" />
           </div>
-          <h1 className="text-2xl font-heading font-bold tracking-tight mb-2 text-foreground">Order Confirmed!</h1>
-          <p className="text-muted-foreground text-sm leading-relaxed mb-6">
-            Thank you for your order. We've received it and are sending it to the kitchen.
+          <h1 className="text-2xl font-heading font-black tracking-tight mb-2 text-foreground">ORDER CONFIRMED</h1>
+          <p className="text-muted-foreground text-sm leading-relaxed mb-6 font-medium">
+            {orderType === "pickup" ? "Your order is being prepared. Come pick it up soon!" : "We've received your order and are sending it to the kitchen."}
           </p>
-          
-          <div className="border-t-2 border-dashed border-border/50 pt-6 mb-8">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-1">Your Order ID</p>
-            <p className="text-lg font-bold font-mono tracking-wider text-foreground">{successOrderId}</p>
+          <div className="border-y-2 border-dashed border-border/50 py-6 mb-8 relative">
+            <div className="absolute -left-11 top-1/2 -translate-y-1/2 w-6 h-6 bg-background rounded-full" />
+            <div className="absolute -right-11 top-1/2 -translate-y-1/2 w-6 h-6 bg-background rounded-full" />
+            <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-2">Order Tracking ID</p>
+            <div className="flex items-center justify-center gap-2">
+              <p className="text-lg md:text-xl font-bold font-mono tracking-wider text-foreground">{successOrderId}</p>
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground shrink-0"
+                onClick={() => { navigator.clipboard.writeText(successOrderId); toast.success("Copied!"); }}>
+                <Copy className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
-
           <div className="flex flex-col gap-3 w-full">
-            <Button 
-              onClick={() => router.push(`/track/${successOrderId}`)} 
-              className="w-full h-12 text-base font-bold rounded-sm shadow-none"
-            >
-              Track Order
-            </Button>
-            <Button 
-              onClick={() => router.push("/")} 
-              variant="outline"
-              className="w-full h-12 text-base font-bold rounded-sm shadow-none"
-            >
-              Back to Menu
-            </Button>
+            <Button onClick={() => router.push(`/track/${successOrderId}`)} className="w-full h-12 text-base font-bold rounded-sm shadow-none">Track Order Status</Button>
+            <Button onClick={() => router.push("/")} variant="outline" className="w-full h-12 text-base font-bold rounded-sm shadow-none border-border">Back to Menu</Button>
           </div>
+          <div className="absolute -bottom-[10px] left-0 w-full h-[10px] z-10"
+            style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='10'%3E%3Cpolygon points='0,0 10,10 20,0' fill='white'/%3E%3C/svg%3E")`, backgroundRepeat: "repeat-x" }}
+          />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="animate-in fade-in duration-500 pb-12 lg:pb-24">
-      <div className="mb-6 lg:mb-8 px-4 lg:px-0">
+    <div className="animate-in fade-in duration-500 pb-12 lg:pb-24 px-4 lg:px-0">
+      <div className="mb-6 lg:mb-8">
         <h1 className="text-2xl md:text-3xl font-heading font-bold tracking-tight mb-2">Checkout</h1>
-        <p className="text-muted-foreground text-sm md:text-base">Please provide your details to complete your order.</p>
+        <p className="text-muted-foreground text-sm md:text-base">Complete your order details below.</p>
       </div>
 
-      {/* Closed Banner */}
       {!isCheckingStore && !isStoreOpen && (
-        <div className="mb-8 p-5 rounded-2xl border border-destructive/20 bg-destructive/5 text-destructive flex items-start gap-4">
-          <div className="mt-0.5"><Navigation className="w-6 h-6" /></div>
-          <div>
-            <h3 className="font-bold text-lg">The Restaurant is Currently Closed</h3>
-            <p className="opacity-90 mt-1">We are not accepting new orders at this time. Please check back later during our normal operating hours.</p>
-          </div>
+        <div className="mb-8 p-5 border border-destructive/20 bg-destructive/5 text-destructive flex items-start gap-4">
+          <div><h3 className="font-bold">The Restaurant is Currently Closed</h3>
+            <p className="opacity-90 mt-1 text-sm">We are not accepting new orders at this time.</p></div>
         </div>
       )}
 
+      {/* Order Type Toggle */}
+      <div className="mb-6">
+        <div className="grid grid-cols-2 gap-3">
+          {(["delivery", "pickup"] as const).map((type) => (
+            <button key={type} type="button"
+              onClick={() => form.setValue("orderType", type, { shouldValidate: true })}
+              className={cn(
+                "flex flex-col items-center gap-2 p-4 border-2 transition-all",
+                orderType === type ? "border-primary bg-primary/5" : "border-border bg-white hover:bg-muted/30"
+              )}>
+              {type === "delivery" ? <Home className="w-5 h-5" /> : <Store className="w-5 h-5" />}
+              <span className="font-bold text-sm uppercase tracking-widest">
+                {type === "delivery" ? "Home Delivery" : "Self Pickup"}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {type === "delivery" ? `+Rs. ${STORE_CONSTANTS.DELIVERY_FEE} fee` : "Free · Pick at store"}
+              </span>
+            </button>
+          ))}
+        </div>
+        {!isDelivery && (
+          <div className="mt-3 p-3 bg-blue-50 border border-blue-200 text-blue-800 text-sm">
+            <strong>Store Address:</strong> Classy Crave, Sillanwali, Pakistan · Call: 03441588883
+          </div>
+        )}
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
-        {/* Left Column: Form */}
         <div className="lg:col-span-7 order-2 lg:order-1">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              
-              {/* Delivery Details */}
-              <div className="bg-white rounded-sm p-5 md:p-6 border border-border/40">
-                <h2 className="text-lg font-bold mb-5 flex items-center gap-2">
-                  Delivery Details
+              <div className="bg-white p-5 md:p-6 border border-border/40">
+                <h2 className="text-lg font-bold mb-5">
+                  {isDelivery ? "Delivery Details" : "Contact Details"}
                 </h2>
                 <div className="space-y-5">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    <FormField
-                      control={form.control}
-                      name="customerName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="font-semibold text-sm text-foreground/80">Full Name</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Ali Khan" {...field} className="bg-white rounded-sm h-11 border-border/50" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="customerPhone"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="font-semibold text-sm text-foreground/80">Phone Number</FormLabel>
-                          <FormControl>
-                            <Input placeholder="03XXXXXXXXX" {...field} className="bg-white rounded-sm h-11 border-border/50" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                    <FormField control={form.control} name="customerName" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="font-semibold text-sm">Full Name</FormLabel>
+                        <FormControl><Input placeholder="Ali Khan" {...field} className="rounded-sm h-11 border-border/50" /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="customerPhone" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="font-semibold text-sm">Phone Number</FormLabel>
+                        <FormControl><Input placeholder="03XXXXXXXXX" {...field} className="rounded-sm h-11 border-border/50" /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
                   </div>
-                  
-                  <FormField
-                    control={form.control}
-                    name="deliveryAddress"
-                    render={({ field }) => (
+
+                  {isDelivery && (
+                    <FormField control={form.control} name="deliveryAddress" render={({ field }) => (
                       <FormItem>
                         <div className="flex items-center justify-between">
-                          <FormLabel className="font-semibold text-sm text-foreground/80">Delivery Address</FormLabel>
-                          <Button 
-                            type="button" 
-                            variant="ghost" 
-                            size="sm" 
-                            className="h-7 text-primary hover:text-primary hover:bg-primary/10 px-2 rounded-sm"
-                            onClick={handleGetLocation}
-                            disabled={isLocating}
-                          >
+                          <FormLabel className="font-semibold text-sm">Delivery Address</FormLabel>
+                          <Button type="button" variant="ghost" size="sm"
+                            className="h-7 text-primary hover:bg-primary/10 px-2 rounded-sm"
+                            onClick={handleGetLocation} disabled={isLocating}>
                             {isLocating ? <Loader2 className="w-3 h-3 mr-1.5 animate-spin" /> : <Navigation className="w-3 h-3 mr-1.5" />}
-                            <span className="text-[10px] font-bold uppercase tracking-wider">Auto-fill Location</span>
+                            <span className="text-[10px] font-bold uppercase tracking-wider">Auto-fill</span>
                           </Button>
                         </div>
-                        <FormControl>
-                          <Input placeholder="Street, Mohallah, House Number (Sillanwali)" {...field} className="bg-white rounded-sm h-11 border-border/50" />
-                        </FormControl>
+                        <FormControl><Input placeholder="Street, Mohallah, House No. (Sillanwali)" {...field} className="rounded-sm h-11 border-border/50" /></FormControl>
                         <FormMessage />
                       </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="deliveryNotes"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="font-semibold text-sm text-foreground/80">Delivery Instructions <span className="text-muted-foreground font-normal">(Optional)</span></FormLabel>
-                        <FormControl>
-                          <Textarea 
-                            placeholder="e.g. Ring the bell, beware of dog" 
-                            {...field} 
-                            className="bg-white resize-none min-h-[80px] rounded-sm border-border/50" 
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              </div>
+                    )} />
+                  )}
 
-              {/* Payment Method */}
-              <div className="bg-white rounded-sm p-5 md:p-6 border border-border/40">
-                <h2 className="text-lg font-bold mb-5 flex items-center gap-2">
-                  Payment Method
-                </h2>
-                
-                <FormField
-                  control={form.control}
-                  name="paymentMethod"
-                  render={({ field }) => (
-                    <FormItem className="space-y-3">
+                  <FormField control={form.control} name="deliveryNotes" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="font-semibold text-sm">
+                        {isDelivery ? "Delivery Instructions" : "Pickup Notes"}{" "}
+                        <span className="text-muted-foreground font-normal">(Optional)</span>
+                      </FormLabel>
                       <FormControl>
-                        <RadioGroup
-                          onValueChange={field.onChange}
-                          defaultValue={field.value}
-                          className="flex flex-col gap-2"
-                        >
-                          <FormItem className="relative flex items-center gap-3 p-3 border rounded-sm cursor-pointer transition-all hover:bg-muted/30 [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/5">
-                            <FormControl>
-                              <RadioGroupItem value="COD" />
-                            </FormControl>
-                            <div className="flex flex-col cursor-pointer">
-                              <FormLabel className="font-bold text-foreground cursor-pointer text-sm">Cash on Delivery</FormLabel>
-                              <span className="text-xs text-muted-foreground mt-0.5">Pay when you receive your food</span>
-                            </div>
-                          </FormItem>
-
-                          <FormItem className="relative flex items-center gap-3 p-3 border rounded-sm cursor-pointer transition-all hover:bg-muted/30 [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/5">
-                            <FormControl>
-                              <RadioGroupItem value="JazzCash" />
-                            </FormControl>
-                            <div className="flex flex-col cursor-pointer">
-                              <FormLabel className="font-bold text-foreground cursor-pointer text-sm">JazzCash</FormLabel>
-                              <span className="text-xs text-muted-foreground mt-0.5">Manual payment verification</span>
-                            </div>
-                          </FormItem>
-                          
-                          <FormItem className="relative flex items-center gap-3 p-3 border rounded-sm cursor-pointer transition-all hover:bg-muted/30 [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/5">
-                            <FormControl>
-                              <RadioGroupItem value="EasyPaisa" />
-                            </FormControl>
-                            <div className="flex flex-col cursor-pointer">
-                              <FormLabel className="font-bold text-foreground cursor-pointer text-sm">EasyPaisa</FormLabel>
-                              <span className="text-xs text-muted-foreground mt-0.5">Manual payment verification</span>
-                            </div>
-                          </FormItem>
-                        </RadioGroup>
+                        <Textarea placeholder={isDelivery ? "e.g. Ring the bell, beware of dog" : "e.g. Arriving at 7pm"} {...field}
+                          className="resize-none min-h-[80px] rounded-sm border-border/50" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
-                  )}
-                />
+                  )} />
+                </div>
+              </div>
+
+              <div className="bg-white p-5 md:p-6 border border-border/40">
+                <h2 className="text-lg font-bold mb-5">Payment Method</h2>
+                <FormField control={form.control} name="paymentMethod" render={({ field }) => (
+                  <FormItem className="space-y-3">
+                    <FormControl>
+                      <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex flex-col gap-2">
+                        {[
+                          { value: "COD", label: "Cash on Delivery", desc: isDelivery ? "Pay when you receive" : "Pay at pickup" },
+                          { value: "JazzCash", label: "JazzCash", desc: "Manual verification" },
+                          { value: "EasyPaisa", label: "EasyPaisa", desc: "Manual verification" },
+                        ].map(opt => (
+                          <FormItem key={opt.value} className="relative flex items-center gap-3 p-3 border rounded-sm cursor-pointer transition-all hover:bg-muted/30 [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/5">
+                            <FormControl><RadioGroupItem value={opt.value} /></FormControl>
+                            <div className="flex flex-col cursor-pointer">
+                              <FormLabel className="font-bold text-foreground cursor-pointer text-sm">{opt.label}</FormLabel>
+                              <span className="text-xs text-muted-foreground mt-0.5">{opt.desc}</span>
+                            </div>
+                          </FormItem>
+                        ))}
+                      </RadioGroup>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
               </div>
 
               <div className="hidden lg:block pt-4">
-                <Button 
-                  type="submit" 
-                  disabled={isSubmitting || !isStoreOpen || !isValid}
-                  className="w-full h-12 rounded-sm text-base font-bold disabled:opacity-50"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                      Processing...
-                    </>
-                  ) : !isStoreOpen ? (
-                    "Store is Closed"
-                  ) : (
-                    `Place Order`
-                  )}
+                <Button type="submit" disabled={isSubmitting || !isStoreOpen || !isValid}
+                  className="w-full h-12 rounded-sm text-base font-bold disabled:opacity-50">
+                  {isSubmitting ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Processing...</>
+                    : !isStoreOpen ? "Store is Closed" : "Place Order"}
                 </Button>
               </div>
             </form>
           </Form>
         </div>
 
-        {/* Right Column: Order Summary (Receipt Style) */}
+        {/* Order Summary */}
         <div className="lg:col-span-5 order-1 lg:order-2">
-          <div className="bg-white rounded-sm border border-border/40 p-5 md:p-6 sticky top-28 font-mono">
+          <div className="bg-white p-5 md:p-8 sticky top-28 font-mono drop-shadow-md mb-8 relative">
+            <div className="absolute -top-[10px] left-0 w-full h-[10px] z-10"
+              style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='10'%3E%3Cpolygon points='0,10 10,0 20,10' fill='white'/%3E%3C/svg%3E")`, backgroundRepeat: "repeat-x" }} />
+
             <div className="text-center mb-6">
               <h3 className="font-heading font-black text-xl mb-1 uppercase tracking-widest">Order Summary</h3>
               <p className="text-xs text-muted-foreground">Classy Crave</p>
+              <Badge variant={isDelivery ? "default" : "secondary"} className="mt-2 text-xs uppercase tracking-wider">
+                {isDelivery ? "🏠 Delivery" : "🏪 Pickup"}
+              </Badge>
             </div>
-            
+
             <div className="border-t-2 border-dashed border-border/50 my-4" />
-            
-            <div className="space-y-3 max-h-[45vh] overflow-y-auto no-scrollbar pr-1 mb-4 text-sm">
+
+            <div className="space-y-3 max-h-[35vh] overflow-y-auto no-scrollbar pr-1 mb-4 text-sm">
               {items.map((item) => (
                 <div key={item.cartItemId} className="flex justify-between items-start gap-4">
                   <div className="flex gap-2">
@@ -397,50 +363,83 @@ export default function CheckoutPage() {
                       <p className="font-semibold text-foreground leading-snug">{item.name}</p>
                       {item.variantName && <p className="text-xs text-muted-foreground mt-0.5">{item.variantName}</p>}
                       {item.addOns && item.addOns.length > 0 && (
-                        <p className="text-[10px] text-muted-foreground mt-0.5">
-                          + {item.addOns.map(a => a.name).join(", ")}
-                        </p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">+ {item.addOns.map(a => a.name).join(", ")}</p>
                       )}
                     </div>
                   </div>
-                  <div className="font-bold shrink-0">
-                    {STORE_CONSTANTS.CURRENCY} {item.subtotal}
-                  </div>
+                  <div className="font-bold shrink-0">{STORE_CONSTANTS.CURRENCY} {item.subtotal}</div>
                 </div>
               ))}
             </div>
 
             <div className="border-t-2 border-dashed border-border/50 my-4" />
-            
+
+            {/* Coupon Input */}
+            {!appliedCoupon ? (
+              <div className="mb-4">
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Tag className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+                    <input
+                      value={couponInput}
+                      onChange={e => setCouponInput(e.target.value.toUpperCase())}
+                      onKeyDown={e => e.key === "Enter" && (e.preventDefault(), handleApplyCoupon())}
+                      placeholder="COUPON CODE"
+                      className="w-full pl-9 pr-3 h-10 border border-border/50 bg-transparent text-sm font-mono focus:outline-none focus:border-zinc-950 transition-colors"
+                    />
+                  </div>
+                  <Button type="button" variant="outline" size="sm" onClick={handleApplyCoupon}
+                    disabled={isValidatingCoupon || !couponInput.trim()} className="h-10 rounded-sm text-xs font-bold px-3 uppercase tracking-wide">
+                    {isValidatingCoupon ? <Loader2 className="w-3 h-3 animate-spin" /> : "Apply"}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="mb-4 flex items-center justify-between bg-green-50 border border-green-200 p-3">
+                <div className="flex items-center gap-2">
+                  <CheckCheck className="w-4 h-4 text-green-600" />
+                  <span className="text-sm font-bold text-green-700 font-mono">{appliedCoupon.code}</span>
+                  <span className="text-xs text-green-600">
+                    {appliedCoupon.discountType === "flat" ? `-Rs. ${appliedCoupon.discountValue}` : `-${appliedCoupon.discountValue}%`}
+                  </span>
+                </div>
+                <button onClick={removeCoupon} className="text-green-600 hover:text-green-800">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
             <div className="space-y-2 text-sm mb-4">
               <div className="flex justify-between text-muted-foreground">
-                <span>Subtotal</span>
-                <span>{STORE_CONSTANTS.CURRENCY} {subtotal}</span>
+                <span>Subtotal</span><span>{STORE_CONSTANTS.CURRENCY} {subtotal}</span>
               </div>
               <div className="flex justify-between text-muted-foreground">
                 <span>Delivery Fee</span>
-                <span>{STORE_CONSTANTS.CURRENCY} {deliveryFee}</span>
+                <span>{isDelivery ? `${STORE_CONSTANTS.CURRENCY} ${deliveryFee}` : "FREE"}</span>
               </div>
-            </div>
-            
-            <div className="border-t-2 border-dashed border-border/50 my-4" />
-            
-            <div className="flex justify-between items-center mb-6 text-base font-black">
-              <span>TOTAL</span>
-              <span>{STORE_CONSTANTS.CURRENCY} {total}</span>
+              {couponDiscount > 0 && (
+                <div className="flex justify-between text-green-600 font-medium">
+                  <span>Coupon Discount</span><span>- {STORE_CONSTANTS.CURRENCY} {couponDiscount}</span>
+                </div>
+              )}
             </div>
 
-            {/* Mobile Submit Button */}
-            <div className="lg:hidden">
-              <Button 
-                onClick={() => form.handleSubmit(onSubmit)()}
+            <div className="border-t-2 border-dashed border-border/50 my-4" />
+            <div className="flex justify-between items-center mb-6 text-base font-black">
+              <span>TOTAL</span><span>{STORE_CONSTANTS.CURRENCY} {total}</span>
+            </div>
+
+            <div className="lg:hidden mt-4">
+              <Button onClick={() => form.handleSubmit(onSubmit)()}
                 disabled={isSubmitting || !isValid || !isStoreOpen}
-                className="w-full h-12 text-base font-bold rounded-sm disabled:opacity-50"
-              >
+                className="w-full h-12 text-base font-bold rounded-sm disabled:opacity-50">
                 {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                {isSubmitting ? "Processing..." : `Place Order`}
+                {isSubmitting ? "Processing..." : "Place Order"}
               </Button>
             </div>
+
+            <div className="absolute -bottom-[10px] left-0 w-full h-[10px] z-10"
+              style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='10'%3E%3Cpolygon points='0,0 10,10 20,0' fill='white'/%3E%3C/svg%3E")`, backgroundRepeat: "repeat-x" }} />
           </div>
         </div>
       </div>

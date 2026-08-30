@@ -26,7 +26,7 @@ export interface RecentOrderSummary {
   customerPhone: string;
   itemsCount: number;
   totalAmount: number;
-  status: "pending" | "approved" | "preparing" | "delayed" | "out_for_delivery" | "delivered" | "rejected" | "cancelled";
+  status: "pending" | "approved" | "preparing" | "ready_for_pickup" | "delayed" | "out_for_delivery" | "delivered" | "rejected" | "cancelled";
   createdAt: Date;
 }
 
