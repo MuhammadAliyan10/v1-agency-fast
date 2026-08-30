@@ -34,6 +34,7 @@ interface TrackingData {
   subtotal: number;
   deliveryFee: number;
   createdAt: Date;
+  estimatedReadyAt?: Date | null;
   deliveryAddress?: string | null;
   latitude?: number | null;
   longitude?: number | null;
@@ -177,7 +178,13 @@ export default function TrackingPage({ params }: { params: Promise<{ orderId: st
             <p className="text-muted-foreground mt-1 text-sm">
               Placed on {format(new Date(data.createdAt), "MMMM do, yyyy 'at' h:mm a")} 
               <span className="mx-2 opacity-50">•</span>
-              <span className="text-primary font-bold">ETA: 30 - 45 mins</span>
+              {data.estimatedReadyAt ? (
+                <span className="text-primary font-bold">
+                  ETA: {format(new Date(data.estimatedReadyAt), "h:mm a")}
+                </span>
+              ) : (
+                <span className="text-muted-foreground">ETA: Will be updated shortly</span>
+              )}
             </p>
           </div>
           

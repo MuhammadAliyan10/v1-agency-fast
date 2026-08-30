@@ -3,13 +3,20 @@
 
 import { useState, useEffect, useRef } from "react";
 import useSound from "use-sound";
-import { Bell, BellOff, RefreshCw, Clock } from "lucide-react";
+import { Bell, BellOff, RefreshCw, Clock, Plus } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { getLiveOrders, updateLiveOrderStatus, getAvailableRiders, assignRiderToOrder, type OrderStatus } from "@/server/actions/live-orders";
+import {
+  getLiveOrders,
+  updateLiveOrderStatus,
+  getAvailableRiders,
+  assignRiderToOrder,
+  type OrderStatus,
+} from "@/server/actions/live-orders";
 import { OrderCard } from "./order-card";
 import { OrderDetailsSheet } from "./order-details-sheet";
+import { ManualOrderDialog } from "./manual-order-dialog";
 import { toast } from "sonner";
 
 const COLUMN_CONFIG = [
@@ -28,7 +35,7 @@ const COLUMN_CONFIG = [
     id: "preparing",
     title: "Preparing",
     description: "Kitchen is actively working",
-    statuses: ["preparing"],
+    statuses: ["preparing", "ready_for_pickup"],
     emptyLabel: "Nothing preparing",
     emptyDesc: "Move orders here when the kitchen starts",
     headerClass: "text-blue-700 dark:text-blue-400",
@@ -53,10 +60,11 @@ export function LiveKanban() {
   const [isAlertsEnabled, setIsAlertsEnabled] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [isManualOrderOpen, setIsManualOrderOpen] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [isMounted, setIsMounted] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
-  const [availableRiders, setAvailableRiders] = useState<{ id: string; name: string }[]>([]);
+  const [availableRiders, setAvailableRiders] = useState<{ id: string; name: string; phone?: string | null }[]>([]);
 
   const knownOrderIds = useRef<Set<string>>(new Set());
   const [playAlert] = useSound("/sounds/new-order-bell.mp3", { volume: 0.5 });
@@ -83,42 +91,45 @@ export function LiveKanban() {
     }
   };
 
+  const fetchRiders = async () => {
+    const res = await getAvailableRiders();
+    if (res.success && res.data) {
+      setAvailableRiders(res.data as { id: string; name: string; phone?: string | null }[]);
+    }
+  };
+
   useEffect(() => {
     setIsMounted(true);
     fetchOrders();
-    
-    // Fetch available riders once on mount
-    getAvailableRiders().then((res) => {
-      if (res.success && res.data) {
-        setAvailableRiders(res.data);
-      }
-    });
-
+    fetchRiders();
     const interval = setInterval(fetchOrders, 10000);
     return () => clearInterval(interval);
   }, [isAlertsEnabled]);
 
-  const handleUpdateStatus = async (orderId: string, newStatus: OrderStatus) => {
+  const handleUpdateStatus = async (orderId: string, newStatus: OrderStatus, etaMinutes?: number) => {
     setUpdatingId(orderId);
 
-    // Optimistic update
     setOrders((current) =>
       current.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
     );
+    if (selectedOrder?.id === orderId) {
+      setSelectedOrder((prev: any) => ({ ...prev, status: newStatus }));
+    }
 
-    const res = await updateLiveOrderStatus(orderId, newStatus);
+    const res = await updateLiveOrderStatus(orderId, newStatus, etaMinutes);
     if (res.success) {
-      const statusLabels: Record<OrderStatus, string> = {
+      const statusLabels: Record<string, string> = {
         pending: "Pending",
         approved: "Approved",
         preparing: "Preparing",
+        ready_for_pickup: "Ready for Pickup",
         out_for_delivery: "Out for Delivery",
         delivered: "Delivered",
         cancelled: "Cancelled",
         rejected: "Rejected",
         delayed: "Delayed",
       };
-      toast.success(`Order moved to ${statusLabels[newStatus]}`);
+      toast.success(`Order moved to ${statusLabels[newStatus] ?? newStatus}`);
     } else {
       toast.error("Failed to update status. Reverting.");
       await fetchOrders();
@@ -133,24 +144,48 @@ export function LiveKanban() {
 
   const handleAssignRider = async (orderId: string, riderId: string) => {
     setUpdatingId(orderId);
-    
-    // Optimistic update
-    const rider = availableRiders.find(r => r.id === riderId);
+
+    const rider = availableRiders.find((r) => r.id === riderId);
     setOrders((current) =>
-      current.map((o) => (o.id === orderId ? { ...o, rider: rider ? { name: rider.name } : null } : o))
+      current.map((o) => (o.id === orderId ? { ...o, rider: rider ? { name: rider.name, phone: rider.phone } : null } : o))
     );
     if (selectedOrder && selectedOrder.id === orderId) {
-      setSelectedOrder({ ...selectedOrder, rider: rider ? { name: rider.name } : null });
+      setSelectedOrder((prev: any) => ({ ...prev, rider: rider ? { name: rider.name, phone: rider.phone } : null }));
     }
 
     const res = await assignRiderToOrder(orderId, riderId);
     if (res.success) {
-      toast.success("Rider assigned successfully");
+      toast.success("Rider assigned. Opening WhatsApp...");
     } else {
       toast.error("Failed to assign rider");
       await fetchOrders();
     }
-    
+
+    setUpdatingId(null);
+
+    // Return riderPhone for WhatsApp link in the sheet
+    return { riderPhone: res.success ? (res as any).riderPhone ?? null : null, riderName: res.success ? (res as any).riderName ?? null : null };
+  };
+
+  const handleMarkPaid = async (orderId: string) => {
+    setUpdatingId(orderId);
+    setOrders((current) =>
+      current.map((o) => (o.id === orderId ? { ...o, paymentStatus: "paid" } : o))
+    );
+    if (selectedOrder?.id === orderId) {
+      setSelectedOrder((prev: any) => ({ ...prev, paymentStatus: "paid" }));
+    }
+    // Mark paid by updating order directly via DB
+    const { db } = await import("@/database/db");
+    const { orders: ordersTable } = await import("@/database/schema");
+    const { eq } = await import("drizzle-orm");
+    try {
+      await db.update(ordersTable).set({ paymentStatus: "paid" }).where(eq(ordersTable.id, orderId));
+      toast.success("Order marked as paid");
+    } catch {
+      toast.error("Failed to mark as paid");
+      await fetchOrders();
+    }
     setUpdatingId(null);
   };
 
@@ -166,26 +201,41 @@ export function LiveKanban() {
   return (
     <div className="flex flex-col h-full gap-4">
       {/* Toolbar */}
-      <div className="flex items-center justify-between bg-card border border-border rounded-lg px-4 py-3">
+      <div className="flex items-center justify-between bg-card border border-border rounded-lg px-4 py-3 flex-wrap gap-3">
         <div>
           <h2 className="text-sm font-semibold text-foreground">Kitchen Command Center</h2>
           <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
             <RefreshCw className="w-3 h-3" />
-            Auto-refreshes every 10 seconds · Last updated {lastRefresh.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+            Auto-refreshes every 10s · Last:{" "}
+            {lastRefresh.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={fetchOrders} disabled={isUpdating} className="text-xs gap-1.5 text-muted-foreground hover:text-foreground">
+        <div className="flex items-center gap-3 flex-wrap">
+          <Button
+            size="sm"
+            className="gap-2 rounded-sm"
+            onClick={() => setIsManualOrderOpen(true)}
+          >
+            <Plus className="w-3.5 h-3.5" />
+            New Order
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={fetchOrders}
+            disabled={isUpdating}
+            className="text-xs gap-1.5 text-muted-foreground hover:text-foreground"
+          >
             <RefreshCw className="w-3.5 h-3.5" />
             Refresh
           </Button>
           <div className="flex items-center gap-2 border-l border-border pl-3">
-            {isAlertsEnabled ? <Bell className="w-4 h-4 text-primary" /> : <BellOff className="w-4 h-4 text-muted-foreground" />}
-            <Switch
-              id="alerts-mode"
-              checked={isAlertsEnabled}
-              onCheckedChange={setIsAlertsEnabled}
-            />
+            {isAlertsEnabled ? (
+              <Bell className="w-4 h-4 text-primary" />
+            ) : (
+              <BellOff className="w-4 h-4 text-muted-foreground" />
+            )}
+            <Switch id="alerts-mode" checked={isAlertsEnabled} onCheckedChange={setIsAlertsEnabled} />
             <Label htmlFor="alerts-mode" className="cursor-pointer text-sm font-medium select-none">
               Audio Alerts
             </Label>
@@ -199,18 +249,18 @@ export function LiveKanban() {
           const colOrders = orders.filter((o) => col.statuses.includes(o.status));
           return (
             <div key={col.id} className={`flex flex-col rounded-xl border p-4 gap-3 ${col.bgClass}`}>
-              {/* Column Header */}
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className={`font-bold text-sm ${col.headerClass}`}>{col.title}</h3>
                   <p className="text-xs text-muted-foreground mt-0.5">{col.description}</p>
                 </div>
-                <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-black ${col.countClass}`}>
+                <span
+                  className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-black ${col.countClass}`}
+                >
                   {colOrders.length}
                 </span>
               </div>
 
-              {/* Order Cards */}
               <div className="flex flex-col gap-3 flex-1 min-h-[200px]">
                 {colOrders.length === 0 ? (
                   <div className="flex flex-col items-center justify-center flex-1 text-center py-10 rounded-lg border border-dashed border-border/50">
@@ -236,14 +286,23 @@ export function LiveKanban() {
         })}
       </div>
 
-      <OrderDetailsSheet 
-        order={selectedOrder} 
-        open={isSheetOpen} 
+      <OrderDetailsSheet
+        order={selectedOrder}
+        open={isSheetOpen}
         onOpenChange={setIsSheetOpen}
         onUpdateStatus={handleUpdateStatus}
+        onMarkPaid={handleMarkPaid}
         isUpdating={isUpdating}
         availableRiders={availableRiders}
         onAssignRider={handleAssignRider}
+      />
+
+      <ManualOrderDialog
+        open={isManualOrderOpen}
+        onOpenChange={(open) => {
+          setIsManualOrderOpen(open);
+          if (!open) fetchOrders(); // Refresh kanban after new order
+        }}
       />
     </div>
   );

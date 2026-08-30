@@ -2,6 +2,8 @@
 
 import React from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { ChevronLeft } from "lucide-react";
 
 interface ProductGalleryProps {
   imageUrl: string | null;
@@ -10,11 +12,20 @@ interface ProductGalleryProps {
 }
 
 export function ProductGallery({ imageUrl, name, categoryName }: ProductGalleryProps) {
-  const fallbackImage = `https://source.unsplash.com/featured/?${encodeURIComponent(categoryName || name || 'food')}`;
+  const router = useRouter();
+  const fallbackImage = "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=800&h=800&fit=crop&q=80";
   const displayImage = imageUrl || fallbackImage;
 
   return (
-    <div className="relative w-full h-64 md:h-80 bg-muted">
+    <div className="relative w-full h-[40vh] md:h-[50vh] bg-zinc-100">
+      <button 
+        onClick={() => router.back()}
+        className="absolute top-4 left-4 z-50 bg-white/95 backdrop-blur-md rounded-full p-2 shadow-md text-zinc-950 hover:bg-white active:scale-95 transition-all border border-zinc-200"
+        aria-label="Go back"
+      >
+        <ChevronLeft className="w-6 h-6" strokeWidth={2.5} />
+      </button>
+
       <Image
         src={displayImage}
         alt={name}
@@ -23,7 +34,6 @@ export function ProductGallery({ imageUrl, name, categoryName }: ProductGalleryP
         className="object-cover"
         priority
       />
-      <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/60 to-transparent pointer-events-none" />
     </div>
   );
 }

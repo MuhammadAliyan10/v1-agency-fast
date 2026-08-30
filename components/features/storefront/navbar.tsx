@@ -68,34 +68,7 @@ export function Navbar() {
   const totalItems = getTotalItems();
 
   return (
-    <header className="sticky top-0 left-0 right-0 z-50 bg-white shadow-sm font-sans">
-      {/* Top Bar Equivalent */}
-      <div className={cn(
-        "w-full bg-primary/5 hidden md:flex transition-all duration-500 ease-out border-b border-zinc-200",
-        isScrolled ? "h-0 opacity-0 overflow-hidden" : "h-9 opacity-100"
-      )}>
-        <div className="max-w-screen-2xl mx-auto w-full flex items-center justify-between px-4 md:px-6">
-          <div className="flex items-center gap-1.5 font-bold tracking-widest uppercase text-[10px] text-zinc-500">
-            <MapPin className="w-3 h-3" />
-            <span>Sillanwali, Pakistan</span>
-          </div>
-          <div className="flex items-center gap-4 font-bold tracking-widest uppercase text-[10px] text-zinc-500">
-            <Link href="#" className="hover:text-zinc-950 transition-colors">Help</Link>
-            <span className="text-zinc-300">|</span>
-            <Link href="#" className="hover:text-zinc-950 transition-colors">Join Us</Link>
-            <span className="text-zinc-300">|</span>
-            <Link href="#" className="hover:text-zinc-950 transition-colors">Sign In</Link>
-          </div>
-        </div>
-      </div>
-
-      <div
-        className={cn(
-          "absolute bottom-0 left-0 right-0 h-[0.5px] transition-colors duration-300",
-          isScrolled ? "bg-zinc-200" : "bg-transparent"
-        )}
-      />
-
+    <header className="sticky top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-md border-b border-zinc-200 font-sans">
       <nav className="mx-auto max-w-screen-2xl px-4 md:px-6">
         <div className="flex items-center justify-between h-16 md:h-20">
           
@@ -208,35 +181,23 @@ export function Navbar() {
           
           {/* Right Actions */}
           <div className="flex items-center gap-2 md:gap-4">
-            {/* Inline Search */}
-            <div className="hidden lg:flex items-center relative w-[240px]">
-              <Search className="w-4 h-4 absolute left-3.5 text-zinc-400" />
-              <input 
-                type="text" 
-                placeholder="Search for products..." 
-                className="w-full bg-zinc-100/50 border border-zinc-200 rounded-full h-10 pl-10 pr-4 text-[13px] font-medium focus:outline-none focus:border-zinc-300 transition-colors placeholder:text-zinc-400 text-zinc-900"
-              />
-            </div>
-
-            <div className="hidden md:block">
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="relative p-2 transition-colors duration-300 rounded-full text-zinc-950 hover:bg-transparent hover:text-zinc-600 h-auto w-auto"
-              >
-                <User className="h-5 w-5" />
-              </Button>
-            </div>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="relative p-2 transition-colors duration-300 rounded-full text-zinc-950 hover:bg-zinc-100 h-auto w-auto hidden md:inline-flex"
+            >
+              <User className="h-5 w-5" />
+            </Button>
             
             <Button 
               variant="ghost" 
               size="icon" 
-              className="relative p-2 transition-colors duration-300 rounded-full text-zinc-950 hover:bg-transparent hover:text-zinc-600 h-auto w-auto"
+              className="relative p-2 transition-colors duration-300 rounded-full text-zinc-950 hover:bg-zinc-100 h-auto w-auto"
               onClick={() => setIsCartOpen(true)}
             >
               <ShoppingBag className="h-5 w-5" />
               {mounted && totalItems > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 h-4 w-4 flex items-center justify-center bg-zinc-950 text-white text-[9px] font-medium rounded-full">
+                <span className="absolute -top-0.5 -right-0.5 h-4 w-4 flex items-center justify-center bg-primary text-primary-foreground text-[9px] font-bold rounded-full">
                   {totalItems}
                 </span>
               )}

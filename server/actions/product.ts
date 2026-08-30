@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/database/db";
-import { menuItems, reviews } from "@/database/schema";
+import { menuItems, reviews, categories } from "@/database/schema";
 import { eq, desc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
@@ -33,20 +33,31 @@ export async function getProductDetails(id: string) {
       limit: 6,
     });
 
-    // Fetch drinks
-    const drinksCategory = await db.query.categories.findFirst({
-      where: (categories, { ilike }) => ilike(categories.name, '%drink%')
+    // Fetch global add-ons
+    const addonCategories = await db.query.categories.findMany({
+      where: eq(categories.isGlobalAddon, true)
     });
-    let drinks: any[] = [];
-    if (drinksCategory) {
-      drinks = await db.query.menuItems.findMany({
+    
+    let globalAddons: { categoryId: string; categoryName: string; items: any[] }[] = [];
+    
+    for (const cat of addonCategories) {
+      const items = await db.query.menuItems.findMany({
         where: (menuItems, { and, eq, ne }) => and(
-          eq(menuItems.categoryId, drinksCategory.id),
+          eq(menuItems.categoryId, cat.id),
           eq(menuItems.isAvailable, true),
-          ne(menuItems.id, id) // don't suggest the current drink as a side drink
+          ne(menuItems.id, id)
         ),
-        limit: 4,
+        with: {
+          variants: true
+        }
       });
+      if (items.length > 0) {
+        globalAddons.push({
+          categoryId: cat.id,
+          categoryName: cat.name,
+          items
+        });
+      }
     }
 
     const reviewList = item.reviews || [];
@@ -61,7 +72,7 @@ export async function getProductDetails(id: string) {
         averageRating: Number(averageRating.toFixed(1)),
         reviewCount: reviewList.length,
         recommendedItems,
-        drinks,
+        globalAddons,
       } 
     };
   } catch (error) {

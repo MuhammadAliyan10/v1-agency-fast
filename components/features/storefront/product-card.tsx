@@ -3,11 +3,8 @@
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Bookmark, MapPin, Star } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { STORE_CONSTANTS } from "@/lib/constants";
-import { useCart } from "@/store/use-cart";
-import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { STORE_CONSTANTS } from "@/lib/constants";
 
 export interface ProductCardProps {
   id: string;
@@ -49,37 +46,11 @@ export function ProductCard({
   item,
 }: ProductCardProps) {
   const router = useRouter();
-  const { addItem } = useCart();
   const fallbackImage = "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=600&h=600&fit=crop&q=80";
 
   const hasVariants = variants && variants.length > 0;
   const lowestPrice = hasVariants ? Math.min(...variants.map(v => v.price)) : basePrice;
   const displayPrice = lowestPrice || basePrice;
-
-  const handleAction = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    if (outOfStock) return;
-
-    if (hasVariants && onCustomize) {
-      onCustomize(id);
-    } else {
-      if (onAdd) {
-        onAdd(id);
-      } else {
-        addItem({
-          menuItemId: id,
-          name: name,
-          imageUrl: imageUrl || fallbackImage,
-          quantity: 1,
-          unitPrice: basePrice,
-          subtotal: basePrice,
-        });
-        toast.success(`${name} added to cart!`);
-      }
-    }
-  };
 
   const handleCardClick = () => {
     if (outOfStock) return;
@@ -127,25 +98,18 @@ export function ProductCard({
             </div>
 
             {/* Footer */}
-            <div className="mt-3 md:mt-5 flex items-center justify-between px-1 md:px-2 relative z-[50]">
+            <div className="mt-3 md:mt-5 flex items-center justify-between px-1 md:px-2">
               <div className="flex items-baseline gap-1">
                 <span className="text-xs md:text-base font-black text-zinc-950 tracking-tight">
                   {STORE_CONSTANTS.CURRENCY}{displayPrice}
                 </span>
               </div>
               
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  handleAction(e);
-                }}
-                disabled={outOfStock}
-                className="bg-emerald-50 hover:bg-emerald-100 text-emerald-600 text-[8px] md:text-[10px] font-bold uppercase tracking-wider px-2 md:px-4 py-1.5 h-auto rounded-md shadow-none transition-colors border-none relative z-[100] cursor-pointer pointer-events-auto shrink-0"
-              >
-                {outOfStock ? "Sold Out" : hasVariants ? "Customize" : "Add to Cart"}
-              </button>
+              {outOfStock && (
+                <span className="text-[10px] font-bold uppercase tracking-wider text-red-500 bg-red-50 px-2 py-1 rounded-md">
+                  Sold Out
+                </span>
+              )}
             </div>
           </article>
     </div>

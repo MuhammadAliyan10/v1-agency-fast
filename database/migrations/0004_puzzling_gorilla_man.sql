@@ -1,0 +1,1 @@
+ALTER TABLE "categories" ADD COLUMN "is_global_addon" boolean DEFAULT false;

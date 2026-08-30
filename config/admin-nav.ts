@@ -27,7 +27,6 @@ export const adminNavConfig = {
     { title: "Categories", url: "/admin/categories", icon: FolderTree },
     { title: "Deals", url: "/admin/deals", icon: Tag },
     { title: "Coupons", url: "/admin/coupons", icon: Ticket },
-    { title: "Inventory", url: "/admin/inventory", icon: Boxes },
   ],
   people: [
     { title: "Customers", url: "/admin/customers", icon: Contact },

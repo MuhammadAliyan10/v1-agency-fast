@@ -7,9 +7,12 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-inter);
-  --font-mono: var(--font-geist-mono);
+
+  /* Typography — Cormorant Garamond for headings, DM Sans for body */
   --font-heading: var(--font-heading);
+  --font-sans: var(--font-sans);
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -48,196 +51,226 @@
   --radius-4xl: calc(var(--radius) * 2);
 }
 
+/* ─────────────────────────────────────────────────────────────
+   CLASSY CRAVE — STOREFRONT LIGHT MODE
+   Primary: Cognac Amber — oklch(0.72 0.14 52)
+   The deep, rich amber of aged cognac. Luxury, warmth, appetite.
+   ───────────────────────────────────────────────────────────── */
 :root {
-  /* Classy Crave Light Mode - Warm Premium */
-  --background: oklch(1 0 0); /* #FFFFFF */
-  --foreground: oklch(0.25 0.02 80); /* #2C2825 */
-  --card: oklch(1 0 0); /* #FFFFFF */
-  --card-foreground: oklch(0.25 0.02 80);
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.2 0.015 60);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.2 0.015 60);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.25 0.02 80);
-  
-  /* Primary requested by user */
-  --primary: #B88954;
-  --primary-foreground: #FFFFFF;
-  
-  /* Secondary/Beige Accent */
-  --secondary: oklch(0.92 0.02 85); /* #E6DFD5 */
-  --secondary-foreground: oklch(0.25 0.02 80);
-  
-  --muted: oklch(0.95 0.01 85); /* #F3EFEA */
-  --muted-foreground: oklch(0.5 0.02 80); /* #736B63 */
-  
-  --accent: oklch(0.92 0.02 85); 
-  --accent-foreground: oklch(0.25 0.02 80);
-  
-  --destructive: oklch(0.57 0.2 27);
-  --destructive-foreground: oklch(0.98 0 0);
-  
-  --border: oklch(0.93 0.01 85); /* #EAE5DF */
-  --input: oklch(0.93 0.01 85);
-  --ring: #B88954;
+  --popover-foreground: oklch(0.2 0.015 60);
 
-  --chart-1: oklch(0.55 0.16 45);
-  --chart-2: oklch(0.65 0.12 75);
-  --chart-3: oklch(0.4 0.05 180);
-  --chart-4: oklch(0.7 0.1 90);
-  --chart-5: oklch(0.8 0.05 85);
-  
-  /* Softer global radius for cards/dialogs */
+  /* Cognac Amber — the hero color */
+  --primary: oklch(0.72 0.14 52);
+  --primary-foreground: oklch(1 0 0);
+
+  /* Warm parchment tones */
+  --secondary: oklch(0.93 0.015 75);
+  --secondary-foreground: oklch(0.2 0.015 60);
+
+  --muted: oklch(0.96 0.008 80);
+  --muted-foreground: oklch(0.52 0.02 70);
+
+  --accent: oklch(0.93 0.015 75);
+  --accent-foreground: oklch(0.2 0.015 60);
+
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(1 0 0);
+
+  --border: oklch(0.9 0.015 80);
+  --input: oklch(0.9 0.015 80);
+  --ring: oklch(0.72 0.14 52);
+
   --radius: 0.75rem;
 
-  --sidebar: oklch(0.985 0.01 85);
-  --sidebar-foreground: oklch(0.25 0.02 80);
-  --sidebar-primary: oklch(0.55 0.16 45);
-  --sidebar-primary-foreground: oklch(0.98 0 0);
-  --sidebar-accent: oklch(0.95 0.01 85);
-  --sidebar-accent-foreground: oklch(0.25 0.02 80);
-  --sidebar-border: oklch(0.93 0.01 85);
-  --sidebar-ring: oklch(0.55 0.16 45);
-}
-
-.dark {
-  /* Classy Crave Dark Mode - Deep Espresso */
-  --background: oklch(0.18 0.02 80); /* #1E1B18 */
-  --foreground: oklch(0.96 0.01 85); /* #F5F2EB */
-  --card: oklch(0.22 0.02 80); /* #26231F */
-  --card-foreground: oklch(0.96 0.01 85);
-  --popover: oklch(0.22 0.02 80);
-  --popover-foreground: oklch(0.96 0.01 85);
-  
-  --primary: #B88954; 
-  --primary-foreground: #FFFFFF;
-  
-  --secondary: oklch(0.28 0.02 80); /* #35312C */
-  --secondary-foreground: oklch(0.96 0.01 85);
-  
-  --muted: oklch(0.25 0.02 80); /* #2C2825 */
-  --muted-foreground: oklch(0.7 0.02 80); /* #A59E98 */
-  
-  --accent: oklch(0.28 0.02 80);
-  --accent-foreground: oklch(0.96 0.01 85);
-  
-  --destructive: oklch(0.57 0.2 27);
-  --destructive-foreground: oklch(0.98 0 0);
-  
-  --border: oklch(0.28 0.02 80);
-  --input: oklch(0.28 0.02 80);
-  --ring: #B88954;
-
-  --chart-1: oklch(0.55 0.16 45);
+  --chart-1: oklch(0.72 0.14 52);
   --chart-2: oklch(0.65 0.12 75);
-  --chart-3: oklch(0.4 0.05 180);
-  --chart-4: oklch(0.7 0.1 90);
-  --chart-5: oklch(0.8 0.05 85);
+  --chart-3: oklch(0.55 0.08 200);
+  --chart-4: oklch(0.78 0.1 90);
+  --chart-5: oklch(0.60 0.15 30);
 
-  --sidebar: oklch(0.18 0.02 80);
-  --sidebar-foreground: oklch(0.96 0.01 85);
-  --sidebar-primary: oklch(0.55 0.16 45);
-  --sidebar-primary-foreground: oklch(0.98 0 0);
-  --sidebar-accent: oklch(0.25 0.02 80);
-  --sidebar-accent-foreground: oklch(0.96 0.01 85);
-  --sidebar-border: oklch(0.28 0.02 80);
-  --sidebar-ring: oklch(0.55 0.16 45);
+  --sidebar: oklch(0.985 0.008 80);
+  --sidebar-foreground: oklch(0.2 0.015 60);
+  --sidebar-primary: oklch(0.72 0.14 52);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.95 0.008 80);
+  --sidebar-accent-foreground: oklch(0.2 0.015 60);
+  --sidebar-border: oklch(0.9 0.015 80);
+  --sidebar-ring: oklch(0.72 0.14 52);
 }
 
+/* ─────────────────────────────────────────────────────────────
+   CLASSY CRAVE — STOREFRONT DARK MODE
+   Deep espresso background, amber glows stay rich
+   ───────────────────────────────────────────────────────────── */
+.dark {
+  --background: oklch(0.16 0.015 60);
+  --foreground: oklch(0.96 0.008 80);
+  --card: oklch(0.21 0.015 60);
+  --card-foreground: oklch(0.96 0.008 80);
+  --popover: oklch(0.21 0.015 60);
+  --popover-foreground: oklch(0.96 0.008 80);
+
+  --primary: oklch(0.75 0.14 52);
+  --primary-foreground: oklch(0.12 0.01 60);
+
+  --secondary: oklch(0.27 0.015 60);
+  --secondary-foreground: oklch(0.96 0.008 80);
+
+  --muted: oklch(0.24 0.015 60);
+  --muted-foreground: oklch(0.68 0.02 70);
+
+  --accent: oklch(0.27 0.015 60);
+  --accent-foreground: oklch(0.96 0.008 80);
+
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(1 0 0);
+
+  --border: oklch(0.28 0.015 60);
+  --input: oklch(0.28 0.015 60);
+  --ring: oklch(0.75 0.14 52);
+
+  --chart-1: oklch(0.75 0.14 52);
+  --chart-2: oklch(0.65 0.12 75);
+  --chart-3: oklch(0.55 0.08 200);
+  --chart-4: oklch(0.78 0.1 90);
+  --chart-5: oklch(0.60 0.15 30);
+
+  --sidebar: oklch(0.16 0.015 60);
+  --sidebar-foreground: oklch(0.96 0.008 80);
+  --sidebar-primary: oklch(0.75 0.14 52);
+  --sidebar-primary-foreground: oklch(0.12 0.01 60);
+  --sidebar-accent: oklch(0.24 0.015 60);
+  --sidebar-accent-foreground: oklch(0.96 0.008 80);
+  --sidebar-border: oklch(0.28 0.015 60);
+  --sidebar-ring: oklch(0.75 0.14 52);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   ADMIN THEME OVERRIDE
+   Clean neutral zinc — keeps admin professional and separate
+   ───────────────────────────────────────────────────────────── */
 .admin-theme {
-  --font-sans: var(--font-figtree);
-  --font-heading: var(--font-inter);
-  
-  --primary: #4F39F6;
-  --primary-foreground: #FFFFFF;
-  --sidebar-primary: #4F39F6;
-  --sidebar-primary-foreground: #FFFFFF;
-  --ring: #4F39F6;
-  --sidebar-ring: #4F39F6;
-  
-  --background: #FAFAFB;
-  --foreground: #09090B;
-  --card: #FFFFFF;
-  --card-foreground: #09090B;
-  --popover: #FFFFFF;
-  --popover-foreground: #09090B;
-  
-  --muted: #F4F4F5;
-  --muted-foreground: #71717A;
-  --accent: #F4F4F5;
-  --accent-foreground: #09090B;
-  
-  --border: #E4E4E7;
-  --input: #E4E4E7;
-  
-  --sidebar: #FFFFFF;
-  --sidebar-foreground: #09090B;
-  --sidebar-border: #E4E4E7;
-  --sidebar-accent: #F4F4F5;
-  --sidebar-accent-foreground: #09090B;
+  --primary: oklch(0.546 0.245 262.881);
+  --primary-foreground: oklch(1 0 0);
+  --ring: oklch(0.546 0.245 262.881);
+
+  --background: oklch(0.985 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --muted: oklch(0.961 0 0);
+  --muted-foreground: oklch(0.501 0 0);
+  --accent: oklch(0.961 0 0);
+  --accent-foreground: oklch(0.145 0 0);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --secondary: oklch(0.961 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+
+  --sidebar: oklch(1 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-accent: oklch(0.961 0 0);
+  --sidebar-accent-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.546 0.245 262.881);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-ring: oklch(0.546 0.245 262.881);
 }
 
 .dark .admin-theme {
-  --background: #09090B;
-  --foreground: #FAFAFA;
-  --card: #09090B;
-  --card-foreground: #FAFAFA;
-  --popover: #09090B;
-  --popover-foreground: #FAFAFA;
-  
-  --muted: #27272A;
-  --muted-foreground: #A1A1AA;
-  --accent: #27272A;
-  --accent-foreground: #FAFAFA;
-  
-  --border: #27272A;
-  --input: #27272A;
-  
-  --sidebar: #09090B;
-  --sidebar-foreground: #FAFAFA;
-  --sidebar-border: #27272A;
-  --sidebar-accent: #27272A;
-  --sidebar-accent-foreground: #FAFAFA;
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.145 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.145 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.636 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --border: oklch(0.269 0 0);
+  --input: oklch(0.269 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+
+  --sidebar: oklch(0.145 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(0.269 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
 }
 
+/* ─────────────────────────────────────────────────────────────
+   BASE STYLES
+   ───────────────────────────────────────────────────────────── */
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+
+  html {
+    @apply scroll-smooth;
+    font-family: var(--font-sans), system-ui, sans-serif;
+  }
+
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-sans), system-ui, sans-serif;
     font-feature-settings: "cv11", "ss01";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
-  html {
-    @apply scroll-smooth font-sans;
-  }
+
+  /* Cormorant Garamond heading treatment */
   h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading), Georgia, "Times New Roman", serif;
     @apply tracking-tight;
+  }
+
+  /* Storefront-specific heading enhancement */
+  .font-heading {
+    font-family: var(--font-heading), Georgia, "Times New Roman", serif;
   }
 }
 
+/* ─────────────────────────────────────────────────────────────
+   UTILITY CLASSES
+   ───────────────────────────────────────────────────────────── */
 @layer utilities {
-  .text-gold {
-    color: oklch(0.76 0.12 75);
+  /* Cognac amber utilities */
+  .text-amber-crave {
+    color: oklch(0.72 0.14 52);
   }
-  .text-gold-light {
-    color: oklch(0.88 0.10 75);
+  .bg-amber-crave {
+    background-color: oklch(0.72 0.14 52);
   }
-  .bg-gold {
-    background-color: oklch(0.76 0.12 75);
+  .border-amber-crave {
+    border-color: oklch(0.72 0.14 52);
   }
-  .border-gold {
-    border-color: oklch(0.76 0.12 75);
-  }
+
+  /* Decorative gold divider */
   .gold-divider {
     height: 1px;
     background: linear-gradient(
       to right,
       transparent,
-      oklch(0.76 0.12 75 / 0.8),
+      oklch(0.72 0.14 52 / 0.7),
       transparent
     );
   }
-  .text-balance { text-wrap: balance; }
-  .text-pretty { text-wrap: pretty; }
 
+  /* Text wrapping */
+  .text-balance { text-wrap: balance; }
+  .text-pretty  { text-wrap: pretty; }
+
+  /* Fade & slide animations */
   .animate-fade-in {
     animation: fadeIn 0.7s ease-out both;
   }
@@ -257,12 +290,12 @@
 
 @keyframes fadeIn {
   from { opacity: 0; }
-  to { opacity: 1; }
+  to   { opacity: 1; }
 }
 
 @keyframes slideUp {
   from { opacity: 0; transform: translateY(18px); }
-  to { opacity: 1; transform: translateY(0); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -275,13 +308,15 @@
   }
 }
 
-/* Thermal Printer 80mm POS Styles */
+/* ─────────────────────────────────────────────────────────────
+   PRINT — 80mm Thermal KOT Receipt
+   ───────────────────────────────────────────────────────────── */
 @media print {
   @page {
     margin: 0;
-    size: 80mm 297mm; /* 80mm width standard thermal */
+    size: 80mm 297mm;
   }
-  
+
   body {
     margin: 0;
     padding: 0;
@@ -290,8 +325,7 @@
     font-size: 12px;
     font-family: monospace, sans-serif;
   }
-  
-  /* Hide UI elements not meant for receipt printing */
+
   [data-sidebar="sidebar"],
   [data-sidebar="trigger"],
   header,
@@ -300,8 +334,7 @@
   .kanban-board {
     display: none !important;
   }
-  
-  /* Reset layout constraints for print */
+
   main,
   [data-sidebar="inset"] {
     margin: 0 !important;

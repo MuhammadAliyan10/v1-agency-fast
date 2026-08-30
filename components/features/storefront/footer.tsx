@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import { usePathname } from "next/navigation";
 
 // Custom TikTok Icon
 const TikTokIcon = ({ className }: { className?: string }) => (
@@ -39,6 +40,12 @@ const TwitterIcon = ({ className }: { className?: string }) => (
 const marqueeText = `PREMIUM FAST FOOD • EST. 2024 • FAST DELIVERY • Classy Crave • `;
 
 export function Footer() {
+  const pathname = usePathname();
+  
+  if (pathname !== "/") {
+    return null;
+  }
+
   return (
     <footer className="relative bg-zinc-950 text-white overflow-hidden font-sans">
       {/* 1. The Marquee */}

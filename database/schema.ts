@@ -102,6 +102,7 @@ export const categories = pgTable("categories", {
   description: text("description"),
   sortOrder: integer("sort_order").default(0),
   isActive: boolean("is_active").default(true),
+  isGlobalAddon: boolean("is_global_addon").default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -248,6 +249,7 @@ export const orders = pgTable(
     deliveryFee: integer("delivery_fee").default(0).notNull(),
     discountAmount: integer("discount_amount").default(0).notNull(),
     couponCode: varchar("coupon_code", { length: 50 }),
+    estimatedReadyAt: timestamp("estimated_ready_at"),
     totalAmount: integer("total_amount").notNull(),
     idempotencyKey: varchar("idempotency_key", { length: 100 }).unique(),
     createdAt: timestamp("created_at").defaultNow(),

@@ -16,11 +16,20 @@ export function CategoryBento({ categories }: CategoryBentoProps) {
   // We'll pad with static data if there are less than 3 for demonstration.
   const displayCategories = categories.slice(0, 3);
   
-  const defaultImages = [
-    "https://images.unsplash.com/photo-1586816001966-79b736744398?w=800&h=800&fit=crop&q=80", // Burgers
-    "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=800&h=800&fit=crop&q=80", // Pizza
-    "https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=800&h=800&fit=crop&q=80"  // Drinks
-  ];
+  const getCategoryImage = (category: any) => {
+    if (category.imageUrl) return category.imageUrl;
+    
+    const name = (category.name || "").toLowerCase();
+    if (name.includes("burger") || name.includes("zinger")) return "https://images.unsplash.com/photo-1586816001966-79b736744398?w=800&h=800&fit=crop&q=80";
+    if (name.includes("pizza")) return "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=800&h=800&fit=crop&q=80";
+    if (name.includes("drink") || name.includes("beverage") || name.includes("shake")) return "https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=800&h=800&fit=crop&q=80";
+    if (name.includes("chicken") || name.includes("fried") || name.includes("nugget")) return "https://images.unsplash.com/photo-1626082927389-6cd097cdc6ec?w=800&h=800&fit=crop&q=80";
+    if (name.includes("fries") || name.includes("side")) return "https://images.unsplash.com/photo-1576107232684-1279f390859f?w=800&h=800&fit=crop&q=80";
+    if (name.includes("wrap") || name.includes("shawarma") || name.includes("roll")) return "https://images.unsplash.com/photo-1626700051175-6818013e1d4f?w=800&h=800&fit=crop&q=80";
+    
+    // Default fallback
+    return "https://images.unsplash.com/photo-1550547660-d9450f859349?w=800&h=800&fit=crop&q=80";
+  };
 
   return (
     <section className="py-12 w-full">
@@ -41,7 +50,7 @@ export function CategoryBento({ categories }: CategoryBentoProps) {
               )}
             >
               <Image
-                src={defaultImages[index % defaultImages.length]}
+                src={getCategoryImage(category)}
                 alt={category.name || "Category"}
                 fill
                 sizes={isFeatured ? "(max-width: 768px) 100vw, 66vw" : "(max-width: 768px) 50vw, 33vw"}

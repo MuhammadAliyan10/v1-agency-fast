@@ -66,14 +66,14 @@ export function MenuClient({ categories }: MenuClientProps) {
       {/* Left Sidebar (Fixed on Desktop) */}
       <aside className="w-full md:w-[25%] shrink-0 flex flex-col gap-6 md:sticky md:top-[100px] md:h-[calc(100vh-120px)] overflow-y-auto pr-2 md:pr-4 scrollbar-hide">
         {/* Search Bar */}
-        <div className="relative w-full group">
-          <Search className="absolute left-0 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400 group-focus-within:text-zinc-950 transition-colors stroke-[1.5]" />
+        <div className="relative w-full">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             type="text"
             placeholder="Search our menu..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-8 h-12 bg-transparent border-0 border-b border-zinc-200 shadow-none focus-visible:ring-0 focus-visible:border-zinc-950 rounded-none text-base md:text-lg font-serif transition-colors px-0 placeholder:text-zinc-400 placeholder:font-sans placeholder:text-base"
+            className="pl-9 h-11 bg-muted/40 border-muted rounded-xl text-sm md:text-base shadow-sm focus-visible:ring-1 focus-visible:ring-primary focus-visible:border-primary transition-all placeholder:text-muted-foreground"
           />
         </div>
 
