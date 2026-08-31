@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
-import { SidebarProvider } from "@/components/ui/sidebar";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/features/admin/app-sidebar";
 
 export default function AdminLayout({
@@ -29,8 +29,11 @@ export default function AdminLayout({
     <SidebarProvider>
       <div className="admin-theme flex w-full min-h-screen">
         <AppSidebar />
-        <main className="flex-1 flex flex-col min-h-screen bg-background">
-          <div className="flex-1 p-6 md:p-8 overflow-auto">
+        <main className="flex-1 flex flex-col min-h-screen bg-background w-full">
+          <header className="md:hidden flex h-14 items-center border-b bg-muted/20 px-4 shrink-0">
+            <SidebarTrigger />
+          </header>
+          <div className="flex-1 p-4 sm:p-6 md:p-8 overflow-auto">
             {children}
           </div>
         </main>
