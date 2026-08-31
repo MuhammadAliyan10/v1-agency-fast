@@ -22,6 +22,12 @@ export async function createOrderFromWhatsApp(phone: string, restaurantId: strin
     const tempData = (session.tempData as any) || {};
     const customerName = tempData.name || "WhatsApp Customer";
     const deliveryAddress = tempData.address || "Unknown Address";
+    const alternatePhone = tempData.altPhone || "";
+    
+    let deliveryNotes = "";
+    if (alternatePhone) {
+      deliveryNotes = `Alternate Contact: ${alternatePhone}`;
+    }
 
     // 2. Fetch True Pricing & Verify Availability
     const itemIds = cart.map((i: any) => i.menuItemId);
@@ -61,8 +67,10 @@ export async function createOrderFromWhatsApp(phone: string, restaurantId: strin
       customerPhone: phone,
       orderType: "delivery",
       deliveryAddress,
+      deliveryNotes,
       status: "pending",
       source: "whatsapp",
+      paymentMethod: "COD",
       subtotal,
       deliveryFee,
       totalAmount,

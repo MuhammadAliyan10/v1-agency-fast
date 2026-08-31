@@ -1,5 +1,5 @@
 import { db } from "@/database/db";
-import { whatsappSessions, menuItems } from "@/database/schema";
+import { whatsappSessions, menuItems, categories } from "@/database/schema";
 import { eq, sql, inArray } from "drizzle-orm";
 import { sendWhatsAppText, sendWhatsAppInteractiveList, sendWhatsAppInteractiveButtons } from "./client";
 import { createOrderFromWhatsApp } from "@/server/actions/whatsapp-orders";
@@ -72,6 +72,10 @@ export async function processWhatsAppMessage(phone: string, message: any, contac
         await handleAddressInput(phone, session, input);
         break;
 
+      case "alt_phone_input":
+        await handleAltPhoneInput(phone, session, input);
+        break;
+
       case "name_input":
         await handleNameInput(phone, session, input);
         break;
@@ -90,23 +94,50 @@ export async function processWhatsAppMessage(phone: string, message: any, contac
 }
 
 async function handleGreeting(phone: string, session: any) {
-  const items = await db.select().from(menuItems).where(eq(menuItems.isAvailable, true)).limit(10);
+  // Fetch active categories
+  const allCategories = await db.select().from(categories).where(eq(categories.isActive, true));
   
-  if (items.length === 0) {
+  // Fetch active items
+  const allItems = await db.select().from(menuItems).where(eq(menuItems.isAvailable, true));
+  
+  if (allItems.length === 0) {
     return sendWhatsAppText(phone, "Sorry, we are currently closed or out of stock.");
   }
 
-  const rows = items.map(i => ({
-    id: `item_${i.id}`,
-    title: i.name,
-    description: `Rs. ${i.basePrice}`
-  }));
+  // WhatsApp allows up to 10 sections and 30 items max.
+  const sections: any[] = [];
+  let totalItems = 0;
+
+  for (const category of allCategories) {
+    if (sections.length >= 10 || totalItems >= 30) break;
+    
+    const itemsInCategory = allItems.filter(i => i.categoryId === category.id);
+    if (itemsInCategory.length === 0) continue;
+
+    const rows = [];
+    for (const item of itemsInCategory) {
+      if (totalItems >= 30) break;
+      rows.push({
+        id: `item_${item.id}`,
+        title: item.name.substring(0, 24), // title limit is 24 chars
+        description: `Rs. ${item.basePrice}`
+      });
+      totalItems++;
+    }
+
+    if (rows.length > 0) {
+      sections.push({
+        title: category.name.substring(0, 24), // section title limit is 24 chars
+        rows
+      });
+    }
+  }
 
   await sendWhatsAppInteractiveList(
     phone,
-    "Welcome! 🍔 Please select an item to order:",
+    "Welcome to Classy Crave! 🍔 Please select an item to order:",
     "View Menu",
-    [{ title: "Popular Items", rows }]
+    sections
   );
 
   await updateSessionState(session.id, "item_selection", [], {});
@@ -117,11 +148,40 @@ async function handleItemSelection(phone: string, session: any, input: string) {
     if ((session.cart as any[]).length === 0) {
       return sendWhatsAppText(phone, "Your cart is empty. Please select an item from the menu first.");
     }
-    await sendWhatsAppText(phone, "Great! Please reply with your full delivery address.");
+    await sendWhatsAppText(phone, "Great! Please reply with your full delivery address (e.g. House 12, Street 4, Sector F).");
     return updateSessionState(session.id, "address_input", session.cart, session.tempData);
   }
 
   if (input === "menu") {
+    return handleGreeting(phone, session);
+  }
+
+  if (input === "drinks") {
+    // Show drinks category (id: find drinks category or just show list of drinks)
+    const allCategories = await db.select().from(categories).where(eq(categories.isActive, true));
+    const allItems = await db.select().from(menuItems).where(eq(menuItems.isAvailable, true));
+    
+    const drinkCat = allCategories.find(c => c.name.toLowerCase().includes("drink") || c.name.toLowerCase().includes("beverage"));
+    if (drinkCat) {
+      const drinks = allItems.filter(i => i.categoryId === drinkCat.id).slice(0, 30);
+      if (drinks.length > 0) {
+        const rows = drinks.map(i => ({
+          id: `item_${i.id}`,
+          title: i.name.substring(0, 24),
+          description: `Rs. ${i.basePrice}`
+        }));
+        await sendWhatsAppInteractiveList(
+          phone,
+          "Here are our refreshing drinks! 🥤",
+          "View Drinks",
+          [{ title: "Drinks", rows }]
+        );
+        return updateSessionState(session.id, "item_selection", session.cart, session.tempData);
+      }
+    }
+    
+    // Fallback if no drinks category found
+    await sendWhatsAppText(phone, "We don't have a specific drinks menu right now. Showing full menu...");
     return handleGreeting(phone, session);
   }
 
@@ -142,14 +202,30 @@ async function handleItemSelection(phone: string, session: any, input: string) {
   if (matchedItem) {
     const newCart = [...(session.cart as any[]), { menuItemId: matchedItem.id, quantity: 1 }];
     
-    await sendWhatsAppInteractiveButtons(
-      phone,
-      `Added 1x ${matchedItem.name} to cart. Anything else?`,
-      [
-        { id: "checkout", title: "Checkout" },
-        { id: "menu", title: "View Menu Again" }
-      ]
-    );
+    // Check if we should cross-sell drinks
+    const itemCategory = await db.query.categories.findFirst({ where: eq(categories.id, matchedItem.categoryId) });
+    const isFood = itemCategory && !itemCategory.name.toLowerCase().includes("drink") && !itemCategory.name.toLowerCase().includes("beverage");
+    
+    if (isFood) {
+      await sendWhatsAppInteractiveButtons(
+        phone,
+        `Added 1x ${matchedItem.name} to cart. Would you like a drink with that?`,
+        [
+          { id: "drinks", title: "Yes, Show Drinks" },
+          { id: "checkout", title: "Checkout Now" },
+          { id: "menu", title: "View Menu Again" }
+        ]
+      );
+    } else {
+      await sendWhatsAppInteractiveButtons(
+        phone,
+        `Added 1x ${matchedItem.name} to cart. Anything else?`,
+        [
+          { id: "checkout", title: "Checkout Now" },
+          { id: "menu", title: "View Menu Again" }
+        ]
+      );
+    }
 
     return updateSessionState(session.id, "item_selection", newCart, session.tempData);
   } else {
@@ -165,7 +241,13 @@ async function handleAddressInput(phone: string, session: any, input: string) {
   }
 
   const newTemp = { ...(session.tempData as any), address: input };
-  await sendWhatsAppText(phone, "Got it! Lastly, what is your name?");
+  await sendWhatsAppText(phone, "Got it! Please provide an alternate/backup phone number.");
+  return updateSessionState(session.id, "alt_phone_input", session.cart, newTemp);
+}
+
+async function handleAltPhoneInput(phone: string, session: any, input: string) {
+  const newTemp = { ...(session.tempData as any), altPhone: input };
+  await sendWhatsAppText(phone, "Perfect. Lastly, what is your full name?");
   return updateSessionState(session.id, "name_input", session.cart, newTemp);
 }
 
@@ -177,7 +259,7 @@ async function handleNameInput(phone: string, session: any, input: string) {
   const itemIds = cart.map(c => c.menuItemId);
   const dbItems = await db.select().from(menuItems).where(inArray(menuItems.id, itemIds));
   
-  let summary = `*Order Summary*\nName: ${input}\nAddress: ${newTemp.address}\n\n*Items:*\n`;
+  let summary = `*Order Summary*\nName: ${input}\nAddress: ${newTemp.address}\nAlt Phone: ${newTemp.altPhone}\n\n*Items:*\n`;
   let total = 0;
   cart.forEach(c => {
     const dbItem = dbItems.find(i => i.id === c.menuItemId);
@@ -186,7 +268,7 @@ async function handleNameInput(phone: string, session: any, input: string) {
       total += dbItem.basePrice * c.quantity;
     }
   });
-  summary += `\nDelivery: Rs. 150\n*Total: Rs. ${total + 150}*\n\nIs this correct?`;
+  summary += `\nDelivery: Rs. 150\n*Total: Rs. ${total + 150}*\nPayment: Cash on Delivery\n\nIs this correct?`;
 
   await sendWhatsAppInteractiveButtons(phone, summary, [
     { id: "confirm_yes", title: "Yes, Confirm" },
