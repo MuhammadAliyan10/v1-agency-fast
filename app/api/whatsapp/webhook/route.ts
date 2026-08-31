@@ -27,8 +27,6 @@ export async function POST(req: NextRequest) {
   const signature = req.headers.get("x-hub-signature-256");
 
   // Validate Signature if APP_SECRET is set
-  // TEMPORARILY DISABLED FOR DEBUGGING
-  /*
   if (APP_SECRET && signature) {
     const expectedSignature = `sha256=${crypto
       .createHmac("sha256", APP_SECRET)
@@ -40,7 +38,6 @@ export async function POST(req: NextRequest) {
       return new NextResponse("Invalid signature", { status: 401 });
     }
   }
-  */
 
   let body;
   try {
