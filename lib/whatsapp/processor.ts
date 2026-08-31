@@ -44,7 +44,21 @@ export async function processWhatsAppMessage(phone: string, message: any, contac
     return;
   }
 
-  // 4. Expiry Check (e.g. 2 hours inactive)
+  // 4. Global Command Interception (Prevents state loops)
+  if (input === "menu" || input === "hi" || input === "hello" || input === "restart") {
+    session.state = "greeting";
+    session.cart = [];
+    session.tempData = {};
+    return handleGreeting(phone, session);
+  }
+
+  if (input === "confirm_yes" || input === "confirm_no") {
+    // If they click a confirmation button, force route to confirmation handler
+    // even if the state machine got out of sync
+    return handleConfirmation(phone, session, input);
+  }
+
+  // 4b. Expiry Check (e.g. 2 hours inactive)
   const hoursSinceUpdate = (new Date().getTime() - new Date(session.updatedAt).getTime()) / (1000 * 60 * 60);
   if (hoursSinceUpdate > 2 && session.state !== "greeting") {
     session.state = "greeting";
@@ -97,51 +111,27 @@ async function handleGreeting(phone: string, session: any) {
   // Fetch active categories
   const allCategories = await db.select().from(categories).where(eq(categories.isActive, true));
   
-  // Fetch active items
-  const allItems = await db.select().from(menuItems).where(eq(menuItems.isAvailable, true));
-  
-  if (allItems.length === 0) {
+  if (allCategories.length === 0) {
     return sendWhatsAppText(phone, "Sorry, we are currently closed or out of stock.");
   }
 
-  // WhatsApp allows up to 10 sections and 30 items max.
-  const sections: any[] = [];
-  let totalItems = 0;
-
-  for (const category of allCategories) {
-    if (sections.length >= 10 || totalItems >= 30) break;
-    
-    const itemsInCategory = allItems.filter(i => i.categoryId === category.id);
-    if (itemsInCategory.length === 0) continue;
-
-    const rows = [];
-    for (const item of itemsInCategory) {
-      if (rows.length >= 10) break; // WhatsApp max 10 rows per section
-      if (totalItems >= 30) break;
-      rows.push({
-        id: `item_${item.id}`,
-        title: item.name.substring(0, 24), // title limit is 24 chars
-        description: `Rs. ${item.basePrice}`
-      });
-      totalItems++;
-    }
-
-    if (rows.length > 0) {
-      sections.push({
-        title: category.name.substring(0, 24), // section title limit is 24 chars
-        rows
-      });
-    }
+  const rows = [];
+  for (const cat of allCategories.slice(0, 10)) {
+    rows.push({
+      id: `cat_${cat.id}`,
+      title: cat.name.substring(0, 24),
+      description: "Tap to view items"
+    });
   }
 
   await sendWhatsAppInteractiveList(
     phone,
-    "Welcome to Classy Crave! 🍔 Please select an item to order:",
-    "View Menu",
-    sections
+    "Welcome to Classy Crave! 🍔 Please select a category:",
+    "Menu Categories",
+    [{ title: "Categories", rows }]
   );
 
-  await updateSessionState(session.id, "item_selection", [], {});
+  await updateSessionState(session.id, "category_selection", [], {});
 }
 
 async function handleItemSelection(phone: string, session: any, input: string) {
@@ -155,6 +145,34 @@ async function handleItemSelection(phone: string, session: any, input: string) {
 
   if (input === "menu") {
     return handleGreeting(phone, session);
+  }
+
+  if (input.startsWith("cat_")) {
+    const catId = input.replace("cat_", "");
+    const cat = await db.query.categories.findFirst({ where: eq(categories.id, catId) });
+    if (!cat) return handleGreeting(phone, session);
+
+    const items = await db.select().from(menuItems).where(eq(menuItems.categoryId, cat.id));
+    const activeItems = items.filter(i => i.isAvailable).slice(0, 10);
+    
+    if (activeItems.length === 0) {
+      await sendWhatsAppText(phone, `Sorry, no items currently available in ${cat.name}.`);
+      return handleGreeting(phone, session);
+    }
+
+    const rows = activeItems.map(i => ({
+      id: `item_${i.id}`,
+      title: i.name.substring(0, 24),
+      description: `Rs. ${i.basePrice}`
+    }));
+
+    await sendWhatsAppInteractiveList(
+      phone,
+      `Here is our ${cat.name} menu:`,
+      "View Items",
+      [{ title: cat.name.substring(0, 24), rows }]
+    );
+    return updateSessionState(session.id, "item_selection", session.cart, session.tempData);
   }
 
   if (input === "drinks") {
@@ -192,12 +210,14 @@ async function handleItemSelection(phone: string, session: any, input: string) {
     const dbItem = await db.query.menuItems.findFirst({ where: eq(menuItems.id, itemId) });
     if (dbItem) matchedItem = dbItem;
   } else {
-    // Fuzzy fallback
-    const items = await db.select().from(menuItems).where(eq(menuItems.isAvailable, true));
-    matchedItem = items.find(i => 
-      i.name.toLowerCase().includes(input) || 
-      input.includes(i.name.toLowerCase())
-    );
+    // Fuzzy fallback (only if input is long enough to avoid false positives)
+    if (input.length > 3) {
+      const items = await db.select().from(menuItems).where(eq(menuItems.isAvailable, true));
+      matchedItem = items.find(i => 
+        i.name.toLowerCase().includes(input) || 
+        input.includes(i.name.toLowerCase())
+      );
+    }
   }
 
   if (matchedItem) {
@@ -253,6 +273,12 @@ async function handleAltPhoneInput(phone: string, session: any, input: string) {
 }
 
 async function handleNameInput(phone: string, session: any, input: string) {
+  // Validate name (must contain letters, not just numbers)
+  if (!/[a-zA-Z]/.test(input) || input.length < 2) {
+    await sendWhatsAppText(phone, "Please provide a valid full name (must contain letters).");
+    return;
+  }
+
   const newTemp = { ...(session.tempData as any), name: input };
   
   // Calculate summary (approximate for display)
@@ -285,15 +311,16 @@ async function handleConfirmation(phone: string, session: any, input: string) {
       const order = await createOrderFromWhatsApp(phone, session.restaurantId);
       
       const trackUrl = `${process.env.NEXT_PUBLIC_APP_URL}/track/${order.orderId}`;
-      await sendWhatsAppText(phone, `🎉 Order confirmed! Your Order ID is #${order.orderId}.\n\nTrack your delivery here: ${trackUrl}`);
+      await sendWhatsAppText(phone, `🎉 Order confirmed! Your Order ID is #${order.orderId}.\n\nTrack your delivery here: ${trackUrl}\n\nType 'Hi' anytime if you'd like to place another order!`);
       
+      await updateSessionState(session.id, "order_created", [], {});
     } catch (error: any) {
       console.error("Order creation failed:", error);
       await sendWhatsAppText(phone, `Sorry, we couldn't place your order: ${error.message}`);
       await updateSessionState(session.id, "greeting", [], {});
     }
   } else if (input === "confirm_no" || input === "no" || input === "cancel") {
-    await sendWhatsAppText(phone, "Order cancelled. Type 'Hi' anytime to order again.");
+    await sendWhatsAppText(phone, "Order cancelled. Type 'Hi' anytime to start over and order again.");
     await updateSessionState(session.id, "cancelled", [], {});
   } else {
     await sendWhatsAppInteractiveButtons(phone, "Please confirm your order.", [
