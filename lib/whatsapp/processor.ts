@@ -27,7 +27,11 @@ export async function processWhatsAppMessage(phone: string, message: any, contac
   // 2. Extract Message Intent
   const textBody = message.text?.body?.toLowerCase().trim() || "";
   const interactiveReplyId = message.interactive?.list_reply?.id || message.interactive?.button_reply?.id;
-  const input = interactiveReplyId || textBody;
+  let input = interactiveReplyId || textBody;
+
+  if (message.type === "location") {
+    input = "location_payload";
+  }
 
   if (!input) return; // unsupported message type (image, audio, etc for MVP)
 
