@@ -5,7 +5,7 @@ import { whatsappMessages } from "@/database/schema";
 import { processWhatsAppMessage } from "@/lib/whatsapp/processor";
 
 const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN;
-// const APP_SECRET = process.env.WHATSAPP_APP_SECRET;
+const APP_SECRET = process.env.WHATSAPP_APP_SECRET;
 
 // Webhook Verification (GET)
 export async function GET(req: NextRequest) {
