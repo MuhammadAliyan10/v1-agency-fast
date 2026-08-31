@@ -74,13 +74,13 @@ export async function POST(req: NextRequest) {
             console.error("[WhatsApp Webhook] DB error on insert:", error);
           }
 
-          // Process the message asynchronously to return 200 OK to Meta quickly
-          processWhatsAppMessage(phone, message, contact).catch(console.error);
+          // Process the message synchronously to ensure Vercel doesn't kill the background task
+          await processWhatsAppMessage(phone, message, contact).catch(console.error);
         }
       }
     }
   }
 
-  // Return 200 immediately
+  // Return 200 immediately after processing
   return new NextResponse("OK", { status: 200 });
 }
