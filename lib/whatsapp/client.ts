@@ -1,7 +1,7 @@
 import { db } from "@/database/db";
 import { whatsappMessages } from "@/database/schema";
 
-const WHATSAPP_API_URL = "https://graph.facebook.com/v19.0";
+const WHATSAPP_API_URL = "https://graph.facebook.com/v25.0";
 const ACCESS_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN;
 const PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_NUMBER_ID;
 
