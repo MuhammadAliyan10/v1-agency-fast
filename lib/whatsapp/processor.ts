@@ -116,6 +116,7 @@ async function handleGreeting(phone: string, session: any) {
 
     const rows = [];
     for (const item of itemsInCategory) {
+      if (rows.length >= 10) break; // WhatsApp max 10 rows per section
       if (totalItems >= 30) break;
       rows.push({
         id: `item_${item.id}`,
@@ -163,7 +164,7 @@ async function handleItemSelection(phone: string, session: any, input: string) {
     
     const drinkCat = allCategories.find(c => c.name.toLowerCase().includes("drink") || c.name.toLowerCase().includes("beverage"));
     if (drinkCat) {
-      const drinks = allItems.filter(i => i.categoryId === drinkCat.id).slice(0, 30);
+      const drinks = allItems.filter(i => i.categoryId === drinkCat.id).slice(0, 10); // WhatsApp max 10 rows per section
       if (drinks.length > 0) {
         const rows = drinks.map(i => ({
           id: `item_${i.id}`,
