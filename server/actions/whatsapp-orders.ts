@@ -1,5 +1,5 @@
 import { db } from "@/database/db";
-import { orders, orderItems, menuItems, whatsappSessions, orderStatusHistory } from "@/database/schema";
+import { orders, orderItems, menuItems, whatsappSessions, orderStatusHistory, itemVariants } from "@/database/schema";
 import { eq, inArray, sql } from "drizzle-orm";
 
 export async function createOrderFromWhatsApp(phone: string, restaurantId: string = "default") {
@@ -41,15 +41,28 @@ export async function createOrderFromWhatsApp(phone: string, restaurantId: strin
       throw new Error(`Sorry, ${dbItem?.name || "an item"} is currently unavailable.`);
     }
     
-    const unitPrice = dbItem.basePrice; // Simplified: ignoring variants in V1 to ensure safety
+    let unitPrice = dbItem.basePrice;
+    let finalItemName = dbItem.name;
+    let variantId = null;
+
+    if (cartItem.variantId) {
+      const variant = await db.query.itemVariants.findFirst({ where: eq(itemVariants.id, cartItem.variantId) });
+      if (variant) {
+        unitPrice = variant.price;
+        finalItemName = `${dbItem.name} (${variant.name})`;
+        variantId = variant.id;
+      }
+    }
+
     const itemSubtotal = unitPrice * cartItem.quantity;
     subtotal += itemSubtotal;
     
     finalItems.push({
       menuItemId: dbItem.id,
-      itemName: dbItem.name,
+      variantId,
+      itemName: finalItemName,
       quantity: cartItem.quantity,
-      unitPrice: unitPrice,
+      unitPrice,
       subtotal: itemSubtotal,
     });
   }
@@ -80,6 +93,7 @@ export async function createOrderFromWhatsApp(phone: string, restaurantId: strin
     await db.insert(orderItems).values({
       orderId,
       menuItemId: item.menuItemId,
+      variantId: item.variantId,
       itemName: item.itemName,
       quantity: item.quantity,
       unitPrice: item.unitPrice,

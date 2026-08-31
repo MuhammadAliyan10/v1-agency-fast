@@ -1,5 +1,5 @@
 import { db } from "@/database/db";
-import { whatsappSessions, menuItems, categories } from "@/database/schema";
+import { whatsappSessions, menuItems, categories, itemVariants } from "@/database/schema";
 import { eq, sql, inArray } from "drizzle-orm";
 import { sendWhatsAppText, sendWhatsAppInteractiveList, sendWhatsAppInteractiveButtons } from "./client";
 import { createOrderFromWhatsApp } from "@/server/actions/whatsapp-orders";
@@ -45,10 +45,15 @@ export async function processWhatsAppMessage(phone: string, message: any, contac
   }
 
   // 4. Global Command Interception (Prevents state loops)
-  if (input === "menu" || input === "hi" || input === "hello" || input === "restart") {
+  if (input === "hi" || input === "hello" || input === "restart") {
     session.state = "greeting";
     session.cart = [];
     session.tempData = {};
+    return handleGreeting(phone, session);
+  }
+
+  if (input === "menu") {
+    session.state = "greeting";
     return handleGreeting(phone, session);
   }
 
@@ -134,6 +139,54 @@ async function handleGreeting(phone: string, session: any) {
   await updateSessionState(session.id, "category_selection", [], {});
 }
 
+async function addItemToCartAndProceed(phone: string, session: any, itemId: string, variantId: string | null = null) {
+  const matchedItem = await db.query.menuItems.findFirst({ where: eq(menuItems.id, itemId) });
+  if (!matchedItem) return handleGreeting(phone, session);
+
+  let price = matchedItem.basePrice;
+  let name = matchedItem.name;
+  if (variantId) {
+    const variant = await db.query.itemVariants.findFirst({ where: eq(itemVariants.id, variantId) });
+    if (variant) {
+      price = variant.price;
+      name = `${matchedItem.name} (${variant.name})`;
+    }
+  }
+
+  // Clear pendingItemId from tempData
+  const newTemp = { ...(session.tempData as any) };
+  delete newTemp.pendingItemId;
+
+  const newCart = [...(session.cart as any[]), { menuItemId: itemId, variantId, quantity: 1, name, price }];
+  
+  // Check if we should cross-sell drinks
+  const itemCategory = await db.query.categories.findFirst({ where: eq(categories.id, matchedItem.categoryId) });
+  const isFood = itemCategory && !itemCategory.name.toLowerCase().includes("drink") && !itemCategory.name.toLowerCase().includes("beverage");
+  
+  if (isFood) {
+    await sendWhatsAppInteractiveButtons(
+      phone,
+      `Added 1x ${name} to cart. Would you like a drink with that?`,
+      [
+        { id: "drinks", title: "Yes, Show Drinks" },
+        { id: "checkout", title: "Checkout Now" },
+        { id: "menu", title: "View Menu Again" }
+      ]
+    );
+  } else {
+    await sendWhatsAppInteractiveButtons(
+      phone,
+      `Added 1x ${name} to cart. Anything else?`,
+      [
+        { id: "checkout", title: "Checkout Now" },
+        { id: "menu", title: "View Menu Again" }
+      ]
+    );
+  }
+
+  return updateSessionState(session.id, "item_selection", newCart, newTemp);
+}
+
 async function handleItemSelection(phone: string, session: any, input: string) {
   if (input === "checkout" || input === "done") {
     if ((session.cart as any[]).length === 0) {
@@ -203,8 +256,17 @@ async function handleItemSelection(phone: string, session: any, input: string) {
     await sendWhatsAppText(phone, "We don't have a specific drinks menu right now. Showing full menu...");
     return handleGreeting(phone, session);
   }
-
+  
   let matchedItem = null;
+  if (session.tempData?.pendingItemId) {
+    if (input.startsWith("var_")) {
+      const variantId = input.replace("var_", "");
+      return addItemToCartAndProceed(phone, session, session.tempData.pendingItemId, variantId);
+    }
+    await sendWhatsAppText(phone, "Please select a size/variant from the options provided.");
+    return;
+  }
+
   if (input.startsWith("item_")) {
     const itemId = input.replace("item_", "");
     const dbItem = await db.query.menuItems.findFirst({ where: eq(menuItems.id, itemId) });
@@ -221,34 +283,28 @@ async function handleItemSelection(phone: string, session: any, input: string) {
   }
 
   if (matchedItem) {
-    const newCart = [...(session.cart as any[]), { menuItemId: matchedItem.id, quantity: 1 }];
-    
-    // Check if we should cross-sell drinks
-    const itemCategory = await db.query.categories.findFirst({ where: eq(categories.id, matchedItem.categoryId) });
-    const isFood = itemCategory && !itemCategory.name.toLowerCase().includes("drink") && !itemCategory.name.toLowerCase().includes("beverage");
-    
-    if (isFood) {
-      await sendWhatsAppInteractiveButtons(
-        phone,
-        `Added 1x ${matchedItem.name} to cart. Would you like a drink with that?`,
-        [
-          { id: "drinks", title: "Yes, Show Drinks" },
-          { id: "checkout", title: "Checkout Now" },
-          { id: "menu", title: "View Menu Again" }
-        ]
-      );
+    // Check for variants
+    const variants = await db.select().from(itemVariants).where(eq(itemVariants.menuItemId, matchedItem.id));
+    if (variants.length > 0) {
+      const newTemp = { ...(session.tempData as any), pendingItemId: matchedItem.id };
+      if (variants.length <= 3) {
+        await sendWhatsAppInteractiveButtons(
+          phone,
+          `You selected ${matchedItem.name}. Please choose a size/variant:`,
+          variants.map(v => ({ id: `var_${v.id}`, title: v.name }))
+        );
+      } else {
+        await sendWhatsAppInteractiveList(
+          phone,
+          `You selected ${matchedItem.name}. Please choose a size:`,
+          "Choose Size",
+          [{ title: "Sizes", rows: variants.slice(0, 10).map(v => ({ id: `var_${v.id}`, title: v.name, description: `Rs. ${v.price}` })) }]
+        );
+      }
+      return updateSessionState(session.id, "item_selection", session.cart, newTemp);
     } else {
-      await sendWhatsAppInteractiveButtons(
-        phone,
-        `Added 1x ${matchedItem.name} to cart. Anything else?`,
-        [
-          { id: "checkout", title: "Checkout Now" },
-          { id: "menu", title: "View Menu Again" }
-        ]
-      );
+      return addItemToCartAndProceed(phone, session, matchedItem.id, null);
     }
-
-    return updateSessionState(session.id, "item_selection", newCart, session.tempData);
   } else {
     // Send menu again
     await sendWhatsAppText(phone, "I didn't quite catch that.");
@@ -257,8 +313,9 @@ async function handleItemSelection(phone: string, session: any, input: string) {
 }
 
 async function handleAddressInput(phone: string, session: any, input: string) {
-  if (input.length < 5) {
-    return sendWhatsAppText(phone, "Please provide a more detailed address.");
+  if (!/[a-zA-Z]/.test(input) || input.length < 5) {
+    await sendWhatsAppText(phone, "Please provide a valid, complete delivery address containing letters (e.g. House 12, Street 4, DHA).");
+    return;
   }
 
   const newTemp = { ...(session.tempData as any), address: input };
@@ -267,6 +324,11 @@ async function handleAddressInput(phone: string, session: any, input: string) {
 }
 
 async function handleAltPhoneInput(phone: string, session: any, input: string) {
+  // basic validation for phone number
+  if (input.replace(/\D/g, "").length < 7) {
+    await sendWhatsAppText(phone, "Please provide a valid phone number (e.g. 03001234567).");
+    return;
+  }
   const newTemp = { ...(session.tempData as any), altPhone: input };
   await sendWhatsAppText(phone, "Perfect. Lastly, what is your full name?");
   return updateSessionState(session.id, "name_input", session.cart, newTemp);
@@ -290,10 +352,11 @@ async function handleNameInput(phone: string, session: any, input: string) {
   let total = 0;
   cart.forEach(c => {
     const dbItem = dbItems.find(i => i.id === c.menuItemId);
-    if (dbItem) {
-      summary += `${c.quantity}x ${dbItem.name} (Rs. ${dbItem.basePrice})\n`;
-      total += dbItem.basePrice * c.quantity;
-    }
+    const itemName = c.name || dbItem?.name || "Item";
+    const itemPrice = c.price || dbItem?.basePrice || 0;
+    
+    summary += `${c.quantity}x ${itemName} (Rs. ${itemPrice})\n`;
+    total += itemPrice * c.quantity;
   });
   summary += `\nDelivery: Rs. 150\n*Total: Rs. ${total + 150}*\nPayment: Cash on Delivery\n\nIs this correct?`;
 
@@ -310,7 +373,7 @@ async function handleConfirmation(phone: string, session: any, input: string) {
     try {
       const order = await createOrderFromWhatsApp(phone, session.restaurantId);
       
-      const trackUrl = `${process.env.NEXT_PUBLIC_APP_URL}/track/${order.orderId}`;
+      const trackUrl = `https://agency-fast.vercel.app/track/${order.orderId}`;
       await sendWhatsAppText(phone, `🎉 Order confirmed! Your Order ID is #${order.orderId}.\n\nTrack your delivery here: ${trackUrl}\n\nType 'Hi' anytime if you'd like to place another order!`);
       
       await updateSessionState(session.id, "order_created", [], {});
