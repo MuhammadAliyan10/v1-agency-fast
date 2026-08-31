@@ -91,6 +91,10 @@ export async function processWhatsAppMessage(phone: string, message: any, contac
         await handleItemSelection(phone, session, input);
         break;
 
+      case "cart_review":
+        await handleQuantityInput(phone, session, input);
+        break;
+
       case "address_input":
         await handleAddressInput(phone, session, input, message);
         break;
@@ -137,9 +141,14 @@ async function handleGreeting(phone: string, session: any) {
     });
   }
 
+  const cart = session.cart || [];
+  const greetingText = cart.length > 0 
+    ? "What else would you like to add? 🍔 Please select a category:" 
+    : "Welcome to Classy Crave! What can I do for you today? 🍔 Please select a category:";
+
   await sendWhatsAppInteractiveList(
     phone,
-    "Welcome to Classy Crave! What can I do for you today? 🍔 Please select a category:",
+    greetingText,
     "Menu Categories",
     [{ title: "Categories", rows }]
   );
@@ -161,20 +170,65 @@ async function addItemToCartAndProceed(phone: string, session: any, itemId: stri
     }
   }
 
-  // Clear pendingItemId from tempData
-  const newTemp = { ...(session.tempData as any) };
+  // Clear pendingItemId from tempData and set pendingCartItem
+  const newTemp = { 
+    ...(session.tempData as any), 
+    pendingCartItem: { menuItemId: itemId, variantId, name, price, categoryId: matchedItem.categoryId } 
+  };
   delete newTemp.pendingItemId;
 
-  const newCart = [...(session.cart as any[]), { menuItemId: itemId, variantId, quantity: 1, name, price }];
+  await sendWhatsAppInteractiveButtons(
+    phone,
+    `How many ${name} would you like? (Tap a number or type your quantity)`,
+    [
+      { id: "qty_1", title: "1" },
+      { id: "qty_2", title: "2" },
+      { id: "qty_3", title: "3" }
+    ]
+  );
+
+  return updateSessionState(session.id, "cart_review", session.cart, newTemp);
+}
+
+async function handleQuantityInput(phone: string, session: any, input: string) {
+  let qty = 1;
   
+  if (input.startsWith("qty_")) {
+    qty = parseInt(input.replace("qty_", ""));
+  } else {
+    const parsed = parseInt(input);
+    if (!isNaN(parsed) && parsed > 0 && parsed <= 20) {
+      qty = parsed;
+    } else {
+      await sendWhatsAppText(phone, "Please select a valid quantity (or type a number like 1, 2, 3).");
+      return;
+    }
+  }
+
+  const pendingItem = session.tempData.pendingCartItem;
+  if (!pendingItem) {
+     return handleGreeting(phone, session);
+  }
+
+  const newCart = [...(session.cart as any[]), { 
+    menuItemId: pendingItem.menuItemId, 
+    variantId: pendingItem.variantId, 
+    quantity: qty, 
+    name: pendingItem.name, 
+    price: pendingItem.price 
+  }];
+
+  const newTemp = { ...(session.tempData as any) };
+  delete newTemp.pendingCartItem;
+
   // Check if we should cross-sell drinks
-  const itemCategory = await db.query.categories.findFirst({ where: eq(categories.id, matchedItem.categoryId) });
+  const itemCategory = await db.query.categories.findFirst({ where: eq(categories.id, pendingItem.categoryId) });
   const isFood = itemCategory && !itemCategory.name.toLowerCase().includes("drink") && !itemCategory.name.toLowerCase().includes("beverage");
   
   if (isFood) {
     await sendWhatsAppInteractiveButtons(
       phone,
-      `Added 1x ${name} to cart. Would you like a drink with that?`,
+      `Added ${qty}x ${pendingItem.name} to cart! Would you like a cold drink with that?`,
       [
         { id: "drinks", title: "Yes, Show Drinks" },
         { id: "checkout", title: "Checkout Now" },
@@ -184,7 +238,7 @@ async function addItemToCartAndProceed(phone: string, session: any, itemId: stri
   } else {
     await sendWhatsAppInteractiveButtons(
       phone,
-      `Added 1x ${name} to cart. Anything else?`,
+      `Added ${qty}x ${pendingItem.name} to cart! Anything else?`,
       [
         { id: "checkout", title: "Checkout Now" },
         { id: "menu", title: "View Menu Again" }
@@ -328,7 +382,7 @@ async function handleAddressInput(phone: string, session: any, input: string, me
   if (message?.type === "location" && message.location) {
     lat = message.location.latitude;
     long = message.location.longitude;
-    finalAddress = `[Location Shared] WhatsApp Pin`;
+    finalAddress = `📍 Pinned Location via WhatsApp`;
   } else {
     if (!/[a-zA-Z]/.test(input) || input.length < 5) {
       await sendWhatsAppText(phone, "Please provide a valid, complete delivery address containing letters (e.g. House 12, Street 4, DHA), OR tap the 📎 attachment icon and share your Location.");
