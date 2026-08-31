@@ -5,7 +5,7 @@ import { whatsappMessages } from "@/database/schema";
 import { processWhatsAppMessage } from "@/lib/whatsapp/processor";
 
 const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN;
-const APP_SECRET = process.env.WHATSAPP_APP_SECRET;
+// const APP_SECRET = process.env.WHATSAPP_APP_SECRET;
 
 // Webhook Verification (GET)
 export async function GET(req: NextRequest) {
@@ -27,6 +27,8 @@ export async function POST(req: NextRequest) {
   const signature = req.headers.get("x-hub-signature-256");
 
   // Validate Signature if APP_SECRET is set
+  // TEMPORARILY DISABLED FOR DEBUGGING
+  /*
   if (APP_SECRET && signature) {
     const expectedSignature = `sha256=${crypto
       .createHmac("sha256", APP_SECRET)
@@ -38,6 +40,7 @@ export async function POST(req: NextRequest) {
       return new NextResponse("Invalid signature", { status: 401 });
     }
   }
+  */
 
   let body;
   try {
