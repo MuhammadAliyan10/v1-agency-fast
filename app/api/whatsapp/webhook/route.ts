@@ -66,10 +66,15 @@ export async function POST(req: NextRequest) {
               payload: message,
             });
           } catch (error: any) {
-            // If uniqueness constraint fails, it's a duplicate retry from Meta
-            if (error.code === "23505" || error.message?.includes("duplicate key")) {
-              console.log("[WhatsApp Webhook] Duplicate message received, ignoring:", messageId);
-              continue; 
+            // Check for duplicate key constraint (Neon wraps it in error.cause)
+            const isDuplicate = 
+              error.code === "23505" || 
+              error.message?.includes("duplicate key") ||
+              error.cause?.code === "23505";
+
+            if (isDuplicate) {
+              console.log("[WhatsApp Webhook] Duplicate test message blocked:", messageId);
+              continue; // Skip processing this duplicate
             }
             console.error("[WhatsApp Webhook] DB error on insert:", error);
           }
