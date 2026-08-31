@@ -11,6 +11,7 @@ import {
   jsonb,
   index,
   real,
+  unique,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -38,6 +39,43 @@ export const orderStatusEnum = pgEnum("order_status", [
 ]);
 
 export const orderTypeEnum = pgEnum("order_type", ["delivery", "pickup"]);
+
+export const orderSourceEnum = pgEnum("order_source", [
+  "website",
+  "whatsapp",
+  "qr",
+  "admin",
+  "system"
+]);
+
+export const whatsappSessionStateEnum = pgEnum("whatsapp_session_state", [
+  "greeting",
+  "category_selection",
+  "item_selection",
+  "cart_review",
+  "checkout",
+  "name_input",
+  "address_input",
+  "order_confirmation",
+  "order_created",
+  "human_handoff",
+  "cancelled",
+  "expired",
+]);
+
+export const whatsappMessageDirectionEnum = pgEnum("whatsapp_message_direction", [
+  "inbound",
+  "outbound",
+]);
+
+export const whatsappMessageStatusEnum = pgEnum("whatsapp_message_status", [
+  "pending",
+  "sent",
+  "delivered",
+  "read",
+  "failed",
+  "processed",
+]);
 
 export const paymentMethodEnum = pgEnum("payment_method", [
   "COD",
@@ -241,6 +279,7 @@ export const orders = pgTable(
     latitude: real("latitude"),
     longitude: real("longitude"),
     status: orderStatusEnum("status").default("pending").notNull(),
+    source: orderSourceEnum("source").default("website").notNull(),
     delayReason: text("delay_reason"),
     rejectionReason: text("rejection_reason"),
     paymentMethod: paymentMethodEnum("payment_method").default("COD").notNull(),
@@ -305,6 +344,52 @@ export const reviews = pgTable("reviews", {
   comment: text("comment"),
   createdAt: timestamp("created_at").defaultNow(),
 });
+
+// -----------------------------------------------------------------------------
+// WhatsApp & State Tracking
+// -----------------------------------------------------------------------------
+export const orderStatusHistory = pgTable("order_status_history", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  orderId: varchar("order_id", { length: 12 })
+    .references(() => orders.id, { onDelete: "cascade" })
+    .notNull(),
+  fromStatus: varchar("from_status", { length: 50 }),
+  toStatus: varchar("to_status", { length: 50 }).notNull(),
+  source: orderSourceEnum("source").default("system").notNull(),
+  changedBy: uuid("changed_by").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const whatsappMessages = pgTable("whatsapp_messages", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  whatsappMessageId: varchar("whatsapp_message_id", { length: 100 }).unique().notNull(),
+  restaurantId: varchar("restaurant_id", { length: 50 }).default("default").notNull(),
+  phone: varchar("phone", { length: 20 }).notNull(),
+  direction: whatsappMessageDirectionEnum("direction").notNull(),
+  status: whatsappMessageStatusEnum("status").default("pending").notNull(),
+  payload: jsonb("payload"),
+  processedAt: timestamp("processed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const whatsappSessions = pgTable(
+  "whatsapp_sessions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    restaurantId: varchar("restaurant_id", { length: 50 }).default("default").notNull(),
+    phone: varchar("phone", { length: 20 }).notNull(),
+    state: whatsappSessionStateEnum("state").default("greeting").notNull(),
+    cart: jsonb("cart").$type<{ menuItemId: string; variantId?: string; quantity: number }[]>(),
+    tempData: jsonb("temp_data"),
+    version: integer("version").default(1).notNull(),
+    expiresAt: timestamp("expires_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    uniqueSession: unique("whatsapp_sessions_rest_phone_unq").on(table.restaurantId, table.phone),
+  })
+);
 
 // -----------------------------------------------------------------------------
 // Relations

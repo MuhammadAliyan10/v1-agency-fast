@@ -43,6 +43,13 @@
       "when": 1788102488816,
       "tag": "0005_hesitant_clea",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1788174537153,
+      "tag": "0006_dizzy_killmonger",
+      "breakpoints": true
     }
   ]
 }
