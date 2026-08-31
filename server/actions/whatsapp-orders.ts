@@ -22,6 +22,8 @@ export async function createOrderFromWhatsApp(phone: string, restaurantId: strin
   const customerName = tempData.name || "WhatsApp Customer";
   const deliveryAddress = tempData.address || "Unknown Address";
   const alternatePhone = tempData.altPhone || "";
+  const latitude = tempData.lat || null;
+  const longitude = tempData.long || null;
   
   let deliveryNotes = "";
   if (alternatePhone) {
@@ -85,6 +87,8 @@ export async function createOrderFromWhatsApp(phone: string, restaurantId: strin
     orderType: "delivery",
     deliveryAddress,
     deliveryNotes,
+    latitude,
+    longitude,
     status: "pending",
     source: "whatsapp",
     paymentMethod: "COD",

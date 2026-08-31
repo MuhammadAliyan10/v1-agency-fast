@@ -322,11 +322,13 @@ async function handleItemSelection(phone: string, session: any, input: string) {
 
 async function handleAddressInput(phone: string, session: any, input: string, message?: any) {
   let finalAddress = input;
+  let lat = null;
+  let long = null;
 
   if (message?.type === "location" && message.location) {
-    const lat = message.location.latitude;
-    const long = message.location.longitude;
-    finalAddress = `[Location Shared]: https://www.google.com/maps?q=${lat},${long}`;
+    lat = message.location.latitude;
+    long = message.location.longitude;
+    finalAddress = `[Location Shared] WhatsApp Pin`;
   } else {
     if (!/[a-zA-Z]/.test(input) || input.length < 5) {
       await sendWhatsAppText(phone, "Please provide a valid, complete delivery address containing letters (e.g. House 12, Street 4, DHA), OR tap the 📎 attachment icon and share your Location.");
@@ -334,7 +336,7 @@ async function handleAddressInput(phone: string, session: any, input: string, me
     }
   }
 
-  const newTemp = { ...(session.tempData as any), address: finalAddress };
+  const newTemp = { ...(session.tempData as any), address: finalAddress, lat, long };
   await sendWhatsAppText(phone, "Got it! Please provide an alternate/backup phone number.");
   return updateSessionState(session.id, "alt_phone_input", session.cart, newTemp);
 }

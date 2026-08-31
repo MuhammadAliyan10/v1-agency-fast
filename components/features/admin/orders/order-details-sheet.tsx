@@ -107,12 +107,18 @@ export function OrderDetailsSheet({
   if (!order) return null;
 
   const isPickup = order.orderType === "pickup";
-  const mapsUrl =
-    order.latitude && order.longitude
-      ? `https://maps.google.com/?q=${order.latitude},${order.longitude}`
-      : order.deliveryAddress
-      ? `https://maps.google.com/?q=${encodeURIComponent(order.deliveryAddress)}`
-      : null;
+  let mapsUrl = null;
+  if (order.latitude && order.longitude) {
+    mapsUrl = `https://maps.google.com/?q=${order.latitude},${order.longitude}`;
+  } else if (order.deliveryAddress?.includes("https://www.google.com/maps?q=")) {
+    // Extract legacy location URL
+    const match = order.deliveryAddress.match(/https:\/\/www\.google\.com\/maps\?q=([^ ]+)/);
+    if (match) {
+      mapsUrl = `https://maps.google.com/?q=${match[1]}`;
+    }
+  } else if (order.deliveryAddress && !order.deliveryAddress.includes("[Location Shared]")) {
+    mapsUrl = `https://maps.google.com/?q=${encodeURIComponent(order.deliveryAddress)}`;
+  }
 
   const getUndoStatus = (status: string, isPickup: boolean): OrderStatus | null => {
     switch (status) {
