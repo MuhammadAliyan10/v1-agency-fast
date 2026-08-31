@@ -56,6 +56,7 @@ export const whatsappSessionStateEnum = pgEnum("whatsapp_session_state", [
   "checkout",
   "name_input",
   "address_input",
+  "alt_phone_input",
   "order_confirmation",
   "order_created",
   "human_handoff",
