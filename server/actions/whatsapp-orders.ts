@@ -27,6 +27,11 @@ export async function createOrderFromWhatsApp(phone: string, restaurantId: strin
   if (alternatePhone) {
     deliveryNotes = `Alternate Contact: ${alternatePhone}`;
   }
+  
+  const specialInstructions = tempData.instructions || "";
+  if (specialInstructions && specialInstructions.toLowerCase() !== "none") {
+    deliveryNotes += deliveryNotes ? `\nInstructions: ${specialInstructions}` : `Instructions: ${specialInstructions}`;
+  }
 
   // 2. Fetch True Pricing & Verify Availability
   const itemIds = cart.map((i: any) => i.menuItemId);

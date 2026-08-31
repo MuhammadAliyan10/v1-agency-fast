@@ -99,6 +99,10 @@ export async function processWhatsAppMessage(phone: string, message: any, contac
         await handleNameInput(phone, session, input);
         break;
 
+      case "checkout":
+        await handleInstructionsInput(phone, session, input);
+        break;
+
       case "order_confirmation":
         await handleConfirmation(phone, session, input);
         break;
@@ -136,7 +140,7 @@ async function handleGreeting(phone: string, session: any) {
     [{ title: "Categories", rows }]
   );
 
-  await updateSessionState(session.id, "category_selection", [], {});
+  await updateSessionState(session.id, "category_selection", session.cart || [], session.tempData || {});
 }
 
 async function addItemToCartAndProceed(phone: string, session: any, itemId: string, variantId: string | null = null) {
@@ -342,13 +346,19 @@ async function handleNameInput(phone: string, session: any, input: string) {
   }
 
   const newTemp = { ...(session.tempData as any), name: input };
+  await sendWhatsAppText(phone, "Got it! Do you have any special instructions for the kitchen? (Type 'none' if you don't).");
+  return updateSessionState(session.id, "checkout", session.cart, newTemp);
+}
+
+async function handleInstructionsInput(phone: string, session: any, input: string) {
+  const newTemp = { ...(session.tempData as any), instructions: input };
   
   // Calculate summary (approximate for display)
   const cart = session.cart as any[];
   const itemIds = cart.map(c => c.menuItemId);
   const dbItems = await db.select().from(menuItems).where(inArray(menuItems.id, itemIds));
   
-  let summary = `*Order Summary*\nName: ${input}\nAddress: ${newTemp.address}\nAlt Phone: ${newTemp.altPhone}\n\n*Items:*\n`;
+  let summary = `*Order Summary*\nName: ${newTemp.name}\nAddress: ${newTemp.address}\nAlt Phone: ${newTemp.altPhone}\nInstructions: ${input}\n\n*Items:*\n`;
   let total = 0;
   cart.forEach(c => {
     const dbItem = dbItems.find(i => i.id === c.menuItemId);
@@ -365,7 +375,7 @@ async function handleNameInput(phone: string, session: any, input: string) {
     { id: "confirm_no", title: "Cancel Order" }
   ]);
 
-  return updateSessionState(session.id, "order_confirmation", cart, newTemp);
+  return updateSessionState(session.id, "order_confirmation", session.cart, newTemp);
 }
 
 async function handleConfirmation(phone: string, session: any, input: string) {
