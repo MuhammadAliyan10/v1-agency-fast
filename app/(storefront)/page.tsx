@@ -10,11 +10,11 @@ export default async function StorefrontPage() {
   const heroPlaceholder = "https://images.unsplash.com/photo-1550547660-d9450f859349?w=1600&h=600&fit=crop&q=80";
 
   return (
-    <div className="animate-in fade-in duration-500 flex flex-col w-full">
+    <div className="flex flex-col w-full">
       {/* Hero Section */}
       <section className="w-[100vw] h-[55vh] md:h-[70vh] relative left-1/2 -translate-x-1/2">
         <div className="absolute inset-0 bg-black/50 z-10 flex flex-col items-center justify-center text-center px-4 md:px-6">
-          <div className="max-w-4xl mt-12 md:mt-16 animate-in slide-in-from-bottom-4 duration-700 w-full">
+          <div className="max-w-4xl mt-12 md:mt-16 w-full">
             <span className="text-white font-mono uppercase tracking-[0.2em] text-[10px] md:text-sm mb-3 md:mb-4 block drop-shadow-md">
               SILLANWALI'S FINEST • EST. 2024
             </span>

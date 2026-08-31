@@ -88,7 +88,7 @@ export async function processWhatsAppMessage(phone: string, message: any, contac
         break;
 
       case "address_input":
-        await handleAddressInput(phone, session, input);
+        await handleAddressInput(phone, session, input, message);
         break;
 
       case "alt_phone_input":
@@ -135,7 +135,7 @@ async function handleGreeting(phone: string, session: any) {
 
   await sendWhatsAppInteractiveList(
     phone,
-    "Welcome to Classy Crave! 🍔 Please select a category:",
+    "Welcome to Classy Crave! What can I do for you today? 🍔 Please select a category:",
     "Menu Categories",
     [{ title: "Categories", rows }]
   );
@@ -196,7 +196,7 @@ async function handleItemSelection(phone: string, session: any, input: string) {
     if ((session.cart as any[]).length === 0) {
       return sendWhatsAppText(phone, "Your cart is empty. Please select an item from the menu first.");
     }
-    await sendWhatsAppText(phone, "Great! Please reply with your full delivery address (e.g. House 12, Street 4, Sector F).");
+    await sendWhatsAppText(phone, "Great! Please reply with your full delivery address (e.g. House 12, Street 4, Sector F) OR tap the 📎 Attachment icon and share your Location.");
     return updateSessionState(session.id, "address_input", session.cart, session.tempData);
   }
 
@@ -316,13 +316,21 @@ async function handleItemSelection(phone: string, session: any, input: string) {
   }
 }
 
-async function handleAddressInput(phone: string, session: any, input: string) {
-  if (!/[a-zA-Z]/.test(input) || input.length < 5) {
-    await sendWhatsAppText(phone, "Please provide a valid, complete delivery address containing letters (e.g. House 12, Street 4, DHA).");
-    return;
+async function handleAddressInput(phone: string, session: any, input: string, message?: any) {
+  let finalAddress = input;
+
+  if (message?.type === "location" && message.location) {
+    const lat = message.location.latitude;
+    const long = message.location.longitude;
+    finalAddress = `[Location Shared]: https://www.google.com/maps?q=${lat},${long}`;
+  } else {
+    if (!/[a-zA-Z]/.test(input) || input.length < 5) {
+      await sendWhatsAppText(phone, "Please provide a valid, complete delivery address containing letters (e.g. House 12, Street 4, DHA), OR tap the 📎 attachment icon and share your Location.");
+      return;
+    }
   }
 
-  const newTemp = { ...(session.tempData as any), address: input };
+  const newTemp = { ...(session.tempData as any), address: finalAddress };
   await sendWhatsAppText(phone, "Got it! Please provide an alternate/backup phone number.");
   return updateSessionState(session.id, "alt_phone_input", session.cart, newTemp);
 }
