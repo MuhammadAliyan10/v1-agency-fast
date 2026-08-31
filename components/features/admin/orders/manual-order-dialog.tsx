@@ -193,7 +193,7 @@ export function ManualOrderDialog({ open, onOpenChange }: ManualOrderDialogProps
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0 gap-0">
+      <DialogContent className="max-w-[95vw] sm:max-w-4xl lg:max-w-5xl w-full h-[95vh] md:h-[85vh] flex flex-col p-0 gap-0 overflow-hidden rounded-2xl">
         <DialogHeader className="px-6 pt-6 pb-4 border-b shrink-0">
           <DialogTitle className="text-xl font-bold flex items-center gap-2">
             <ShoppingBag className="w-5 h-5" />
@@ -203,7 +203,7 @@ export function ManualOrderDialog({ open, onOpenChange }: ManualOrderDialogProps
 
         <div className="flex flex-col md:flex-row flex-1 min-h-0">
           {/* LEFT: Menu Picker */}
-          <div className="flex flex-col w-full md:w-[55%] border-r min-h-0">
+          <div className="flex flex-col w-full md:w-[55%] border-b md:border-b-0 md:border-r min-h-[50%] md:min-h-0 flex-1">
             <div className="p-4 border-b shrink-0">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -215,7 +215,7 @@ export function ManualOrderDialog({ open, onOpenChange }: ManualOrderDialogProps
                 />
               </div>
             </div>
-            <ScrollArea className="flex-1">
+            <ScrollArea className="flex-1 min-h-0 overflow-hidden">
               <div className="p-3 space-y-2">
                 {filteredItems.length === 0 && (
                   <p className="text-center text-sm text-muted-foreground py-8">No items found</p>
@@ -264,7 +264,7 @@ export function ManualOrderDialog({ open, onOpenChange }: ManualOrderDialogProps
           </div>
 
           {/* RIGHT: Order Summary + Customer Details */}
-          <div className="flex flex-col w-full md:w-[45%] min-h-0">
+          <div className="flex flex-col w-full md:w-[45%] min-h-[50%] md:min-h-0 flex-1">
             <Tabs defaultValue="items" className="flex flex-col flex-1 min-h-0">
               <TabsList className="rounded-none border-b px-4 h-12 justify-start bg-transparent shrink-0">
                 <TabsTrigger value="items" className="rounded-md data-[state=active]:bg-muted">
@@ -277,7 +277,7 @@ export function ManualOrderDialog({ open, onOpenChange }: ManualOrderDialogProps
 
               {/* Cart Items Tab */}
               <TabsContent value="items" className="flex-1 flex flex-col min-h-0 mt-0">
-                <ScrollArea className="flex-1">
+                <ScrollArea className="flex-1 min-h-0 overflow-hidden">
                   <div className="p-4 space-y-3">
                     {cartLines.length === 0 && (
                       <div className="text-center py-10 text-muted-foreground text-sm">

@@ -18,6 +18,7 @@ import {
   Clock,
   MessageCircle,
   PackageCheck,
+  Undo2,
 } from "lucide-react";
 import {
   Sheet,
@@ -27,7 +28,6 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
@@ -104,10 +104,6 @@ export function OrderDetailsSheet({
   availableRiders = [],
   onAssignRider,
 }: OrderDetailsSheetProps) {
-  const [etaDialogOpen, setEtaDialogOpen] = useState(false);
-  const [etaMinutes, setEtaMinutes] = useState<number>(20);
-  const [customEta, setCustomEta] = useState("");
-
   if (!order) return null;
 
   const isPickup = order.orderType === "pickup";
@@ -118,82 +114,193 @@ export function OrderDetailsSheet({
       ? `https://maps.google.com/?q=${encodeURIComponent(order.deliveryAddress)}`
       : null;
 
-  const handleStartPreparing = () => {
-    setEtaMinutes(20);
-    setCustomEta("");
-    setEtaDialogOpen(true);
+  const getUndoStatus = (status: string, isPickup: boolean): OrderStatus | null => {
+    switch (status) {
+      case "preparing": return "pending";
+      case "ready_for_pickup": return "preparing";
+      case "out_for_delivery": return "preparing";
+      case "delivered": return isPickup ? "ready_for_pickup" : "out_for_delivery";
+      default: return null;
+    }
   };
 
-  const handleConfirmEta = async () => {
-    const finalEta = customEta ? parseInt(customEta) : etaMinutes;
-    setEtaDialogOpen(false);
-    await onUpdateStatus?.(order.id, "preparing", finalEta > 0 ? finalEta : undefined);
+  const undoStatus = getUndoStatus(order.status, isPickup);
+
+  const getRiderWhatsAppUrl = (riderName: string, riderPhone: string) => {
+    let phone = riderPhone.replace(/[^0-9]/g, "");
+    if (phone.startsWith("0")) phone = "92" + phone.substring(1);
+
+    const orderSummary = order.items
+      .map((i) => `• ${i.quantity}x ${i.itemName}${i.variantName ? ` (${i.variantName})` : ""}`)
+      .join("\n");
+      
+    const addressSection = isPickup 
+      ? "Store Pickup" 
+      : (order.deliveryAddress ? `Address: ${order.deliveryAddress}${mapsUrl ? `\nMap: ${mapsUrl}` : ""}` : "");
+      
+    const msg = `Assalamu Alaikum ${riderName}!\nNew order assigned:\nOrder ID: #${order.id}\nCustomer: ${order.customerName} — ${order.customerPhone}\n${addressSection ? `${addressSection}\n` : ""}Items:\n${orderSummary}\nTotal: Rs. ${order.totalAmount}`;
+    
+    return `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
   };
 
   const handleAssignRider = async (riderId: string) => {
     if (!onAssignRider) return;
     const result = await onAssignRider(order.id, riderId);
     if (result?.riderPhone) {
-      const orderSummary = order.items
-        .map((i) => `• ${i.quantity}x ${i.itemName}${i.variantName ? ` (${i.variantName})` : ""}`)
-        .join("%0a");
-      const address = isPickup ? "Store Pickup" : (order.deliveryAddress || "");
-      const msg = `Assalamu Alaikum ${result.riderName ?? ""}!%0aNew order assigned:%0aOrder ID: #${order.id}%0aCustomer: ${order.customerName} — ${order.customerPhone}%0a${address ? `Address: ${address}%0a` : ""}Items:%0a${orderSummary}%0aTotal: Rs. ${order.totalAmount}`;
-      const phone = result.riderPhone.replace(/[^0-9]/g, "");
-      window.open(`https://wa.me/${phone}?text=${msg}`, "_blank");
+      window.open(getRiderWhatsAppUrl(result.riderName ?? "", result.riderPhone), "_blank");
     }
   };
 
   const handlePrintKOT = () => {
-    const kot = document.getElementById(`kot-${order.id}`);
-    if (!kot) return;
-    const win = window.open("", "_blank", "width=400,height=600");
-    if (!win) return;
-    win.document.write(`
-      <html><head><title>KOT #${order.id}</title>
-      <style>
-        body { font-family: monospace; font-size: 13px; padding: 10px; }
-        h2 { text-align:center; margin:0; font-size:16px; }
-        .center { text-align:center; }
-        .dashed { border-top: 1px dashed #000; margin: 8px 0; }
-        .row { display: flex; justify-content: space-between; }
-        .item { margin: 6px 0; }
-        .item-qty { font-size:20px; font-weight:bold; }
-        .badge { background:#000; color:#fff; padding:2px 6px; font-size:11px; display:inline-block; }
-        @media print { @page { margin: 5mm; } }
-      </style>
-      </head><body onload="window.print()">
-      <h2>KITCHEN ORDER</h2>
-      <p class="center" style="margin:2px 0">Order #${order.id}</p>
-      <p class="center" style="margin:2px 0; font-size:11px">${format(new Date(), "dd MMM yyyy, hh:mm a")}</p>
-      <div class="dashed"></div>
-      <div class="row"><span><b>${isPickup ? "🏪 PICKUP" : "🚴 DELIVERY"}</b></span><span><b>${order.orderType?.toUpperCase()}</b></span></div>
-      <div class="dashed"></div>
-      ${order.items
-        .map(
-          (item) => `
-          <div class="item">
-            <span class="item-qty">${item.quantity}x</span> <b>${item.itemName}</b>${item.variantName ? ` <em>(${item.variantName})</em>` : ""}
-            ${item.selectedAddOns && Array.isArray(item.selectedAddOns) && item.selectedAddOns.length > 0 ? `<br><small>+ ${(item.selectedAddOns as any[]).map((a: any) => a.name).join(", ")}</small>` : ""}
-            ${item.specialInstructions ? `<br><span style="background:#ffe500;padding:1px 4px;font-weight:bold;">⚠️ ${item.specialInstructions}</span>` : ""}
-          </div>`
-        )
-        .join("")}
-      <div class="dashed"></div>
-      ${order.deliveryNotes ? `<p><b>Note:</b> ${order.deliveryNotes}</p>` : ""}
-      ${!isPickup && order.deliveryAddress ? `<p><b>Deliver to:</b> ${order.deliveryAddress}</p>` : ""}
-      <p class="center"><b>${order.customerName}</b> | ${order.customerPhone}</p>
-      </body></html>
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "0";
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow?.document;
+    if (!doc) return;
+
+    const itemsHtml = order.items.map(item => `
+      <tr>
+        <td class="qty">${item.quantity}x</td>
+        <td>
+          <span class="bold">${item.itemName}</span>
+          ${item.variantName ? `<br><small>Size: ${item.variantName}</small>` : ""}
+          ${item.selectedAddOns && Array.isArray(item.selectedAddOns) && item.selectedAddOns.length > 0 ? `<br><small>+ ${(item.selectedAddOns as any[]).map(a => a.name).join(", ")}</small>` : ""}
+          ${item.specialInstructions ? `<br><small class="bold">** ${item.specialInstructions} **</small>` : ""}
+        </td>
+        <td class="price">Rs. ${item.subtotal}</td>
+      </tr>
+    `).join("");
+
+    doc.open();
+    doc.write(`
+      <html>
+      <head>
+        <title>Receipt #${order.id}</title>
+        <style>
+          @page { margin: 0; }
+          body { 
+            font-family: 'Courier New', Courier, monospace; 
+            font-size: 12px; 
+            line-height: 1.4;
+            color: #000;
+            margin: 0;
+            padding: 15px;
+            width: 300px;
+          }
+          .text-center { text-align: center; }
+          .text-right { text-align: right; }
+          .text-lg { font-size: 16px; font-weight: bold; }
+          .text-xl { font-size: 22px; font-weight: 900; letter-spacing: 1px; }
+          .dashed-line { border-top: 1px dashed #000; margin: 10px 0; }
+          .flex-between { display: flex; justify-content: space-between; }
+          .bold { font-weight: bold; }
+          .mb-1 { margin-bottom: 4px; }
+          .mt-1 { margin-top: 4px; }
+          table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+          th, td { text-align: left; vertical-align: top; padding-bottom: 6px; }
+          .qty { width: 25px; font-weight: bold; }
+          .price { width: 65px; text-align: right; }
+          .type-badge {
+            border: 2px solid #000;
+            padding: 4px 8px;
+            display: inline-block;
+            font-size: 14px;
+            font-weight: bold;
+            margin: 10px 0;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="text-center">
+          <div class="text-xl">CLASSY CRAVE</div>
+          <div>PREMIUM FAST FOOD</div>
+        </div>
+        
+        <div class="text-center">
+          <div class="type-badge">${isPickup ? "SELF PICKUP" : "DELIVERY"}</div>
+        </div>
+
+        <div class="dashed-line"></div>
+        <div class="flex-between">
+          <span>Order: <b>#${order.id.slice(-6).toUpperCase()}</b></span>
+          <span>${format(new Date(), "dd/MM/yy HH:mm")}</span>
+        </div>
+        <div class="dashed-line"></div>
+
+        <table>
+          ${itemsHtml}
+        </table>
+
+        <div class="dashed-line"></div>
+        <div class="flex-between">
+          <span>Subtotal</span>
+          <span>Rs. ${order.subtotal}</span>
+        </div>
+        <div class="flex-between">
+          <span>Delivery Fee</span>
+          <span>Rs. ${order.deliveryFee}</span>
+        </div>
+        ${order.discountAmount > 0 ? `
+        <div class="flex-between">
+          <span>Discount ${order.couponCode ? `(${order.couponCode})` : ""}</span>
+          <span>- Rs. ${order.discountAmount}</span>
+        </div>
+        ` : ""}
+        
+        <div class="dashed-line"></div>
+        <div class="flex-between text-lg">
+          <span>TOTAL</span>
+          <span>Rs. ${order.totalAmount}</span>
+        </div>
+        <div class="dashed-line"></div>
+
+        <div class="bold mb-1">CUSTOMER DETAILS:</div>
+        <div>${order.customerName}</div>
+        <div>${order.customerPhone}</div>
+        ${order.deliveryAddress && !isPickup ? `<div class="mt-1">${order.deliveryAddress}</div>` : ""}
+        ${order.deliveryNotes ? `<div class="mt-1 bold">NOTE: ${order.deliveryNotes}</div>` : ""}
+        
+        <div class="dashed-line"></div>
+        <div class="text-center mt-1">
+          <div class="text-lg">*** ${order.paymentMethod} ***</div>
+          <div class="bold">${order.paymentStatus.toUpperCase()}</div>
+        </div>
+        <div class="dashed-line"></div>
+        <div class="text-center mt-1">
+          <div>Thank you for choosing</div>
+          <div class="bold">Classy Crave!</div>
+        </div>
+      </body>
+      </html>
     `);
-    win.document.close();
+    doc.close();
+
+    iframe.contentWindow?.focus();
+    
+    // Slight delay to ensure fonts and layout are rendered before printing
+    setTimeout(() => {
+      iframe.contentWindow?.print();
+      // Remove iframe after print dialog opens
+      setTimeout(() => {
+        if (document.body.contains(iframe)) {
+          document.body.removeChild(iframe);
+        }
+      }, 2000);
+    }, 200);
   };
 
   return (
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent className="w-full sm:max-w-md md:max-w-lg p-0 flex flex-col">
-          <div className="h-full flex flex-col">
-            <SheetHeader className="p-6 pb-4 border-b shrink-0">
+        <SheetContent className="w-full sm:max-w-md md:max-w-lg p-0">
+          <div className="absolute inset-0 flex flex-col overflow-hidden">
+            <SheetHeader className="p-6 pb-4 border-b shrink-0 bg-background z-10">
               <div className="flex items-center justify-between">
                 <div>
                   <SheetTitle className="text-xl font-bold">Order #{order.id}</SheetTitle>
@@ -235,8 +342,7 @@ export function OrderDetailsSheet({
               </div>
             </SheetHeader>
 
-            <ScrollArea className="flex-1">
-              <div className="p-6 space-y-6">
+            <div className="flex-1 overflow-y-auto p-6 space-y-6 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-indigo-500/80 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-indigo-600">
                 {/* Customer Info */}
                 <section>
                   <h3 className="font-semibold mb-2 text-sm uppercase text-muted-foreground tracking-wider">Customer</h3>
@@ -285,7 +391,7 @@ export function OrderDetailsSheet({
                   <section>
                     <h3 className="font-semibold mb-2 text-sm uppercase text-muted-foreground tracking-wider">Rider</h3>
                     <div className="bg-muted/40 p-4 rounded-lg">
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
                         <div>
                           {order.rider ? (
                             <>
@@ -305,10 +411,9 @@ export function OrderDetailsSheet({
                             <Button
                               variant="outline"
                               size="sm"
-                              className="gap-1.5 text-green-700 border-green-300 hover:bg-green-50"
+                              className="gap-1.5 text-green-700 border-green-300 hover:bg-green-50 shrink-0"
                               onClick={() => {
-                                const phone = (order.rider!.phone ?? "").replace(/[^0-9]/g, "");
-                                window.open(`https://wa.me/${phone}`, "_blank");
+                                window.open(getRiderWhatsAppUrl(order.rider!.name, order.rider!.phone ?? ""), "_blank");
                               }}
                             >
                               <MessageCircle className="w-3.5 h-3.5" />
@@ -420,17 +525,19 @@ export function OrderDetailsSheet({
                     )}
                   </div>
                 </section>
-              </div>
-            </ScrollArea>
+            </div>
 
             {/* Action Footer */}
-            <div className="p-4 border-t bg-muted/20 flex flex-col gap-2 shrink-0">
+            <div className="p-4 border-t bg-muted/20 flex flex-col gap-2 shrink-0 bg-background z-10">
               {(order.status === "pending" || order.status === "approved") && (
                 <Button
                   className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold"
                   size="lg"
                   disabled={isUpdating}
-                  onClick={handleStartPreparing}
+                  onClick={() => {
+                    onOpenChange(false);
+                    onUpdateStatus?.(order.id, "preparing");
+                  }}
                 >
                   {isUpdating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ChefHat className="mr-2 h-4 w-4" />}
                   Start Preparing
@@ -441,7 +548,10 @@ export function OrderDetailsSheet({
                   className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold"
                   size="lg"
                   disabled={isUpdating}
-                  onClick={() => onUpdateStatus?.(order.id, "ready_for_pickup")}
+                  onClick={() => {
+                    onOpenChange(false);
+                    onUpdateStatus?.(order.id, "ready_for_pickup");
+                  }}
                 >
                   {isUpdating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PackageCheck className="mr-2 h-4 w-4" />}
                   Mark Ready for Pickup
@@ -452,7 +562,10 @@ export function OrderDetailsSheet({
                   className="w-full bg-indigo-500 hover:bg-indigo-600 text-white font-bold"
                   size="lg"
                   disabled={isUpdating}
-                  onClick={() => onUpdateStatus?.(order.id, "out_for_delivery")}
+                  onClick={() => {
+                    onOpenChange(false);
+                    onUpdateStatus?.(order.id, "out_for_delivery");
+                  }}
                 >
                   {isUpdating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Bike className="mr-2 h-4 w-4" />}
                   Send Out for Delivery
@@ -463,7 +576,10 @@ export function OrderDetailsSheet({
                   className="w-full bg-green-600 hover:bg-green-700 text-white font-bold"
                   size="lg"
                   disabled={isUpdating}
-                  onClick={() => onUpdateStatus?.(order.id, "delivered")}
+                  onClick={() => {
+                    onOpenChange(false);
+                    onUpdateStatus?.(order.id, "delivered");
+                  }}
                 >
                   {isUpdating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
                   Mark as Collected
@@ -474,7 +590,10 @@ export function OrderDetailsSheet({
                   className="w-full bg-green-600 hover:bg-green-700 text-white font-bold"
                   size="lg"
                   disabled={isUpdating}
-                  onClick={() => onUpdateStatus?.(order.id, "delivered")}
+                  onClick={() => {
+                    onOpenChange(false);
+                    onUpdateStatus?.(order.id, "delivered");
+                  }}
                 >
                   {isUpdating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
                   Mark as Delivered
@@ -483,66 +602,25 @@ export function OrderDetailsSheet({
               <Button variant="outline" className="w-full" onClick={() => onOpenChange(false)}>
                 Close
               </Button>
+              {undoStatus && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full text-muted-foreground hover:text-foreground text-xs mt-1"
+                  disabled={isUpdating}
+                  onClick={() => {
+                    onOpenChange(false);
+                    onUpdateStatus?.(order.id, undoStatus);
+                  }}
+                >
+                  <Undo2 className="w-3.5 h-3.5 mr-1.5" />
+                  Undo status to {undoStatus.replace(/_/g, " ")}
+                </Button>
+              )}
             </div>
           </div>
         </SheetContent>
       </Sheet>
-
-      {/* ETA Dialog */}
-      <Dialog open={etaDialogOpen} onOpenChange={setEtaDialogOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Clock className="w-5 h-5 text-amber-500" />
-              Set Estimated Time
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <p className="text-sm text-muted-foreground">
-              How long will this order take to be ready? This will be shown to the customer on their tracking page.
-            </p>
-            <div className="grid grid-cols-3 gap-2">
-              {ETA_PRESETS.map((mins) => (
-                <button
-                  key={mins}
-                  type="button"
-                  onClick={() => { setEtaMinutes(mins); setCustomEta(""); }}
-                  className={`py-2.5 text-sm font-bold rounded-lg border transition-all ${
-                    etaMinutes === mins && !customEta
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "border-muted hover:bg-muted/50"
-                  }`}
-                >
-                  {mins} min
-                </button>
-              ))}
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Custom (minutes)</Label>
-              <Input
-                type="number"
-                placeholder="e.g. 35"
-                value={customEta}
-                onChange={(e) => { setCustomEta(e.target.value); setEtaMinutes(0); }}
-                min={1}
-                max={120}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEtaDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleConfirmEta}
-              className="gap-2"
-            >
-              <ChefHat className="w-4 h-4" />
-              Start Preparing
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </>
   );
 }

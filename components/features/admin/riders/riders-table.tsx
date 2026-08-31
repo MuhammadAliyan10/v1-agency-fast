@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Bike, Wifi, WifiOff, Circle, Phone, Car, Loader2, Plus } from "lucide-react";
+import { Bike, Wifi, WifiOff, Circle, Phone, Car, Loader2, Plus, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -152,9 +152,21 @@ export function RidersTable({ data }: RidersTableProps) {
                       <div className="font-semibold text-sm">{rider.name}</div>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Phone className="w-3.5 h-3.5" />
-                        {rider.phone}
+                        <span>{rider.phone}</span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 ml-1 text-green-600 hover:text-green-700 hover:bg-green-50"
+                          title="WhatsApp Rider"
+                          onClick={() => {
+                            const phone = rider.phone.replace(/[^0-9]/g, "");
+                            window.open(`https://wa.me/${phone}`, "_blank");
+                          }}
+                        >
+                          <MessageCircle className="w-3.5 h-3.5" />
+                        </Button>
                       </div>
                       {rider.email && (
                         <div className="text-xs text-muted-foreground/60 mt-0.5">{rider.email}</div>

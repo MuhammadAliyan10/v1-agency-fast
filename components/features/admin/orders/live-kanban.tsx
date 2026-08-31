@@ -8,16 +8,28 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import {
   getLiveOrders,
   updateLiveOrderStatus,
   getAvailableRiders,
   assignRiderToOrder,
+  markOrderPaid,
   type OrderStatus,
 } from "@/server/actions/live-orders";
 import { OrderCard } from "./order-card";
 import { OrderDetailsSheet } from "./order-details-sheet";
 import { ManualOrderDialog } from "./manual-order-dialog";
 import { toast } from "sonner";
+import { ChefHat } from "lucide-react";
+
+const ETA_PRESETS = [10, 15, 20, 25, 30, 45];
 
 const COLUMN_CONFIG = [
   {
@@ -66,6 +78,12 @@ export function LiveKanban() {
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
   const [availableRiders, setAvailableRiders] = useState<{ id: string; name: string; phone?: string | null }[]>([]);
 
+  // ETA Dialog State
+  const [etaDialogOpen, setEtaDialogOpen] = useState(false);
+  const [etaOrderId, setEtaOrderId] = useState<string | null>(null);
+  const [etaMinutes, setEtaMinutes] = useState<number>(20);
+  const [customEta, setCustomEta] = useState("");
+
   const knownOrderIds = useRef<Set<string>>(new Set());
   const [playAlert] = useSound("/sounds/new-order-bell.mp3", { volume: 0.5 });
 
@@ -106,7 +124,15 @@ export function LiveKanban() {
     return () => clearInterval(interval);
   }, [isAlertsEnabled]);
 
-  const handleUpdateStatus = async (orderId: string, newStatus: OrderStatus, etaMinutes?: number) => {
+  const handleUpdateStatus = async (orderId: string, newStatus: OrderStatus, providedEta?: number) => {
+    if (newStatus === "preparing" && providedEta === undefined) {
+      setEtaOrderId(orderId);
+      setEtaMinutes(20);
+      setCustomEta("");
+      setEtaDialogOpen(true);
+      return;
+    }
+
     setUpdatingId(orderId);
 
     setOrders((current) =>
@@ -116,7 +142,7 @@ export function LiveKanban() {
       setSelectedOrder((prev: any) => ({ ...prev, status: newStatus }));
     }
 
-    const res = await updateLiveOrderStatus(orderId, newStatus, etaMinutes);
+    const res = await updateLiveOrderStatus(orderId, newStatus, providedEta);
     if (res.success) {
       const statusLabels: Record<string, string> = {
         pending: "Pending",
@@ -140,6 +166,14 @@ export function LiveKanban() {
     if (selectedOrder?.id === orderId && ["delivered", "cancelled", "rejected"].includes(newStatus)) {
       setIsSheetOpen(false);
     }
+  };
+
+  const handleConfirmEta = async () => {
+    if (!etaOrderId) return;
+    const finalEta = customEta ? parseInt(customEta) : etaMinutes;
+    setEtaDialogOpen(false);
+    await handleUpdateStatus(etaOrderId, "preparing", finalEta > 0 ? finalEta : undefined);
+    setEtaOrderId(null);
   };
 
   const handleAssignRider = async (orderId: string, riderId: string) => {
@@ -175,14 +209,11 @@ export function LiveKanban() {
     if (selectedOrder?.id === orderId) {
       setSelectedOrder((prev: any) => ({ ...prev, paymentStatus: "paid" }));
     }
-    // Mark paid by updating order directly via DB
-    const { db } = await import("@/database/db");
-    const { orders: ordersTable } = await import("@/database/schema");
-    const { eq } = await import("drizzle-orm");
-    try {
-      await db.update(ordersTable).set({ paymentStatus: "paid" }).where(eq(ordersTable.id, orderId));
+    
+    const res = await markOrderPaid(orderId);
+    if (res.success) {
       toast.success("Order marked as paid");
-    } catch {
+    } else {
       toast.error("Failed to mark as paid");
       await fetchOrders();
     }
@@ -304,6 +335,59 @@ export function LiveKanban() {
           if (!open) fetchOrders(); // Refresh kanban after new order
         }}
       />
+
+      {/* ETA Dialog */}
+      <Dialog open={etaDialogOpen} onOpenChange={setEtaDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Clock className="w-5 h-5 text-amber-500" />
+              Set Estimated Time
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              How long will this order take to be ready? This will be shown to the customer on their tracking page.
+            </p>
+            <div className="grid grid-cols-3 gap-2">
+              {ETA_PRESETS.map((mins) => (
+                <button
+                  key={mins}
+                  type="button"
+                  onClick={() => { setEtaMinutes(mins); setCustomEta(""); }}
+                  className={`py-2.5 text-sm font-bold rounded-lg border transition-all ${
+                    etaMinutes === mins && !customEta
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "border-muted hover:bg-muted/50"
+                  }`}
+                >
+                  {mins} min
+                </button>
+              ))}
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Custom (minutes)</Label>
+              <Input
+                type="number"
+                placeholder="e.g. 35"
+                value={customEta}
+                onChange={(e) => { setCustomEta(e.target.value); setEtaMinutes(0); }}
+                min={1}
+                max={120}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEtaDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleConfirmEta} className="gap-2">
+              <ChefHat className="w-4 h-4" />
+              Start Preparing
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

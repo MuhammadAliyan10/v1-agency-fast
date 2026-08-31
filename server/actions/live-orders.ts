@@ -104,6 +104,18 @@ export async function updateLiveOrderStatus(
   }
 }
 
+export async function markOrderPaid(orderId: string) {
+  await requireAdmin();
+  try {
+    await db.update(orders).set({ paymentStatus: "paid", updatedAt: new Date() }).where(eq(orders.id, orderId));
+    revalidatePath("/admin/orders");
+    return { success: true };
+  } catch (error) {
+    console.error("Error marking order paid:", error);
+    return { success: false, error: "Failed to mark order as paid" };
+  }
+}
+
 export async function getAvailableRiders() {
   await requireAdmin();
   try {

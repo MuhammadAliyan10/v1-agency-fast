@@ -5,6 +5,7 @@ import { users, riderProfiles } from "@/database/schema";
 import { requireAdmin } from "@/lib/auth/session";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
+import { revalidatePath } from "next/cache";
 
 export async function getRiders() {
   await requireAdmin();
@@ -39,6 +40,7 @@ export async function updateRiderStatus(riderId: string, status: "available" | "
       .update(riderProfiles)
       .set({ status })
       .where(eq(riderProfiles.id, riderId));
+    revalidatePath("/admin/riders");
     return { success: true };
   } catch (error) {
     console.error("Failed to update rider status:", error);
@@ -50,6 +52,7 @@ export async function toggleRiderActive(userId: string, isActive: boolean) {
   await requireAdmin();
   try {
     await db.update(users).set({ isActive }).where(eq(users.id, userId));
+    revalidatePath("/admin/riders");
     return { success: true };
   } catch (error) {
     console.error("Failed to toggle rider active state:", error);
@@ -80,25 +83,24 @@ export async function createRider(data: {
       passwordHash = await bcrypt.hash(data.password, 10);
     }
 
-    // Transaction to insert user and profile
-    await db.transaction(async (tx) => {
-      const [newUser] = await tx.insert(users).values({
-        name: data.name,
-        phone: data.phone,
-        email: data.email || null,
-        role: "rider",
-        passwordHash,
-        isActive: true,
-      }).returning({ id: users.id });
+    // neon-http doesn't support interactive transactions, so we run them sequentially.
+    const [newUser] = await db.insert(users).values({
+      name: data.name,
+      phone: data.phone,
+      email: data.email || null,
+      role: "rider",
+      passwordHash,
+      isActive: true,
+    }).returning({ id: users.id });
 
-      await tx.insert(riderProfiles).values({
-        userId: newUser.id,
-        vehicleType: data.vehicleType || "bike",
-        vehiclePlate: data.vehiclePlate || null,
-        status: "offline",
-      });
+    await db.insert(riderProfiles).values({
+      userId: newUser.id,
+      vehicleType: data.vehicleType || "bike",
+      vehiclePlate: data.vehiclePlate || null,
+      status: "offline",
     });
 
+    revalidatePath("/admin/riders");
     return { success: true };
   } catch (error) {
     console.error("Failed to create rider:", error);

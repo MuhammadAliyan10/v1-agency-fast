@@ -2,7 +2,7 @@
 "use client";
 
 import { formatDistanceToNow } from "date-fns";
-import { Clock, AlertCircle, ChefHat, Bike, CheckCircle2, User, MapPin, Loader2 } from "lucide-react";
+import { Clock, AlertCircle, ChefHat, Bike, CheckCircle2, User, MapPin, Loader2, Store } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -116,10 +116,18 @@ export function OrderCard({ order, onUpdateStatus, onClick, isUpdating, updating
           <User className="w-3 h-3 text-muted-foreground shrink-0" />
           <span className="font-semibold text-foreground truncate">{order.customerName}</span>
         </div>
-        <div className="flex items-start gap-1.5 text-xs">
-          <MapPin className="w-3 h-3 text-muted-foreground shrink-0 mt-0.5" />
-          <span className="text-muted-foreground line-clamp-2 leading-snug">{order.deliveryAddress}</span>
-        </div>
+        
+        {order.orderType === "pickup" ? (
+          <div className="flex items-start gap-1.5 text-xs">
+            <Store className="w-3 h-3 text-blue-600 shrink-0 mt-0.5" />
+            <span className="text-blue-600 font-semibold line-clamp-1 leading-snug">Self Pickup</span>
+          </div>
+        ) : (
+          <div className="flex items-start gap-1.5 text-xs">
+            <MapPin className="w-3 h-3 text-muted-foreground shrink-0 mt-0.5" />
+            <span className="text-muted-foreground line-clamp-2 leading-snug">{order.deliveryAddress || "No address provided"}</span>
+          </div>
+        )}
       </div>
 
       {/* Special Instructions Alert */}
