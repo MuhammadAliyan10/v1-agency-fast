@@ -71,16 +71,15 @@ export default async function DealsPage() {
                   {deal.description && <p className="text-sm text-muted-foreground mb-3 leading-relaxed">{deal.description}</p>}
 
                   {/* Items included */}
-                  {deal.items && (deal.items as any[]).length > 0 && (
+                  {deal.slots && (deal.slots as any[]).length > 0 && (
                     <div className="mb-3">
                       <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1.5">Includes</p>
                       <div className="flex flex-wrap gap-1.5">
-                        {(deal.items as any[]).map((item, idx) => (
-                          <span key={idx} className="text-xs bg-muted/60 px-2 py-0.5 font-medium">
-                            {item.quantity}x {item.itemName}
-                          </span>
-                        ))}
-                      </div>
+                        {(deal.slots as any[]).map((slot, idx) => (
+                          <li key={idx} className="flex justify-between items-center text-sm">
+                            <span className="font-semibold text-zinc-950">{slot.quantity}x {slot.slotName}</span>
+                          </li>
+                        ))}</div>
                     </div>
                   )}
 

@@ -277,18 +277,41 @@ export const deals = pgTable(
     eventLabel:    varchar("event_label", { length: 100 }),
     originalPrice: integer("original_price").notNull(),
     dealPrice:     integer("deal_price").notNull(),
-    items:         jsonb("items")
-      .$type<{ menuItemId: string; quantity: number; variantId?: string; itemName: string; unitPrice: number }[]>()
-      .notNull(),
     validFrom:  timestamp("valid_from"),
     validUntil: timestamp("valid_until"),
     isActive:   boolean("is_active").default(true).notNull(),
+    isArchived: boolean("is_archived").default(false).notNull(),
     createdAt:  timestamp("created_at").defaultNow(),
     updatedAt:  timestamp("updated_at").defaultNow(),
   },
   (table) => ({
     activeIdx:     index("deals_is_active_idx").on(table.isActive),
     validUntilIdx: index("deals_valid_until_idx").on(table.validUntil),
+    archivedIdx:   index("deals_is_archived_idx").on(table.isArchived),
+  })
+);
+
+export const dealSlots = pgTable(
+  "deal_slots",
+  {
+    id:            uuid("id").defaultRandom().primaryKey(),
+    dealId:        uuid("deal_id").references(() => deals.id, { onDelete: "cascade" }).notNull(),
+    slotName:      varchar("slot_name", { length: 150 }).notNull(), // e.g., "1x Medium Pizza"
+    quantity:      integer("quantity").default(1).notNull(),
+    
+    // Optional: Fixed Menu Item for this slot (e.g., specific "Zinger Burger")
+    menuItemId:    uuid("menu_item_id").references(() => menuItems.id, { onDelete: "set null" }),
+    
+    // Optional: Category for dynamic choice (e.g., Any "Pizza")
+    categoryId:    uuid("category_id").references(() => categories.id, { onDelete: "set null" }),
+    
+    // Optional: Required Variant Name (e.g., "Medium" for pizzas, or "1.5 Ltr" for drinks)
+    requiredVariantName: varchar("required_variant_name", { length: 100 }),
+    
+    createdAt:     timestamp("created_at").defaultNow(),
+  },
+  (table) => ({
+    dealIdx:       index("deal_slots_deal_id_idx").on(table.dealId),
   })
 );
 
@@ -495,6 +518,27 @@ export const usersRelations = relations(users, ({ many, one }) => ({
   riderProfile:        one(riderProfiles, { fields: [users.id], references: [riderProfiles.userId] }),
   staffPermissions:    one(staffPermissions, { fields: [users.id], references: [staffPermissions.userId] }),
   activityLogs:        many(activityLog),
+}));
+
+
+
+export const dealsRelations = relations(deals, ({ many }) => ({
+  slots: many(dealSlots),
+}));
+
+export const dealSlotsRelations = relations(dealSlots, ({ one }) => ({
+  deal: one(deals, {
+    fields: [dealSlots.dealId],
+    references: [deals.id],
+  }),
+  menuItem: one(menuItems, {
+    fields: [dealSlots.menuItemId],
+    references: [menuItems.id],
+  }),
+  category: one(categories, {
+    fields: [dealSlots.categoryId],
+    references: [categories.id],
+  }),
 }));
 
 export const staffPermissionsRelations = relations(staffPermissions, ({ one }) => ({

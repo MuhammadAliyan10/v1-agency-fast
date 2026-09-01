@@ -33,6 +33,15 @@ const SAFE_BG_CLASSES = "bg-amber-400 dark:bg-amber-500 bg-blue-400 dark:bg-blue
 
 const getBgColor = (borderClass: string) => borderClass.replace(/border-/g, "bg-");
 
+const getOrderTypeColor = (type: string) => {
+  switch (type) {
+    case "dine_in": return "bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/20";
+    case "delivery": return "bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-500/20";
+    case "pickup": return "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20";
+    default: return "bg-muted/50 border-primary/20 text-primary";
+  }
+};
+
 function formatPhone(phone: string | null) {
   if (!phone) return "";
   let clean = phone.replace(/\D/g, "");
@@ -270,7 +279,7 @@ export function KanbanCard({ order, role, isOverlay, borderColor = "border-borde
               </SheetTitle>
               
               <div className="flex flex-wrap items-center gap-1.5">
-                <Badge variant="outline" className="uppercase font-black tracking-widest text-[9px] px-1.5 py-0 border-primary/20 text-primary bg-primary/5">
+                <Badge variant="outline" className={cn("uppercase font-black tracking-widest text-[9px] px-1.5 py-0", getOrderTypeColor(order.orderType))}>
                   {order.orderType.replace("_", " ")}
                 </Badge>
                 <Badge variant="outline" className={cn("uppercase font-black tracking-widest text-[9px] px-1.5 py-0 border", borderColor)}>
@@ -577,7 +586,7 @@ export function KanbanCard({ order, role, isOverlay, borderColor = "border-borde
               <Badge className={cn("text-[9px] uppercase font-bold tracking-wider px-1.5 py-0 text-white hover:text-white border-0 shadow-sm whitespace-nowrap", getBgColor(borderColor))}>
                 {order.status.replace(/_/g, " ")}
               </Badge>
-              <Badge variant="outline" className="text-[9px] uppercase font-bold tracking-wider px-1.5 py-0 shadow-sm bg-muted/50 border-primary/20 text-primary whitespace-nowrap">
+              <Badge variant="outline" className={cn("text-[9px] uppercase font-bold tracking-wider px-1.5 py-0 shadow-sm whitespace-nowrap", getOrderTypeColor(order.orderType))}>
                 {order.orderType.replace(/_/g, " ")}
               </Badge>
             </div>

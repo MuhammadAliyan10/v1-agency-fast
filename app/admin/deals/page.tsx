@@ -8,13 +8,20 @@ export const dynamic = "force-dynamic";
 export default async function AdminDealsPage() {
   const [dealsRes, menuRes] = await Promise.all([getAllDeals(), getPublicMenu()]);
 
-  const menuItems = (menuRes.data || []).flatMap((cat: any) =>
-    (cat.items || []).map((item: any) => ({ id: item.id, name: item.name, basePrice: item.basePrice }))
+  const categories = menuRes.data || [];
+  
+  const menuItems = categories.flatMap((cat: any) =>
+    (cat.items || []).map((item: any) => ({ 
+      id: item.id, 
+      name: item.name, 
+      basePrice: item.basePrice,
+      categoryId: cat.id
+    }))
   );
 
   return (
     <div className="space-y-6 p-6">
-      <DealsAdmin initialDeals={dealsRes.data || []} menuItems={menuItems} />
+      <DealsAdmin initialDeals={dealsRes.data || []} menuItems={menuItems} categories={categories} />
     </div>
   );
 }

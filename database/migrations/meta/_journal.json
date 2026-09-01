@@ -127,6 +127,20 @@
       "when": 1788275783054,
       "tag": "0017_lazy_deathbird",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1788280475317,
+      "tag": "0018_hard_polaris",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1788280493029,
+      "tag": "0019_public_wolfsbane",
+      "breakpoints": true
     }
   ]
 }
