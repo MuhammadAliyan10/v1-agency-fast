@@ -113,6 +113,20 @@
       "when": 1788259849523,
       "tag": "0015_right_sentinels",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1788270827013,
+      "tag": "0016_uneven_silver_fox",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1788275783054,
+      "tag": "0017_lazy_deathbird",
+      "breakpoints": true
     }
   ]
 }

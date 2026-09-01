@@ -22,7 +22,7 @@ const manualOrderSchema = z.object({
   deliveryAddress: z.string().optional(),
   deliveryNotes: z.string().optional(),
   tableNumber: z.string().optional(),
-  waiterName: z.string().optional(),
+  waiterId: z.string().optional().nullable(),
   deliveryFee: z.number().default(0),
   discountAmount: z.number().default(0),
   paymentMethod: z.enum(["COD", "Cash", "Card", "JazzCash", "EasyPaisa"]).default("Cash"),
@@ -36,8 +36,8 @@ const manualOrderSchema = z.object({
   })).min(1),
 }).superRefine((data, ctx) => {
   if (data.orderType === "dine_in") {
-    if (!data.waiterName || data.waiterName.trim() === "") {
-      ctx.addIssue({ path: ["waiterName"], message: "Waiter Name is required for Dine-In orders", code: z.ZodIssueCode.custom });
+    if (!data.waiterId || data.waiterId.trim() === "") {
+      ctx.addIssue({ path: ["waiterId"], message: "Waiter is required for Dine-In orders", code: z.ZodIssueCode.custom });
     }
     if (!data.tableNumber || data.tableNumber.trim() === "") {
       ctx.addIssue({ path: ["tableNumber"], message: "Table Number is required for Dine-In orders", code: z.ZodIssueCode.custom });
@@ -101,7 +101,7 @@ export function ManualOrderDialog({ children, existingOrder }: { children: React
   const [customerPhone, setCustomerPhone] = useState("");
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [tableNumber, setTableNumber] = useState("");
-  const [waiterName, setWaiterName] = useState("");
+  const [waiterId, setWaiterId] = useState("");
   const [deliveryFee, setDeliveryFee] = useState(50);
   const [discountType, setDiscountType] = useState<"flat" | "percent">("flat");
   const [discountValue, setDiscountValue] = useState(0);
@@ -120,7 +120,7 @@ export function ManualOrderDialog({ children, existingOrder }: { children: React
       setCustomerName(existingOrder.customerName || "");
       setCustomerPhone(existingOrder.customerPhone || "");
       setTableNumber(existingOrder.tableNumber || "");
-      setWaiterName(existingOrder.waiterName || "");
+      setWaiterId(existingOrder.waiterId || "");
       setCart([]);
     } else if (isOpen && !existingOrder) {
       setCart([]);
@@ -173,7 +173,7 @@ export function ManualOrderDialog({ children, existingOrder }: { children: React
   // Computed valid state
   const isFormValid = useMemo(() => {
     if (orderType === "dine_in") {
-      return (tableNumber?.trim() || "") !== "" && (waiterName?.trim() || "") !== "" && (customerName?.trim() || "") !== "";
+      return (tableNumber?.trim() || "") !== "" && (waiterId?.trim() || "") !== "" && (customerName?.trim() || "") !== "";
     }
     if (orderType === "delivery") {
       return (customerName?.trim() || "") !== "" && (customerPhone?.trim() || "") !== "" && (deliveryAddress?.trim() || "") !== "";
@@ -182,7 +182,7 @@ export function ManualOrderDialog({ children, existingOrder }: { children: React
       return (customerName?.trim() || "") !== "" && (customerPhone?.trim() || "") !== "";
     }
     return false;
-  }, [orderType, tableNumber, waiterName, customerName, customerPhone, deliveryAddress]);
+  }, [orderType, tableNumber, waiterId, customerName, customerPhone, deliveryAddress]);
 
   // Handlers
   const openItemConfig = (item: any) => {
@@ -285,7 +285,7 @@ export function ManualOrderDialog({ children, existingOrder }: { children: React
           customerPhone,
           deliveryAddress: orderType === "delivery" ? deliveryAddress : undefined,
           tableNumber: orderType === "dine_in" ? tableNumber : undefined,
-          waiterName: orderType === "dine_in" ? waiterName : undefined,
+          waiterId: orderType === "dine_in" ? waiterId : undefined,
           deliveryFee: appliedDeliveryFee,
           discountAmount: calculatedDiscount,
           paymentMethod,
@@ -319,12 +319,12 @@ export function ManualOrderDialog({ children, existingOrder }: { children: React
         duration: 10000,
       });
       
-      // Reset State
       setCart([]);
       setCustomerName("");
       setCustomerPhone("");
       setDeliveryAddress("");
       setTableNumber("");
+      setWaiterId("");
     },
     onError: (err: any) => {
       toast.error(err.message || "Failed to place order");
@@ -404,16 +404,16 @@ export function ManualOrderDialog({ children, existingOrder }: { children: React
                       <Input value={tableNumber} onChange={e => setTableNumber(e.target.value)} placeholder="e.g. T-12" className="h-10 rounded-md bg-background" disabled={!!existingOrder} />
                     </div>
                     <div className="space-y-1.5">
-                      <Label>Waiter Name <span className="text-destructive">*</span></Label>
+                      <Label>Waiter <span className="text-destructive">*</span></Label>
                       <select 
                         className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                        value={waiterName}
-                        onChange={e => setWaiterName(e.target.value)}
+                        value={waiterId}
+                        onChange={e => setWaiterId(e.target.value)}
                         disabled={!!existingOrder}
                       >
                         <option value="">Select Waiter</option>
                         {staffWaiters?.map(staff => (
-                          <option key={staff.id} value={staff.name}>{staff.name}</option>
+                          <option key={staff.id} value={staff.id}>{staff.name}</option>
                         ))}
                       </select>
                     </div>

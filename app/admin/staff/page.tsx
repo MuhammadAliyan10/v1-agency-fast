@@ -1,31 +1,56 @@
-import { requireAdmin } from "@/lib/auth/session";
 import { getStaff } from "@/server/actions/staff";
-import { PageHeader } from "@/components/shared/page-header";
+import { verifySessionOrRedirect } from "@/lib/auth/verify-session";
 import { StaffTable } from "@/components/features/admin/staff/staff-table";
-import { Users } from "lucide-react";
+import { StaffDialog } from "@/components/features/admin/staff/staff-dialog";
+import { Button } from "@/components/ui/button";
+import { Plus, ShieldAlert } from "lucide-react";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
-export default async function StaffPage() {
-  const session = await requireAdmin();
-  const result = await getStaff();
+export default async function AdminStaffPage() {
+  const session = await verifySessionOrRedirect(["admin", "manager"]);
+
+  // Only root admin and managers with explicitly granted `canManageStaff` permission can view this page.
+  if (session.role === "manager" && !session.permissions?.canManageStaff) {
+    redirect("/admin/dashboard");
+  }
+
+  const res = await getStaff();
+  if (!res.success) {
+    return (
+      <div className="flex items-center justify-center h-[50vh]">
+        <p className="text-destructive font-medium">{res.error}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        heading="Staff Management"
-        description="Manage admin and manager accounts and their access status."
-      />
-
-      {result.success ? (
-        <StaffTable data={result.data ?? []} currentUserId={session.id} />
-      ) : (
-        <div className="flex flex-col items-center justify-center min-h-[400px] border border-dashed border-border rounded-xl bg-muted/20 gap-3 text-muted-foreground">
-          <Users className="w-10 h-10 opacity-30" />
-          <p className="font-semibold">Failed to load staff</p>
-          <p className="text-sm opacity-70">Please try refreshing the page.</p>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Staff & Access Control</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Manage manager permissions, kitchen access, waiters, and riders.
+          </p>
         </div>
-      )}
+        
+        {session.role === "admin" ? (
+          <StaffDialog>
+            <Button className="gap-2">
+              <Plus className="w-4 h-4" />
+              Add Staff Member
+            </Button>
+          </StaffDialog>
+        ) : (
+          <div className="flex items-center text-xs text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-full border">
+            <ShieldAlert className="w-3.5 h-3.5 mr-1.5 text-amber-500" />
+            Only root Admin can invite new staff.
+          </div>
+        )}
+      </div>
+
+      <StaffTable data={res.data || []} />
     </div>
   );
 }

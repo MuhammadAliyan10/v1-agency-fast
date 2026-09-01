@@ -1,195 +1,118 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { Users, Phone, Mail, Shield, ShieldOff, Loader2, Search, Plus } from "lucide-react";
-import { toast } from "sonner";
-import { format } from "date-fns";
-import { useDebounce } from "use-debounce";
-
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { toggleStaffStatus } from "@/server/actions/staff";
-import { StaffDialogForm } from "./staff-dialog-form";
-import { cn } from "@/lib/utils";
+import { Switch } from "@/components/ui/switch";
+import { Edit2, ShieldAlert } from "lucide-react";
+import { toggleStaffStatus, type StaffMember } from "@/server/actions/staff";
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
+import { StaffDialog } from "./staff-dialog";
 
-interface StaffTableProps {
-  data: any[];
-  currentUserId: string;
-}
-
-const roleConfig: Record<string, { label: string; className: string }> = {
-  admin: { label: "Admin", className: "bg-primary/10 text-primary border-primary/30" },
-  manager: { label: "Manager", className: "bg-blue-50 text-blue-700 border-blue-200" },
-  kitchen: { label: "Kitchen", className: "bg-orange-50 text-orange-700 border-orange-200" },
+const ROLE_COLORS: Record<string, string> = {
+  admin: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+  manager: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400",
+  kitchen: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400",
+  waiter: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+  rider: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400",
 };
 
-export function StaffTable({ data, currentUserId }: StaffTableProps) {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [debouncedSearch] = useDebounce(searchTerm, 300);
-  const [isPending, startTransition] = useTransition();
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+export function StaffTable({ data }: { data: StaffMember[] }) {
+  const router = useRouter();
 
-  const filtered = data.filter(
-    (s) =>
-      s.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-      s.email?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-      s.phone.includes(debouncedSearch)
-  );
-
-  const handleToggle = (userId: string, currentStatus: boolean) => {
-    if (userId === currentUserId) {
-      toast.error("You cannot deactivate your own account.");
-      return;
+  const handleToggle = async (userId: string, currentStatus: boolean | null) => {
+    const newStatus = !(currentStatus ?? false);
+    const toastId = toast.loading(newStatus ? "Activating user..." : "Revoking access (instant)...");
+    
+    const res = await toggleStaffStatus(userId, newStatus);
+    
+    if (res.success) {
+      toast.success(newStatus ? "User activated" : "Access instantly revoked", { id: toastId });
+      router.refresh();
+    } else {
+      toast.error(res.error || "Failed to update status", { id: toastId });
     }
-    startTransition(async () => {
-      const res = await toggleStaffStatus(userId, !currentStatus);
-      if (res.success) {
-        toast.success(`Staff member ${!currentStatus ? "activated" : "deactivated"}`);
-      } else {
-        toast.error(res.error || "Failed to update staff member");
-      }
-    });
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row items-center gap-3">
-        <div className="relative flex-1 w-full max-w-sm">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search staff..."
-            className="pl-8 h-9"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-        <div className="flex items-center gap-4 w-full sm:w-auto ml-auto">
-          <p className="text-sm text-muted-foreground">
-            {filtered.length} member{filtered.length !== 1 ? "s" : ""}
-          </p>
-          <Button onClick={() => setIsDialogOpen(true)} size="sm" className="gap-2">
-            <Plus className="w-4 h-4" /> Add Staff
-          </Button>
-        </div>
-      </div>
-
-      <div className="border border-border/80 rounded-xl bg-card overflow-hidden shadow-sm">
-        <Table>
-          <TableHeader>
-            <TableRow className="hover:bg-transparent bg-muted/20 border-b border-border/60">
-              <TableHead className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Member</TableHead>
-              <TableHead className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Contact</TableHead>
-              <TableHead className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Role</TableHead>
-              <TableHead className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Joined</TableHead>
-              <TableHead className="text-center text-xs font-semibold text-muted-foreground uppercase tracking-wide">Active</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filtered.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center py-16">
-                  <div className="flex flex-col items-center gap-3 text-muted-foreground">
-                    <Users className="w-10 h-10 opacity-20" />
-                    <p className="font-semibold text-sm">No staff found</p>
-                    <p className="text-xs opacity-70">
-                      {data.length === 0
-                        ? "No admin or manager accounts exist yet."
-                        : "No staff match your search."}
-                    </p>
+    <div className="rounded-md border bg-card text-card-foreground shadow-sm overflow-hidden">
+      <Table>
+        <TableHeader className="bg-muted/50">
+          <TableRow>
+            <TableHead>Name</TableHead>
+            <TableHead>Role</TableHead>
+            <TableHead>Contact</TableHead>
+            <TableHead>Permissions</TableHead>
+            <TableHead>Status (Instant Revoke)</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {data.map((staff) => (
+            <TableRow key={staff.id} className={staff.isActive ? "" : "opacity-60 bg-muted/20"}>
+              <TableCell className="font-medium">
+                {staff.name}
+                {staff.role === "admin" && <ShieldAlert className="inline w-3 h-3 ml-2 text-red-500" />}
+              </TableCell>
+              <TableCell>
+                <Badge variant="secondary" className={ROLE_COLORS[staff.role] || "bg-zinc-100 text-zinc-800"}>
+                  {staff.role.charAt(0).toUpperCase() + staff.role.slice(1)}
+                </Badge>
+              </TableCell>
+              <TableCell>
+                <div className="flex flex-col text-sm">
+                  <span>{staff.phone}</span>
+                  {staff.email && <span className="text-xs text-muted-foreground">{staff.email}</span>}
+                </div>
+              </TableCell>
+              <TableCell>
+                {staff.role === "admin" ? (
+                  <span className="text-xs font-semibold text-red-500">Full Access</span>
+                ) : staff.role === "manager" && staff.permissions ? (
+                  <div className="flex flex-wrap gap-1 max-w-[200px]">
+                    {Object.entries(staff.permissions)
+                      .filter(([k, v]) => v === true && k.startsWith("can"))
+                      .map(([k]) => (
+                        <Badge key={k} variant="outline" className="text-[9px] px-1 py-0 h-4">
+                          {k.replace("can", "")}
+                        </Badge>
+                      ))}
                   </div>
-                </TableCell>
-              </TableRow>
-            ) : (
-              filtered.map((member) => {
-                const isSelf = member.id === currentUserId;
-                const roleCfg = roleConfig[member.role] ?? { label: member.role, className: "" };
-                return (
-                  <TableRow
-                    key={member.id}
-                    className={cn("border-b border-border/60 transition-colors", isPending && "opacity-60")}
-                  >
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground shrink-0">
-                          {member.name.charAt(0).toUpperCase()}
-                        </div>
-                        <div>
-                          <div className="font-semibold text-sm flex items-center gap-1.5">
-                            {member.name}
-                            {isSelf && (
-                              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">You</Badge>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-0.5">
-                        {member.email && (
-                          <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                            <Mail className="w-3.5 h-3.5" />
-                            {member.email}
-                          </div>
-                        )}
-                        <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                          <Phone className="w-3.5 h-3.5" />
-                          {member.phone}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={roleCfg.className}>
-                        {roleCfg.label}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {member.createdAt ? format(new Date(member.createdAt), "MMM d, yyyy") : "—"}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div className="flex justify-center">
-                              <Switch
-                                checked={member.isActive ?? true}
-                                onCheckedChange={() => handleToggle(member.id, member.isActive ?? true)}
-                                disabled={isPending || isSelf}
-                              />
-                            </div>
-                          </TooltipTrigger>
-                          {isSelf && (
-                            <TooltipContent>
-                              <p>You cannot deactivate your own account</p>
-                            </TooltipContent>
-                          )}
-                        </Tooltip>
-                      </TooltipProvider>
-                    </TableCell>
-                  </TableRow>
-                );
-              })
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
-      <StaffDialogForm open={isDialogOpen} onOpenChange={setIsDialogOpen} />
+                ) : (
+                  <span className="text-xs text-muted-foreground">Portal Restricted</span>
+                )}
+              </TableCell>
+              <TableCell>
+                <div className="flex items-center gap-2">
+                  <Switch 
+                    checked={staff.isActive ?? false} 
+                    onCheckedChange={() => handleToggle(staff.id, staff.isActive)}
+                    disabled={staff.role === "admin"} // Prevent locking out the root admin easily
+                  />
+                  <span className="text-xs font-medium">
+                    {staff.isActive ? "Active" : "Revoked"}
+                  </span>
+                </div>
+              </TableCell>
+              <TableCell className="text-right">
+                <StaffDialog staff={staff}>
+                  <Button variant="ghost" size="icon">
+                    <Edit2 className="w-4 h-4" />
+                  </Button>
+                </StaffDialog>
+              </TableCell>
+            </TableRow>
+          ))}
+          {data.length === 0 && (
+            <TableRow>
+              <TableCell colSpan={6} className="h-24 text-center">
+                No staff members found.
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
     </div>
   );
 }

@@ -21,8 +21,10 @@ import { KanbanCard } from "./kanban-card";
 import { ManualOrderDialog } from "./manual-order-dialog";
 import { toast } from "sonner";
 import { Loader2, Plus, Volume2, VolumeX, Clock } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
+import { Clock as ClockComponent } from "@/components/shared/clock";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,7 +35,7 @@ interface LiveOrdersBoardProps {
   role: "admin" | "manager" | "kitchen" | "cashier";
 }
 
-const KITCHEN_COLUMNS: OrderStatus[] = ["pending", "preparing", "ready_for_pickup"];
+const KITCHEN_COLUMNS: OrderStatus[] = ["preparing", "ready_for_pickup"];
 const ADMIN_COLUMNS: OrderStatus[] = [
   "pending",
   "approved",
@@ -87,20 +89,21 @@ export function LiveOrdersBoard({ role }: LiveOrdersBoardProps) {
   }, [orders, searchQuery, typeFilter]);
 
   // Audio Alert for New Orders
-  const previousPendingCount = useRef(0);
+  const previousAlertCount = useRef(0);
   const hasInitialized = useRef(false);
   
   useEffect(() => {
-    const currentPending = orders.filter(o => o.status === "pending").length;
+    const alertStatus = isKitchen ? "preparing" : "pending";
+    const currentCount = orders.filter(o => o.status === alertStatus).length;
     
-    if (hasInitialized.current && currentPending > previousPendingCount.current && !isMuted) {
+    if (hasInitialized.current && currentCount > previousAlertCount.current && !isMuted) {
       const audio = new Audio("/sounds/new-order-bell.mp3");
       audio.play().catch(err => console.log("Audio play blocked by browser:", err));
     }
     
-    previousPendingCount.current = currentPending;
+    previousAlertCount.current = currentCount;
     hasInitialized.current = true;
-  }, [orders]);
+  }, [orders, isKitchen, isMuted]);
 
   // Optimistic UI mutation
   const updateStatusMutation = useMutation({
@@ -199,50 +202,70 @@ export function LiveOrdersBoard({ role }: LiveOrdersBoardProps) {
   return (
     <>
       <div className="flex-none pb-4 pt-2 w-full">
-        <PageHeader 
-          heading="Kitchen Board" 
-          description="Live order management & KOT tracking" 
-          className="mb-0"
-        >
-          {role !== "kitchen" && (
+        {isKitchen ? (
+          <div className="flex items-center justify-between bg-card border-b px-4 md:px-6 py-4 -mx-4 md:-mx-6 -mt-4 md:-mt-6 mb-4">
+            <div className="flex items-center gap-3">
+              <h1 className="text-xl font-bold tracking-tight">Kitchen Display</h1>
+            </div>
+            <div className="flex items-center gap-4">
+              <Button 
+                size="sm" 
+                variant={isMuted ? "outline" : "default"} 
+                className="gap-2" 
+                onClick={() => setIsMuted(!isMuted)}
+              >
+                {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+                <span>{isMuted ? "Alerts Muted" : "Alerts On"}</span>
+              </Button>
+              <ClockComponent className="text-sm font-semibold tabular-nums text-muted-foreground bg-muted px-3 py-1.5 rounded-md border" />
+            </div>
+          </div>
+        ) : (
+          <PageHeader 
+            heading="Live Orders" 
+            description="Manage active orders and track kitchen operations" 
+            className="mb-0"
+          >
             <ManualOrderDialog>
               <Button size="sm" className="gap-1.5 h-9 hidden sm:flex">
                 <Plus className="h-4 w-4" />
                 New Order
               </Button>
             </ManualOrderDialog>
-          )}
-          <Button 
-            size="sm" 
-            variant="outline" 
-            className="gap-1.5 h-9" 
-            onClick={() => setIsMuted(!isMuted)}
-            title={isMuted ? "Unmute new order alerts" : "Mute new order alerts"}
-          >
-            {isMuted ? <VolumeX className="h-4 w-4 text-muted-foreground" /> : <Volume2 className="h-4 w-4 text-emerald-500" />}
-            <span className="hidden sm:inline">{isMuted ? "Muted" : "Alerts On"}</span>
-          </Button>
-        </PageHeader>
+            <Button 
+              size="sm" 
+              variant="outline" 
+              className="gap-1.5 h-9" 
+              onClick={() => setIsMuted(!isMuted)}
+              title={isMuted ? "Unmute new order alerts" : "Mute new order alerts"}
+            >
+              {isMuted ? <VolumeX className="h-4 w-4 text-muted-foreground" /> : <Volume2 className="h-4 w-4 text-emerald-500" />}
+              <span className="hidden sm:inline">{isMuted ? "Muted" : "Alerts On"}</span>
+            </Button>
+          </PageHeader>
+        )}
         
-        {/* Filters */}
-        <div className="flex flex-col sm:flex-row items-center gap-4 bg-background border rounded-[10px] p-2 shadow-sm mt-4">
-          <div className="relative w-full sm:max-w-xs flex-1">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search ID, name, phone..."
-              className="pl-9 h-9 border-none bg-muted/30 focus-visible:ring-1 focus-visible:ring-primary shadow-inner text-sm"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
+        {/* Filters - Hidden in Kitchen */}
+        {!isKitchen && (
+          <div className="flex flex-col sm:flex-row items-center gap-4 bg-background border rounded-[10px] p-2 shadow-sm mt-4">
+            <div className="relative w-full sm:max-w-xs flex-1">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search ID, name, phone..."
+                className="pl-9 h-9 border-none bg-muted/30 focus-visible:ring-1 focus-visible:ring-primary shadow-inner text-sm"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <div className="h-6 w-px bg-border hidden sm:block"></div>
+            <ToggleGroup type="single" value={typeFilter} onValueChange={(v) => v && setTypeFilter(v)} className="justify-start w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+              <ToggleGroupItem value="all" className="h-9 px-4 text-xs font-semibold rounded-md">All Orders</ToggleGroupItem>
+              <ToggleGroupItem value="dine_in" className="h-9 px-4 text-xs font-semibold rounded-md whitespace-nowrap">Dine-In</ToggleGroupItem>
+              <ToggleGroupItem value="delivery" className="h-9 px-4 text-xs font-semibold rounded-md whitespace-nowrap">Delivery</ToggleGroupItem>
+              <ToggleGroupItem value="pickup" className="h-9 px-4 text-xs font-semibold rounded-md whitespace-nowrap">Pickup</ToggleGroupItem>
+            </ToggleGroup>
           </div>
-          <div className="h-6 w-px bg-border hidden sm:block"></div>
-          <ToggleGroup type="single" value={typeFilter} onValueChange={(v) => v && setTypeFilter(v)} className="justify-start w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
-            <ToggleGroupItem value="all" className="h-9 px-4 text-xs font-semibold rounded-md">All Orders</ToggleGroupItem>
-            <ToggleGroupItem value="dine_in" className="h-9 px-4 text-xs font-semibold rounded-md whitespace-nowrap">Dine-In</ToggleGroupItem>
-            <ToggleGroupItem value="delivery" className="h-9 px-4 text-xs font-semibold rounded-md whitespace-nowrap">Delivery</ToggleGroupItem>
-            <ToggleGroupItem value="pickup" className="h-9 px-4 text-xs font-semibold rounded-md whitespace-nowrap">Pickup</ToggleGroupItem>
-          </ToggleGroup>
-        </div>
+        )}
       </div>
 
       <div className="flex-1 relative">
@@ -253,7 +276,7 @@ export function LiveOrdersBoard({ role }: LiveOrdersBoardProps) {
             onDragStart={onDragStart}
             onDragEnd={onDragEnd}
           >
-            <div className="flex gap-4 h-max min-h-[calc(100vh-220px)] w-max items-stretch">
+            <div className={cn("flex gap-4 h-max min-h-[calc(100vh-220px)] items-stretch", isKitchen ? "w-full" : "w-max")}>
               {columns.map((colStatus) => (
                 <KanbanColumn
                   key={colStatus}

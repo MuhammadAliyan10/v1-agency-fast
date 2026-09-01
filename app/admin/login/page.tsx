@@ -4,7 +4,7 @@ import { useTransition, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
-import { loginAdmin } from "@/server/actions/auth";
+import { loginStaff } from "@/server/actions/auth";
 import { loginSchema, LoginInput } from "@/lib/validations/auth";
 import { toast } from "sonner";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
@@ -44,9 +44,9 @@ export default function AdminLoginPage() {
 
   function onSubmit(data: LoginInput) {
     startTransition(async () => {
-      const result = await loginAdmin(data);
+      const result = await loginStaff(data);
 
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
         form.setError("root", { type: "manual", message: result.error });
         return;
@@ -54,7 +54,7 @@ export default function AdminLoginPage() {
 
       if (result.success) {
         toast.success("Welcome back!");
-        router.push("/admin/dashboard");
+        router.push(result.redirectTo);
       }
     });
   }

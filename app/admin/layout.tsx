@@ -1,3 +1,4 @@
+// app/admin/layout.tsx
 "use client";
 
 import { usePathname } from "next/navigation";
@@ -13,14 +14,12 @@ export default function AdminLayout({
   const pathname = usePathname();
 
   useEffect(() => {
-    // Add admin-theme to body so that portals (Dialogs, Selects) inherit the theme
     document.body.classList.add("admin-theme");
     return () => {
       document.body.classList.remove("admin-theme");
     };
   }, []);
 
-  // If we are on the login page, do not render sidebar and header
   if (pathname === "/admin/login") {
     return <>{children}</>;
   }

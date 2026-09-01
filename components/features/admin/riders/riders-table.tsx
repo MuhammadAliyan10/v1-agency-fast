@@ -25,9 +25,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
 import { useDebounce } from "use-debounce";
-import { updateRiderStatus, toggleRiderActive } from "@/server/actions/riders";
+import { updateRiderStatus, toggleRiderActive, settleRiderCash } from "@/server/actions/riders";
 import { RiderDialogForm } from "./rider-dialog-form";
 import { cn } from "@/lib/utils";
+import { Banknote } from "lucide-react";
 
 interface RidersTableProps {
   data: any[];
@@ -88,6 +89,17 @@ export function RidersTable({ data }: RidersTableProps) {
     });
   };
 
+  const handleSettleCash = (userId: string) => {
+    startTransition(async () => {
+      const res = await settleRiderCash(userId);
+      if (res.success) {
+        toast.success("Cash settled successfully!");
+      } else {
+        toast.error(res.error || "Failed to settle cash.");
+      }
+    });
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row items-center gap-3">
@@ -118,13 +130,14 @@ export function RidersTable({ data }: RidersTableProps) {
               <TableHead className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Contact</TableHead>
               <TableHead className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Vehicle</TableHead>
               <TableHead className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Status</TableHead>
+              <TableHead className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Pending Cash</TableHead>
               <TableHead className="text-center text-xs font-semibold text-muted-foreground uppercase tracking-wide">Active</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-16">
+                <TableCell colSpan={6} className="text-center py-16">
                   <div className="flex flex-col items-center gap-3 text-muted-foreground">
                     <Bike className="w-10 h-10 opacity-20" />
                     <p className="font-semibold text-sm">No riders found</p>
@@ -233,6 +246,27 @@ export function RidersTable({ data }: RidersTableProps) {
                           </span>
                         </Badge>
                       )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col items-start gap-2">
+                        <span className={cn(
+                          "font-bold text-sm",
+                          rider.pendingCash > 0 ? "text-amber-500" : "text-emerald-500"
+                        )}>
+                          Rs. {rider.pendingCash}
+                        </span>
+                        {rider.pendingCash > 0 && (
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="h-6 text-[10px] px-2 border-amber-500 text-amber-500 hover:bg-amber-500 hover:text-white"
+                            onClick={() => handleSettleCash(rider.id)}
+                            disabled={isPending}
+                          >
+                            <Banknote className="w-3 h-3 mr-1" /> Settle
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="text-center">
                       <Switch

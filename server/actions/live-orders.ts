@@ -300,7 +300,7 @@ const manualOrderSchema = z.object({
   deliveryAddress: z.string().optional(),
   deliveryNotes: z.string().optional(),
   tableNumber: z.string().optional(),
-  waiterName: z.string().optional(),
+  waiterId: z.string().optional().nullable(),
   deliveryFee: z.number().default(0),
   discountAmount: z.number().default(0),
   paymentMethod: z.enum(["COD", "Cash", "Card", "JazzCash", "EasyPaisa"]).default("Cash"),
@@ -314,8 +314,8 @@ const manualOrderSchema = z.object({
   })).min(1),
 }).superRefine((data, ctx) => {
   if (data.orderType === "dine_in") {
-    if (!data.waiterName || data.waiterName.trim() === "") {
-      ctx.addIssue({ path: ["waiterName"], message: "Waiter Name is required for Dine-In orders", code: z.ZodIssueCode.custom });
+    if (!data.waiterId || data.waiterId.trim() === "") {
+      ctx.addIssue({ path: ["waiterId"], message: "Waiter is required for Dine-In orders", code: z.ZodIssueCode.custom });
     }
     if (!data.tableNumber || data.tableNumber.trim() === "") {
       ctx.addIssue({ path: ["tableNumber"], message: "Table Number is required for Dine-In orders", code: z.ZodIssueCode.custom });
@@ -346,7 +346,7 @@ const manualOrderSchema = z.object({
 });
 
 export async function createManualOrder(payload: z.infer<typeof manualOrderSchema>) {
-  await requireAdmin();
+  const session = await requireAdmin();
   try {
     const validated = manualOrderSchema.parse(payload);
     
@@ -403,7 +403,16 @@ export async function createManualOrder(payload: z.infer<typeof manualOrderSchem
       });
     }
     
-    const totalAmount = subtotal + validated.deliveryFee - validated.discountAmount;
+    // Check manual discount limit for managers (now that subtotal is calculated)
+    if (session.role === "manager" && validated.discountAmount > 0) {
+      const maxDiscountPct = session.permissions.maxDiscountPercentage || 0;
+      const calcMaxDiscount = (subtotal * maxDiscountPct) / 100;
+      if (validated.discountAmount > calcMaxDiscount) {
+        throw new Error(`UNAUTHORIZED: Your discount limit is ${maxDiscountPct}%. Maximum allowed discount for this order is Rs. ${Math.floor(calcMaxDiscount)}.`);
+      }
+    }
+
+    const totalAmount = Math.max(0, subtotal + validated.deliveryFee - validated.discountAmount);
     
     // Handle Customer
     let customerId = null;
@@ -427,6 +436,11 @@ export async function createManualOrder(payload: z.infer<typeof manualOrderSchem
     
     const orderId = `ORD-${Math.floor(100000 + Math.random() * 900000)}`;
     
+    let finalWaiterId = validated.waiterId || null;
+    if (!finalWaiterId && session.role === "waiter") {
+      finalWaiterId = session.id;
+    }
+
     await db.insert(orders).values({
       id: orderId,
       customerId,
@@ -434,7 +448,8 @@ export async function createManualOrder(payload: z.infer<typeof manualOrderSchem
       customerPhone: finalCustomerPhone,
       orderType: validated.orderType,
       tableNumber: validated.tableNumber || null,
-      waiterName: validated.waiterName || null,
+      waiterId: finalWaiterId,
+      waiterName: null, // Legacy, can be left null
       deliveryAddress: validated.deliveryAddress || null,
       deliveryNotes: validated.deliveryNotes || null,
       status: "pending",
@@ -475,7 +490,7 @@ const addItemsSchema = z.object({
 });
 
 export async function addItemsToExistingOrder(data: z.infer<typeof addItemsSchema>) {
-  await requireAdmin();
+  const session = await requireAdmin();
   try {
     const validated = addItemsSchema.parse(data);
     
@@ -484,6 +499,11 @@ export async function addItemsToExistingOrder(data: z.infer<typeof addItemsSchem
       return { success: false, error: "Order not found" };
     }
     const existingOrder = existingOrderArr[0];
+    
+    // STRICT EDIT LOCK
+    if (session.role === "manager" && ["preparing", "ready_for_pickup", "out_for_delivery", "delivered"].includes(existingOrder.status)) {
+      throw new Error("UNAUTHORIZED: Managers cannot edit orders that are already preparing or dispatched.");
+    }
     
     const [dbItems, dbVariants, dbAddOns] = await Promise.all([
       db.select().from(menuItems).where(inArray(menuItems.id, validated.items.map(i => i.menuItemId))),
@@ -587,11 +607,16 @@ export async function updateTableNumber(orderId: string, tableNumber: string) {
 }
 
 export async function removeOrderItem(orderId: string, itemId: string) {
-  await requireAdmin();
+  const session = await requireAdmin();
   try {
     const existingOrderArr = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
     if (existingOrderArr.length === 0) throw new Error("Order not found");
     const order = existingOrderArr[0];
+
+    // STRICT EDIT LOCK
+    if (session.role === "manager" && ["preparing", "ready_for_pickup", "out_for_delivery", "delivered"].includes(order.status)) {
+      throw new Error("UNAUTHORIZED: Managers cannot remove items from orders that are already preparing or dispatched.");
+    }
 
     const existingItemArr = await db.select().from(orderItems).where(eq(orderItems.id, itemId)).limit(1);
     if (existingItemArr.length === 0) throw new Error("Item not found");

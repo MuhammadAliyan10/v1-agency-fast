@@ -4,7 +4,6 @@ import {
   ShoppingBag,
   UtensilsCrossed,
   FolderTree,
-  Boxes,
   Bike,
   Users,
   Settings,
@@ -13,6 +12,11 @@ import {
   TrendingUp,
   Tag,
   Ticket,
+  Megaphone,
+  Activity,
+  ChefHat,
+  Coffee,
+  ExternalLink,
 } from "lucide-react";
 
 export const adminNavConfig = {
@@ -30,10 +34,17 @@ export const adminNavConfig = {
   ],
   people: [
     { title: "Customers", url: "/admin/customers", icon: Contact },
+    { title: "CRM Outbox", url: "/admin/outbox", icon: Megaphone },
     { title: "Riders", url: "/admin/riders", icon: Bike },
     { title: "Staff", url: "/admin/staff", icon: Users },
   ],
   system: [
     { title: "Settings", url: "/admin/settings", icon: Settings },
+    { title: "Activity Log", url: "/admin/activity", icon: Activity },
   ],
+  portals: [
+    { title: "Kitchen (KDS)", url: "/kitchen", icon: ChefHat },
+    { title: "Waiter Portal", url: "/waiter", icon: Coffee },
+    { title: "Rider App", url: "/rider", icon: ExternalLink },
+  ]
 };
