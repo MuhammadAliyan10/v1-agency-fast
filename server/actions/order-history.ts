@@ -3,16 +3,18 @@
 import { db } from "@/database/db";
 import { orders } from "@/database/schema";
 import { requireAdmin } from "@/lib/auth/session";
-import { desc, eq, or, ilike, sql, and } from "drizzle-orm";
+import { desc, eq, or, ilike, sql, and, gte, lte } from "drizzle-orm";
 import { orderItems } from "@/database/schema";
 
 export interface GetOrderHistoryParams {
   page?: number;
   search?: string;
   status?: string;
+  dateFrom?: string;
+  dateTo?: string;
 }
 
-export async function getOrderHistory({ page = 1, search = "", status = "all" }: GetOrderHistoryParams = {}) {
+export async function getOrderHistory({ page = 1, search = "", status = "all", dateFrom, dateTo }: GetOrderHistoryParams = {}) {
   await requireAdmin();
 
   try {
@@ -23,6 +25,16 @@ export async function getOrderHistory({ page = 1, search = "", status = "all" }:
 
     if (status && status !== "all") {
       conditions.push(eq(orders.status, status as any));
+    }
+
+    if (dateFrom) {
+      conditions.push(gte(orders.createdAt, new Date(dateFrom)));
+    }
+
+    if (dateTo) {
+      const endOfDay = new Date(dateTo);
+      endOfDay.setHours(23, 59, 59, 999);
+      conditions.push(lte(orders.createdAt, endOfDay));
     }
 
     if (search) {

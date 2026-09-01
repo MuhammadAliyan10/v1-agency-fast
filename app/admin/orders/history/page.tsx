@@ -18,11 +18,15 @@ export default async function OrderHistoryPage({
   const page = typeof params.page === "string" ? parseInt(params.page, 10) : 1;
   const search = typeof params.search === "string" ? params.search : "";
   const status = typeof params.status === "string" ? params.status : "all";
+  const dateFrom = typeof params.from === "string" ? params.from : undefined;
+  const dateTo = typeof params.to === "string" ? params.to : undefined;
 
   const { success, data, totalPages, totalCount, currentPage } = await getOrderHistory({
     page,
     search,
     status,
+    dateFrom,
+    dateTo,
   });
 
   if (!success) {
