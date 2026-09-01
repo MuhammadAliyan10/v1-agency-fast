@@ -87,6 +87,16 @@ export async function sendWhatsAppText(to: string, text: string) {
   });
 }
 
+export async function sendWhatsAppImage(to: string, url: string, caption?: string) {
+  return sendWhatsAppMessage(to, {
+    type: "image",
+    image: {
+      link: url,
+      ...(caption && { caption }),
+    },
+  });
+}
+
 export async function sendWhatsAppInteractiveButtons(
   to: string,
   text: string,

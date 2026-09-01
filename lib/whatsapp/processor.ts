@@ -1,7 +1,7 @@
 import { db } from "@/database/db";
-import { whatsappSessions, menuItems, categories, itemVariants } from "@/database/schema";
+import { whatsappSessions, menuItems, categories, itemVariants, orders } from "@/database/schema";
 import { eq, sql, inArray } from "drizzle-orm";
-import { sendWhatsAppText, sendWhatsAppInteractiveList, sendWhatsAppInteractiveButtons } from "./client";
+import { sendWhatsAppText, sendWhatsAppInteractiveList, sendWhatsAppInteractiveButtons, sendWhatsAppImage } from "./client";
 import { createOrderFromWhatsApp } from "@/server/actions/whatsapp-orders";
 
 export async function processWhatsAppMessage(phone: string, message: any, contact: any) {
@@ -54,6 +54,20 @@ export async function processWhatsAppMessage(phone: string, message: any, contac
     session.cart = [];
     session.tempData = {};
     return handleGreeting(phone, session);
+  }
+
+  // Order Status Tracking
+  if (["status", "track", "track order", "where is my order"].includes(input)) {
+    const lastOrder = await db.query.orders.findFirst({
+      where: eq(orders.customerPhone, phone),
+      orderBy: (orders, { desc }) => [desc(orders.createdAt)]
+    });
+    if (lastOrder) {
+      await sendWhatsAppText(phone, `Your latest order #${lastOrder.id} is currently: *${lastOrder.status.toUpperCase().replace(/_/g, " ")}*.\nTotal: Rs. ${lastOrder.totalAmount}`);
+    } else {
+      await sendWhatsAppText(phone, "I couldn't find any recent orders for this number.");
+    }
+    return;
   }
 
   if (input === "menu") {
@@ -142,9 +156,18 @@ async function handleGreeting(phone: string, session: any) {
   }
 
   const cart = session.cart || [];
-  const greetingText = cart.length > 0 
+  const isReturning = cart.length > 0;
+  
+  const greetingText = isReturning 
     ? "What else would you like to add? 🍔 Please select a category:" 
     : "Welcome to Classy Crave! What can I do for you today? 🍔 Please select a category:";
+
+  if (!isReturning) {
+    const baseUrl = "https://agency-fast.vercel.app";
+    await sendWhatsAppImage(phone, `${baseUrl}/menu/Deals.jpeg`);
+    await sendWhatsAppImage(phone, `${baseUrl}/menu/IceCreams.jpeg`);
+    await sendWhatsAppImage(phone, `${baseUrl}/menu/Items.jpeg`);
+  }
 
   await sendWhatsAppInteractiveList(
     phone,
@@ -221,16 +244,23 @@ async function handleQuantityInput(phone: string, session: any, input: string) {
   const newTemp = { ...(session.tempData as any) };
   delete newTemp.pendingCartItem;
 
-  // Check if we should cross-sell drinks
+  // Check if we should cross-sell drinks or pitch owner specials
   const itemCategory = await db.query.categories.findFirst({ where: eq(categories.id, pendingItem.categoryId) });
   const isFood = itemCategory && !itemCategory.name.toLowerCase().includes("drink") && !itemCategory.name.toLowerCase().includes("beverage");
   
   if (isFood) {
+    const upsells = [
+      `Added ${qty}x ${pendingItem.name} to cart! Would you like to try our special Crown Crust Pizza with that?`,
+      `Added ${qty}x ${pendingItem.name} to cart! How about a sweet dessert to go with your meal?`,
+      `Added ${qty}x ${pendingItem.name} to cart! Would you like a cold refreshing drink with that?`
+    ];
+    const pitch = upsells[Math.floor(Math.random() * upsells.length)];
+
     await sendWhatsAppInteractiveButtons(
       phone,
-      `Added ${qty}x ${pendingItem.name} to cart! Would you like a cold drink with that?`,
+      pitch,
       [
-        { id: "drinks", title: "Yes, Show Drinks" },
+        { id: "drinks", title: "Yes, Show Deals/Drinks" },
         { id: "checkout", title: "Checkout Now" },
         { id: "menu", title: "View Menu Again" }
       ]
@@ -391,7 +421,7 @@ async function handleAddressInput(phone: string, session: any, input: string, me
   }
 
   const newTemp = { ...(session.tempData as any), address: finalAddress, lat, long };
-  await sendWhatsAppText(phone, "Got it! Please provide an alternate/backup phone number.");
+  await sendWhatsAppText(phone, "Got it! Please provide your active CALLING number (not just your WhatsApp number) so the rider can reach you.");
   return updateSessionState(session.id, "alt_phone_input", session.cart, newTemp);
 }
 
