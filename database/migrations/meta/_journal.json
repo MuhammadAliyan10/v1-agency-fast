@@ -50,6 +50,13 @@
       "when": 1788174537153,
       "tag": "0006_dizzy_killmonger",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1788189556982,
+      "tag": "0007_shallow_squadron_sinister",
+      "breakpoints": true
     }
   ]
 }

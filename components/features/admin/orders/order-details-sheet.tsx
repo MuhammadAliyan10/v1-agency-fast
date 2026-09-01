@@ -116,7 +116,7 @@ export function OrderDetailsSheet({
     if (match) {
       mapsUrl = `https://maps.google.com/?q=${match[1]}`;
     }
-  } else if (order.deliveryAddress && !order.deliveryAddress.includes("[Location Shared]")) {
+  } else if (order.deliveryAddress && !order.deliveryAddress.includes("[Location Shared]") && !order.deliveryAddress.includes("Pinned Location")) {
     mapsUrl = `https://maps.google.com/?q=${encodeURIComponent(order.deliveryAddress)}`;
   }
 

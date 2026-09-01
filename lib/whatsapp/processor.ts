@@ -50,10 +50,11 @@ export async function processWhatsAppMessage(phone: string, message: any, contac
 
   // 4. Global Command Interception (Prevents state loops)
   if (input === "hi" || input === "hello" || input === "restart") {
+    const isFirstTime = (session.cart || []).length === 0 && Object.keys((session.tempData as any) || {}).length === 0;
     session.state = "greeting";
     session.cart = [];
     session.tempData = {};
-    return handleGreeting(phone, session);
+    return handleGreeting(phone, session, isFirstTime);
   }
 
   // Order Status Tracking
@@ -72,7 +73,7 @@ export async function processWhatsAppMessage(phone: string, message: any, contac
 
   if (input === "menu") {
     session.state = "greeting";
-    return handleGreeting(phone, session);
+    return handleGreeting(phone, session, true);
   }
 
   if (input === "confirm_yes" || input === "confirm_no") {
@@ -130,7 +131,7 @@ export async function processWhatsAppMessage(phone: string, message: any, contac
         break;
 
       default:
-        await handleGreeting(phone, session);
+        await handleGreeting(phone, session, false);
     }
   } catch (error: any) {
     console.error("[WhatsApp Processor Error]", error);
@@ -138,7 +139,7 @@ export async function processWhatsAppMessage(phone: string, message: any, contac
   }
 }
 
-async function handleGreeting(phone: string, session: any) {
+async function handleGreeting(phone: string, session: any, showImages: boolean = false) {
   // Fetch active categories
   const allCategories = await db.select().from(categories).where(eq(categories.isActive, true));
   
@@ -162,7 +163,7 @@ async function handleGreeting(phone: string, session: any) {
     ? "What else would you like to add? 🍔 Please select a category:" 
     : "Welcome to Classy Crave! What can I do for you today? 🍔 Please select a category:";
 
-  if (!isReturning) {
+  if (showImages) {
     const baseUrl = "https://agency-fast.vercel.app";
     await sendWhatsAppImage(phone, `${baseUrl}/menu/Deals.jpeg`);
     await sendWhatsAppImage(phone, `${baseUrl}/menu/IceCreams.jpeg`);
@@ -181,7 +182,7 @@ async function handleGreeting(phone: string, session: any) {
 
 async function addItemToCartAndProceed(phone: string, session: any, itemId: string, variantId: string | null = null) {
   const matchedItem = await db.query.menuItems.findFirst({ where: eq(menuItems.id, itemId) });
-  if (!matchedItem) return handleGreeting(phone, session);
+  if (!matchedItem) return handleGreeting(phone, session, false);
 
   let price = matchedItem.basePrice;
   let name = matchedItem.name;
@@ -244,23 +245,16 @@ async function handleQuantityInput(phone: string, session: any, input: string) {
   const newTemp = { ...(session.tempData as any) };
   delete newTemp.pendingCartItem;
 
-  // Check if we should cross-sell drinks or pitch owner specials
+  // Check if we should cross-sell drinks
   const itemCategory = await db.query.categories.findFirst({ where: eq(categories.id, pendingItem.categoryId) });
   const isFood = itemCategory && !itemCategory.name.toLowerCase().includes("drink") && !itemCategory.name.toLowerCase().includes("beverage");
   
   if (isFood) {
-    const upsells = [
-      `Added ${qty}x ${pendingItem.name} to cart! Would you like to try our special Crown Crust Pizza with that?`,
-      `Added ${qty}x ${pendingItem.name} to cart! How about a sweet dessert to go with your meal?`,
-      `Added ${qty}x ${pendingItem.name} to cart! Would you like a cold refreshing drink with that?`
-    ];
-    const pitch = upsells[Math.floor(Math.random() * upsells.length)];
-
     await sendWhatsAppInteractiveButtons(
       phone,
-      pitch,
+      `Added ${qty}x ${pendingItem.name} to cart! Would you like a cold refreshing drink with that?`,
       [
-        { id: "drinks", title: "Yes, Show Deals/Drinks" },
+        { id: "drinks", title: "Yes, Show Drinks" },
         { id: "checkout", title: "Checkout Now" },
         { id: "menu", title: "View Menu Again" }
       ]
@@ -284,25 +278,59 @@ async function handleItemSelection(phone: string, session: any, input: string) {
     if ((session.cart as any[]).length === 0) {
       return sendWhatsAppText(phone, "Your cart is empty. Please select an item from the menu first.");
     }
+    
+    // Pitch Dessert if not pitched yet
+    if (!session.tempData?.dessertPitched) {
+      const newTemp = { ...(session.tempData as any), dessertPitched: true };
+      await sendWhatsAppInteractiveButtons(
+        phone,
+        `Before you checkout, would you like a sweet dessert or Ice Cream to complete your meal?`,
+        [
+          { id: "show_desserts", title: "Yes, Show me!" },
+          { id: "final_checkout", title: "No thanks, Checkout" }
+        ]
+      );
+      return updateSessionState(session.id, "item_selection", session.cart, newTemp);
+    }
+    
     await sendWhatsAppText(phone, "Great! Please reply with your full delivery address (e.g. House 12, Street 4, Sector F) OR tap the 📎 Attachment icon and share your Location.");
     return updateSessionState(session.id, "address_input", session.cart, session.tempData);
   }
 
+  if (input === "final_checkout") {
+    await sendWhatsAppText(phone, "Great! Please reply with your full delivery address (e.g. House 12, Street 4, Sector F) OR tap the 📎 Attachment icon and share your Location.");
+    return updateSessionState(session.id, "address_input", session.cart, session.tempData);
+  }
+
+  if (input === "show_desserts") {
+    const baseUrl = "https://agency-fast.vercel.app";
+    await sendWhatsAppImage(phone, `${baseUrl}/menu/IceCreams.jpeg`, "Our delicious Ice Creams & Desserts! 🍦");
+    
+    // Attempt to route directly to dessert category if it exists
+    const dessertCat = await db.query.categories.findFirst({
+      where: (cat, { ilike, or }) => or(ilike(cat.name, "%dessert%"), ilike(cat.name, "%ice cream%"))
+    });
+    if (dessertCat) {
+      return handleItemSelection(phone, session, `cat_${dessertCat.id}`);
+    }
+    return handleGreeting(phone, session, false);
+  }
+
   if (input === "menu") {
-    return handleGreeting(phone, session);
+    return handleGreeting(phone, session, true);
   }
 
   if (input.startsWith("cat_")) {
     const catId = input.replace("cat_", "");
     const cat = await db.query.categories.findFirst({ where: eq(categories.id, catId) });
-    if (!cat) return handleGreeting(phone, session);
+    if (!cat) return handleGreeting(phone, session, false);
 
     const items = await db.select().from(menuItems).where(eq(menuItems.categoryId, cat.id));
     const activeItems = items.filter(i => i.isAvailable).slice(0, 10);
     
     if (activeItems.length === 0) {
       await sendWhatsAppText(phone, `Sorry, no items currently available in ${cat.name}.`);
-      return handleGreeting(phone, session);
+      return handleGreeting(phone, session, false);
     }
 
     const rows = activeItems.map(i => ({
