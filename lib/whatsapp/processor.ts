@@ -301,7 +301,19 @@ export async function processWhatsAppMessage(phone: string, message: any, contac
           const activeOrderId = (session.tempData as any).activeOrderId;
           const activeOrder = await db.query.orders.findFirst({ where: eq(orders.id, activeOrderId) });
           if (activeOrder) {
-            await sendWhatsAppText(phone, `Your order #${activeOrder.id} is currently: *${activeOrder.status.toUpperCase().replace(/_/g, " ")}*.\nTotal: Rs. ${activeOrder.totalAmount}`);
+            const trackUrl = `https://agency-fast.vercel.app/track/${activeOrder.id}`;
+            const text = `Your order #${activeOrder.id} is currently: *${activeOrder.status.toUpperCase().replace(/_/g, " ")}*\nTotal: Rs. ${activeOrder.totalAmount}\n\nTrack online here: ${trackUrl}`;
+            
+            const buttons = [
+              { id: "active_track", title: "Refresh Status" },
+              { id: "active_new", title: "New Order" }
+            ];
+            
+            if (activeOrder.status === "pending") {
+              buttons.push({ id: "active_cancel", title: "Cancel Order" });
+            }
+            
+            await sendWhatsAppInteractiveButtons(phone, text, buttons);
           }
           return;
         } else if (input === "active_new") {
