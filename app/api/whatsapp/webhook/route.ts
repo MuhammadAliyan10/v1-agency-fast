@@ -85,7 +85,9 @@ export async function POST(req: NextRequest) {
 
           // Process via QStash Background Job
           try {
-            const baseUrl = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin || "http://localhost:3000";
+            const host = req.headers.get("x-forwarded-host") || req.headers.get("host");
+            const protocol = req.headers.get("x-forwarded-proto") || "https";
+            const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `${protocol}://${host}`;
             await qstashClient.publishJSON({
               url: `${baseUrl}/api/jobs/process-whatsapp`,
               body: {
