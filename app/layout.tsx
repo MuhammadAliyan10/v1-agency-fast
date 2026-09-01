@@ -7,7 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import QueryProvider from "@/components/providers/query-provider";
 import { Toaster } from "@/components/ui/sonner";
-import { SplashScreen } from "@/components/ui/splash-screen";
+
 
 // ─────────────────────────────────────────────
 // Typography
@@ -157,7 +157,7 @@ export default function RootLayout({ children }: LayoutProps) {
         />
       </head>
       <body suppressHydrationWarning className="min-h-full flex flex-col bg-background text-foreground">
-        <SplashScreen />
+
         <ThemeProvider
           attribute="class"
           defaultTheme="light"

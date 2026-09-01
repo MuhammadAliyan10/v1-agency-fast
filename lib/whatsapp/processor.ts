@@ -1175,6 +1175,7 @@ async function processDealSlot(phone: string, session: any, newTemp: any): Promi
   }
 
   if (slot.categoryId) {
+    session.tempData = newTemp;
     await updateSessionState(session.id, "deal_builder", session.cart, newTemp);
     return sendSlotCategoryOptions(phone, session, slot.categoryId, 1);
   }
