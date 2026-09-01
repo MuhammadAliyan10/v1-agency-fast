@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
 
           // Process via QStash Background Job
           try {
-            const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+            const baseUrl = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin || "http://localhost:3000";
             await qstashClient.publishJSON({
               url: `${baseUrl}/api/jobs/process-whatsapp`,
               body: {
