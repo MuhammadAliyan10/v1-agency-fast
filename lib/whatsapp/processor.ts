@@ -1,5 +1,5 @@
 import { db } from "@/database/db";
-import { whatsappSessions, menuItems, categories, itemVariants, orders } from "@/database/schema";
+import { whatsappSessions, menuItems, categories, itemVariants, orders, orderItems } from "@/database/schema";
 import { eq, sql, inArray } from "drizzle-orm";
 import { sendWhatsAppText, sendWhatsAppInteractiveList, sendWhatsAppInteractiveButtons, sendWhatsAppImage, downloadWhatsAppMedia } from "./client";
 import { transcribeVoiceNote } from "./ai-helper";
