@@ -654,14 +654,16 @@ async function handleItemSelection(phone: string, session: any, input: string) {
     const allCategories = await db.select().from(categories).where(eq(categories.isActive, true));
     const allItems = await db.select().from(menuItems).where(eq(menuItems.isAvailable, true));
     
-    const drinkCat = allCategories.find(c => 
+    const drinkCats = allCategories.filter(c => 
       c.name.toLowerCase().includes("drink") || 
       c.name.toLowerCase().includes("beverage") ||
       c.name.toLowerCase().includes("shake") ||
       c.name.toLowerCase().includes("smoothie")
     );
-    if (drinkCat) {
-      const drinks = allItems.filter(i => i.categoryId === drinkCat.id).slice(0, 10); // WhatsApp max 10 rows per section
+    
+    if (drinkCats.length > 0) {
+      const drinkCatIds = drinkCats.map(c => c.id);
+      const drinks = allItems.filter(i => drinkCatIds.includes(i.categoryId)).slice(0, 10); // WhatsApp max 10 rows per section
       if (drinks.length > 0) {
         const rows = drinks.map(i => ({
           id: `item_${i.id}`,
