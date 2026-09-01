@@ -50,6 +50,8 @@ export const orderSourceEnum = pgEnum("order_source", [
 
 export const whatsappSessionStateEnum = pgEnum("whatsapp_session_state", [
   "language_selection",
+  "active_order_menu",
+  "reorder_menu",
   "greeting",
   "category_selection",
   "item_selection",

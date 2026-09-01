@@ -1,0 +1,2 @@
+ALTER TYPE "public"."whatsapp_session_state" ADD VALUE 'active_order_menu' BEFORE 'greeting';--> statement-breakpoint
+ALTER TYPE "public"."whatsapp_session_state" ADD VALUE 'reorder_menu' BEFORE 'greeting';

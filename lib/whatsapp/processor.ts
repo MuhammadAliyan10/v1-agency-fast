@@ -70,6 +70,17 @@ function t(en: string, lang: string = "en"): string {
     return "Baraye meharbani apna order confirm karein.";
   }
   
+  if (en.includes("You have an active order (#")) {
+    return en.replace("You have an active order (#", "Aapka ek order (#")
+             .replace(") currently being processed. What would you like to do?", ") pehle se active hai. Aap kya karna chahenge?");
+  }
+  if (en.includes("Welcome back to Classy Crave! Would you like to repeat your last order or see the menu?")) {
+    return "Classy Crave mein wapas khush aamdeed! Kya aap apna pichla order repeat karna chahenge ya naya menu dekhna chahenge?";
+  }
+  if (en.includes("Sorry, your order has already been accepted by the kitchen and cannot be cancelled via WhatsApp. Please call the restaurant.")) {
+    return "Maazrat, aapka order kitchen mein ban raha hai aur ab WhatsApp se cancel nahi ho sakta. Baraye meharbani restaurant ko call karein.";
+  }
+  
   if (en.includes("🎉 Order confirmed! Your Order ID is #")) {
     return en.replace("Order confirmed! Your Order ID is #", "Zabardast! Aapka Order confirm ho gaya hai! Aapka Order ID # hai: ")
              .replace("Track your delivery here:", "Apni delivery yahan track karein:")
@@ -156,6 +167,50 @@ export async function processWhatsAppMessage(phone: string, message: any, contac
 
   // 4. Global Command Interception (Prevents state loops)
   if (input === "hi" || input === "hello" || input === "restart") {
+    
+    // Check for Active Orders FIRST
+    const lastOrder = await db.query.orders.findFirst({
+      where: eq(orders.customerPhone, phone),
+      orderBy: (orders, { desc }) => [desc(orders.createdAt)]
+    });
+
+    if (lastOrder && ["pending", "approved", "preparing", "out_for_delivery", "ready_for_pickup", "delayed"].includes(lastOrder.status)) {
+      session.tempData = { activeOrderId: lastOrder.id, activeOrderStatus: lastOrder.status };
+      
+      const buttons = [
+        { id: "active_track", title: "Track Order" },
+        { id: "active_new", title: "Place New Order" }
+      ];
+      
+      if (lastOrder.status === "pending") {
+        buttons.push({ id: "active_cancel", title: "Cancel Order" });
+      }
+
+      await sendWhatsAppInteractiveButtons(
+        phone,
+        t(`You have an active order (#${lastOrder.id}) currently being processed. What would you like to do?`, session.language),
+        buttons
+      );
+      
+      session.state = "active_order_menu";
+      return updateSessionState(session.id, "active_order_menu", [], session.tempData);
+    }
+
+    // Check for past delivered order for Re-Order
+    if (lastOrder && lastOrder.status === "delivered") {
+      session.tempData = { pastOrderId: lastOrder.id };
+      await sendWhatsAppInteractiveButtons(
+        phone,
+        t(`Welcome back to Classy Crave! Would you like to repeat your last order or see the menu?`, session.language),
+        [
+          { id: "reorder_yes", title: "Repeat Last Order" },
+          { id: "reorder_no", title: "See Menu" }
+        ]
+      );
+      session.state = "reorder_menu";
+      return updateSessionState(session.id, "reorder_menu", [], session.tempData);
+    }
+
     const isFirstTime = (session.cart || []).length === 0 && Object.keys((session.tempData as any) || {}).length === 0;
     session.state = "greeting";
     session.cart = [];
@@ -216,6 +271,52 @@ export async function processWhatsAppMessage(phone: string, message: any, contac
             ]
           );
         }
+
+      case "active_order_menu":
+        if (input === "active_track") {
+          const activeOrderId = (session.tempData as any).activeOrderId;
+          const activeOrder = await db.query.orders.findFirst({ where: eq(orders.id, activeOrderId) });
+          if (activeOrder) {
+            await sendWhatsAppText(phone, `Your order #${activeOrder.id} is currently: *${activeOrder.status.toUpperCase().replace(/_/g, " ")}*.\nTotal: Rs. ${activeOrder.totalAmount}`);
+          }
+          return;
+        } else if (input === "active_new") {
+          session.cart = [];
+          session.tempData = {};
+          return handleGreeting(phone, session, true);
+        } else if (input === "active_cancel") {
+          const activeOrderId = (session.tempData as any).activeOrderId;
+          const activeOrder = await db.query.orders.findFirst({ where: eq(orders.id, activeOrderId) });
+          if (activeOrder && activeOrder.status === "pending") {
+            await db.update(orders).set({ status: "cancelled" }).where(eq(orders.id, activeOrder.id));
+            await sendWhatsAppText(phone, t("Order cancelled. Type 'Hi' anytime to start over and order again.", session.language));
+            return updateSessionState(session.id, "cancelled", [], {});
+          } else {
+            await sendWhatsAppText(phone, t("Sorry, your order has already been accepted by the kitchen and cannot be cancelled via WhatsApp. Please call the restaurant.", session.language));
+            return;
+          }
+        }
+        break;
+
+      case "reorder_menu":
+        if (input === "reorder_yes") {
+          const pastOrderId = (session.tempData as any).pastOrderId;
+          const pastOrderItems = await db.query.orderItems.findMany({ where: eq(orderItems.orderId, pastOrderId) });
+          const newCart = pastOrderItems.map(item => ({
+            menuItemId: item.menuItemId,
+            variantId: item.variantId || undefined,
+            quantity: item.quantity
+          }));
+          session.cart = newCart;
+          session.tempData = {};
+          await sendWhatsAppText(phone, t("Great! I've added your previous items to the cart.", session.language));
+          return handleItemSelection(phone, session, "checkout");
+        } else if (input === "reorder_no") {
+          session.cart = [];
+          session.tempData = {};
+          return handleGreeting(phone, session, true);
+        }
+        break;
 
       case "previous_details_prompt":
         if (input === "use_prev") {

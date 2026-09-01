@@ -2,7 +2,7 @@ import OpenAI from "openai";
 import { toFile } from "openai/uploads";
 
 const openai = new OpenAI({
-  apiKey: process.env.NVIDIA_API_KEY,
+  apiKey: process.env.NVIDIA_API_KEY || "dummy_build_key_to_bypass_vercel_validation",
   baseURL: "https://integrate.api.nvidia.com/v1",
 });
 
