@@ -1,5 +1,5 @@
 import { db } from "@/database/db";
-import { whatsappSessions, menuItems, categories, itemVariants, orders, orderItems, deals, dealSlots } from "@/database/schema";
+import { whatsappSessions, menuItems, categories, itemVariants, orders, orderItems, deals, dealSlots, storeSettings } from "@/database/schema";
 import { eq, sql, inArray } from "drizzle-orm";
 import { sendWhatsAppText, sendWhatsAppInteractiveList, sendWhatsAppInteractiveButtons, sendWhatsAppImage, downloadWhatsAppMedia } from "./client";
 import { transcribeVoiceNote } from "./ai-helper";
@@ -27,9 +27,9 @@ function getPaginatedRows(items: any[], page: number, prefix: string, mapFn: (it
 function t(en: string, lang: string = "en"): string {
   if (lang === "en") return en;
   const dict: Record<string, string> = {
-    "Welcome to Classy Crave! What can I do for you today? 🍔 Please select a category:": "Classy Crave mein khush aamdeed! 🍔 Baraye meharbani category select karein:",
-    "What else would you like to add? 🍔 Please select a category:": "Aap mazeed kya add karna chahenge? 🍔 Category select karein:",
-    "Your cart is empty. Please select an item from the menu first.": "Aapka cart khali hai. Pehle menu se koi item select karein.",
+    "Welcome to Classy Crave! What can I do for you today? 🍔 Please select a category:": "Classy Crave mein khush aamdeed! 🍔 Baraye meharbani apni pasandida category select karein:",
+    "What else would you like to add? 🍔 Please select a category:": "Aap mazeed kya add karna pasand karenge? 🍔 Baraye meharbani category select karein:",
+    "Your cart is empty. Please select an item from the menu first.": "Aapka cart abhi khali hai. Pehle menu se koi item select karein, shukriya.",
     "Sorry, we are currently closed or out of stock.": "Maazrat, hum abhi band hain ya stock khatam hai.",
     "Tap to view items": "Items dekhne ke liye tap karein",
     "Menu Categories": "Menu Categories",
@@ -37,37 +37,40 @@ function t(en: string, lang: string = "en"): string {
     "View Items": "Items Dekhein",
     "Checkout Now": "Checkout Karein",
     "View Menu Again": "Menu Dobara Dekhein",
-    "Yes, Show Deals/Drinks": "Haan, Deals/Drinks Dikhayein",
-    "Yes, Show Drinks": "Haan, Drinks Dikhayein",
-    "Yes, Show me!": "Haan, Dikhayein!",
+    "Yes, Show Deals/Drinks": "Jee, Deals/Drinks Dikhayein",
+    "Yes, Show Drinks": "Jee, Drinks Dikhayein",
+    "Yes, Show me!": "Jee, Zaroor Dikhayein!",
     "No thanks, Checkout": "Nahi shukriya, Checkout karein",
-    "Got it! Please provide your active CALLING number (not just your WhatsApp number) so the rider can reach you.": "Theek hai! Baraye meharbani apna active CALLING number batayein (sirf WhatsApp nahi) taake rider aap se raabta kar sake.",
+    "Got it! Please provide your active CALLING number (not just your WhatsApp number) so the rider can reach you.": "Theek hai! Baraye meharbani apna active CALLING number batayein (sirf WhatsApp nahi) taake rider aap se ba-asani raabta kar sake.",
     "Use Previous": "Pichli Tafseelat Use Karein",
-    "Enter New": "Nayi Tafseelat Darj Karein"
+    "Enter New": "Nayi Tafseelat Darj Karein",
+    "Edit/Remove Items": "Items Edit/Remove Karein",
+    "Yes, Confirm": "Jee, Confirm Karein",
+    "Cancel Order": "Order Cancel Karein"
   };
 
   if (dict[en]) return dict[en];
 
   if (en.includes("to cart! Would you like to try our special")) {
-    return en.replace("Added", "Add kar diya:").replace("to cart! Would you like to try our special Crown Crust Pizza with that?", "cart mein! Kya aap hamara special Crown Crust Pizza try karna chahenge?");
+    return en.replace("Added", "Add kar diya gaya:").replace("to cart! Would you like to try our special Crown Crust Pizza with that?", "cart mein! Kya aap hamara special Crown Crust Pizza try karna chahenge?");
   }
   if (en.includes("to cart! How about a sweet dessert")) {
-    return en.replace("Added", "Add kar diya:").replace("to cart! How about a sweet dessert to go with your meal?", "cart mein! Khane ke baad kuch meetha ho jaye?");
+    return en.replace("Added", "Add kar diya gaya:").replace("to cart! How about a sweet dessert to go with your meal?", "cart mein! Khane ke baad kuch meetha ho jaye?");
   }
   if (en.includes("to cart! Would you like a cold refreshing drink with that?")) {
-    return en.replace("Added", "Add kar diya:").replace("to cart! Would you like a cold refreshing drink with that?", "cart mein! Kya aap iske sath thandi cold drink lena pasand karenge?");
+    return en.replace("Added", "Add kar diya gaya:").replace("to cart! Would you like a cold refreshing drink with that?", "cart mein! Kya aap iske sath thandi drink lena pasand karenge?");
   }
   if (en.includes("to cart! Anything else?")) {
-    return en.replace("Added", "Add kar diya:").replace("to cart! Anything else?", "cart mein! Aur kuch?");
+    return en.replace("Added", "Add kar diya gaya:").replace("to cart! Anything else?", "cart mein! Aur kuch lena pasand karenge?");
   }
   if (en.includes("How many")) {
     return en.replace("How many", "Aap kitne").replace("would you like? (Tap a number or type your quantity)", "lena chahenge? (Number tap karein ya type karein)");
   }
   if (en.includes("Before you checkout, would you like a sweet dessert or Ice Cream to complete your meal?")) {
-    return "Checkout karne se pehle, kya aap apne khane ke baad kuch meetha (Dessert / Ice Cream) lena pasand karenge?";
+    return "Checkout karne se pehle, kya aap khane ke baad kuch meetha (Dessert / Ice Cream) lena pasand karenge?";
   }
   if (en.includes("Great! Please reply with your full delivery address")) {
-    return "Zabardast! Baraye meharbani apna mukammal delivery address (jaise House 12, Street 4, Sector F) type karein, YA 📎 Attachment icon daba kar apni Location share karein.";
+    return "Zabardast! Baraye meharbani apna mukammal delivery address type karein, ya apna WhatsApp Location pin share karein.";
   }
   if (en.includes("Got it! Can I have your full name please?")) {
     return "Samajh gaya! Baraye meharbani apna mukammal naam batayein?";
@@ -80,10 +83,13 @@ function t(en: string, lang: string = "en"): string {
     return "Samajh gaya! Kitchen ke liye koi khaas hidayat? (Agar nahi toh bas 'none' likh dein).";
   }
   if (en.includes("Perfect. Lastly, what is your full name?")) {
-    return "Zabardast! Akhri sawal, aapka mukammal naam kya hai?";
+    return "Zabardast! Akhri sawal, baraye meharbani apna mukammal naam bata dein?";
   }
   if (en.includes("Order cancelled. Type 'Hi' anytime to start over and order again.")) {
-    return "Order cancel kar diya gaya hai. Jab bhi naya order karna ho, bas 'Hi' bhejein.";
+    return "Aapka order cancel kar diya gaya hai. Jab bhi naya order karna ho, bas 'Hi' bhejein. Shukriya!";
+  }
+  if (en.includes("Order cancelled. Let's start over.")) {
+    return "Order cancel kar diya gaya hai. Chaliye shuru se shuru karte hain.";
   }
   if (en.includes("Please confirm your order.")) {
     return "Baraye meharbani apna order confirm karein.";
@@ -94,16 +100,16 @@ function t(en: string, lang: string = "en"): string {
              .replace(") currently being processed. What would you like to do?", ") pehle se active hai. Aap kya karna chahenge?");
   }
   if (en.includes("Welcome back to Classy Crave! Would you like to repeat your last order or see the menu?")) {
-    return "Classy Crave mein wapas khush aamdeed! Kya aap apna pichla order repeat karna chahenge ya naya menu dekhna chahenge?";
+    return "Classy Crave mein wapas khush aamdeed! Kya aap apna pichla order repeat karna pasand karenge ya naya menu dekhna chahenge?";
   }
   if (en.includes("Sorry, your order has already been accepted by the kitchen and cannot be cancelled via WhatsApp. Please call the restaurant.")) {
     return "Maazrat, aapka order kitchen mein ban raha hai aur ab WhatsApp se cancel nahi ho sakta. Baraye meharbani restaurant ko call karein.";
   }
 
-  if (en.includes("🎉 Order confirmed! Your Order ID is #")) {
+  if (en.includes("Order confirmed! Your Order ID is #")) {
     return en.replace("Order confirmed! Your Order ID is #", "Zabardast! Aapka Order confirm ho gaya hai! Aapka Order ID # hai: ")
              .replace("Track your delivery here:", "Apni delivery yahan track karein:")
-             .replace("Type 'Hi' anytime if you'd like to place another order!", "Naya order karne ke liye kisi bhi waqt 'Hi' bhejein!");
+             .replace("Type 'Hi' anytime if you'd like to place another order!", "Naya order karne ke liye kisi bhi waqt 'Hi' bhejein, Shukriya!");
   }
 
   return en;
@@ -111,7 +117,7 @@ function t(en: string, lang: string = "en"): string {
 
 
 type AppSession = typeof whatsappSessions.$inferSelect;
-type CartItem = { menuItemId: string, variantId?: string | null, quantity: number, name?: string, price?: number };
+type CartItem = { menuItemId: string, variantId?: string | null, quantity: number, name?: string, price?: number, isDeal?: boolean, specialInstructions?: string };
 
 export async function processWhatsAppMessage(phone: string, message: any, contact: any) {
   const restaurantId = "default"; // Multi-tenant ready
@@ -132,10 +138,33 @@ export async function processWhatsAppMessage(phone: string, message: any, contac
       language: "en"
     }).returning();
     session = newSession[0];
+  } else {
+    // Session Timeout Check (1 Hour)
+    const SESSION_TIMEOUT_MS = 60 * 60 * 1000;
+    if (session.updatedAt && Date.now() - session.updatedAt.getTime() > SESSION_TIMEOUT_MS) {
+      if (session.state !== "greeting" && session.state !== "language_selection") {
+        await sendWhatsAppText(phone, "Maafi chahta hoon, aapka pichla session waqt guzar jane ki wajah se expire ho gaya hai. Chaliye naya order shuru karte hain.");
+        session.state = "greeting";
+        session.cart = [];
+        session.tempData = {};
+        await db.update(whatsappSessions)
+          .set({ state: "greeting", cart: [], tempData: {}, updatedAt: new Date() })
+          .where(eq(whatsappSessions.id, session.id));
+      }
+    }
+  }
+
+  // 1a. Check Business Hours
+  const settings = await db.select().from(storeSettings).where(eq(storeSettings.key, "is_accepting_orders"));
+  const isAcceptingOrders = settings.length > 0 ? settings[0].value === "true" : true;
+  
+  // If the user types 'human' or is in human_handoff, we let it pass, otherwise intercept.
+  const textBody = message.text?.body?.toLowerCase().trim() || "";
+  if (!isAcceptingOrders && session.state !== "human_handoff" && textBody !== "human" && textBody !== "agent" && textBody !== "talk to staff") {
+    return sendWhatsAppText(phone, "Maafi chahta hoon, restaurant abhi orders nahi le raha. Humari services filhal band hain. Shukriya!");
   }
 
   // 2. Extract Message Intent
-  const textBody = message.text?.body?.toLowerCase().trim() || "";
   const interactiveReplyId = message.interactive?.list_reply?.id || message.interactive?.button_reply?.id;
   let input = interactiveReplyId || textBody;
 
@@ -447,6 +476,10 @@ export async function processWhatsAppMessage(phone: string, message: any, contac
         await handleConfirmation(phone, session, input);
         break;
 
+      case "cart_edit":
+        await handleCartEdit(phone, session, input);
+        break;
+
       default:
         await handleGreeting(phone, session, false);
     }
@@ -464,13 +497,15 @@ async function handleGreeting(phone: string, session: any, showImages: boolean =
     ? t("What else would you like to add? 🍔 Please select a category:", session.language)
     : t("Welcome to Classy Crave! What can I do for you today? 🍔 Please select a category:", session.language);
 
-  if (showImages) {
+  if (showImages && !session.tempData?.menuImagesSent) {
     const baseUrl = "https://agency-fast.vercel.app";
     await Promise.all([
       sendWhatsAppImage(phone, `${baseUrl}/Menu/Deals.jpeg`),
       sendWhatsAppImage(phone, `${baseUrl}/Menu/IceCreams.jpeg`),
       sendWhatsAppImage(phone, `${baseUrl}/Menu/Items.jpeg`)
     ]);
+    session.tempData = session.tempData || {};
+    session.tempData.menuImagesSent = true;
   }
 
   const rows = [
@@ -512,9 +547,10 @@ async function addItemToCartAndProceed(phone: string, session: any, itemId: stri
   };
   delete newTemp.pendingItemId;
 
+  const descText = matchedItem.description ? `\n_${matchedItem.description}_` : "";
   await sendWhatsAppInteractiveButtons(
     phone,
-    `How many ${name} would you like? (Tap a number or type your quantity)`,
+    `*${name}*${descText}\n\n` + t("How many would you like? (Tap a number or type your quantity)", session.language),
     [
       { id: "qty_1", title: "1" },
       { id: "qty_2", title: "2" },
@@ -558,7 +594,8 @@ async function handleQuantityInput(phone: string, session: any, input: string) {
 
   // Check if we should cross-sell drinks
   const itemCategory = await db.query.categories.findFirst({ where: eq(categories.id, pendingItem.categoryId) });
-  const isFood = itemCategory && !itemCategory.name.toLowerCase().includes("drink") && !itemCategory.name.toLowerCase().includes("beverage");
+  const catName = itemCategory ? itemCategory.name.toLowerCase() : "";
+  const isFood = catName && !catName.includes("drink") && !catName.includes("beverage") && !catName.includes("dessert") && !catName.includes("ice cream");
 
   if (isFood) {
     await sendWhatsAppInteractiveButtons(
@@ -842,26 +879,63 @@ async function handleInstructionsInput(phone: string, session: any, input: strin
 
   let summary = `*Order Summary*\nName: ${newTemp.name}\nAddress: ${newTemp.address}\nAlt Phone: ${newTemp.altPhone}\nInstructions: ${input}\n\n*Items:*\n`;
   let total = 0;
-  cart.forEach(c => {
+
+  const dealGroups: Record<string, { items: string[], price: number }> = {};
+  const standardItems: string[] = [];
+
+  cart.forEach((c: CartItem) => {
     const dbItem = dbItems.find(i => i.id === c.menuItemId);
     const itemName = c.name || dbItem?.name || "Item";
     const itemPrice = c.price || dbItem?.basePrice || 0;
 
-    summary += `${c.quantity}x ${itemName} (Rs. ${itemPrice})\n`;
-    total += itemPrice * c.quantity;
+    if (c.isDeal && itemName.startsWith("[DEAL:")) {
+       const dealMatch = itemName.match(/\[DEAL: (.*?)\] (.*)/);
+       if (dealMatch) {
+         const dealName = dealMatch[1];
+         const slotName = dealMatch[2];
+         if (!dealGroups[dealName]) dealGroups[dealName] = { items: [], price: 0 };
+         dealGroups[dealName].items.push(`- ${c.quantity}x ${slotName}`);
+         dealGroups[dealName].price += (itemPrice * c.quantity);
+       } else {
+         standardItems.push(`${c.quantity}x ${itemName} (Rs. ${itemPrice})`);
+         total += itemPrice * c.quantity;
+       }
+    } else {
+       standardItems.push(`${c.quantity}x ${itemName} (Rs. ${itemPrice})`);
+       total += itemPrice * c.quantity;
+    }
   });
-  summary += `\nDelivery: Rs. 150\n*Total: Rs. ${total + 150}*\nPayment: Cash on Delivery\n\nIs this correct?`;
+
+  for (const [dealName, group] of Object.entries(dealGroups)) {
+    summary += `*${dealName}* (Rs. ${group.price})\n`;
+    summary += group.items.join("\n") + "\n";
+    total += group.price;
+  }
+  summary += standardItems.join("\n") + (standardItems.length > 0 ? "\n" : "");
+
+  summary += `\nDelivery: Rs. 150\n*Total: Rs. ${total + 150}*\n_Payment: Cash on Delivery_\n\nIs this correct?`;
 
   await sendWhatsAppInteractiveButtons(phone, summary, [
-    { id: "confirm_yes", title: "Yes, Confirm" },
-    { id: "confirm_no", title: "Cancel Order" }
+    { id: "confirm_yes", title: t("Yes, Confirm", session.language) },
+    { id: "edit_cart", title: t("Edit/Remove Items", session.language) },
+    { id: "confirm_no", title: t("Cancel Order", session.language) }
   ]);
 
   return updateSessionState(session.id, "order_confirmation", session.cart, newTemp);
 }
 
 async function handleConfirmation(phone: string, session: any, input: string) {
-  if (input === "confirm_yes" || input === "yes") {
+  // Fuzzy Intent Normalizer
+  const yesWords = ["yes", "haan", "han", "g", "ji", "jee", "confirm", "1", "ok", "yep"];
+  const noWords = ["no", "nahi", "nai", "cancel", "2", "nah"];
+  
+  if (input === "confirm_yes" || yesWords.includes(input)) {
+     input = "confirm_yes";
+  } else if (input === "confirm_no" || noWords.includes(input)) {
+     input = "confirm_no";
+  }
+
+  if (input === "confirm_yes") {
     try {
       const order = await createOrderFromWhatsApp(phone, session.restaurantId);
       if ((order as any).isDuplicate) {
@@ -872,21 +946,71 @@ async function handleConfirmation(phone: string, session: any, input: string) {
       // The outbound message is queued atomically inside createOrderFromWhatsApp
     } catch (error: any) {
       console.error("Order creation failed:", error);
-      await sendWhatsAppText(phone, `Sorry, we couldn't place your order: ${error.message}`);
+      let errMsg = `Maafi chahta hoon, aapka order process nahi ho saka kyunke kuch masla aaya hai. Barae meharbani dubara koshish karein.`;
+      
+      if (error.message.includes("is currently unavailable")) {
+        const itemMatch = error.message.replace("Sorry, ", "").replace(" is currently unavailable.", "");
+        errMsg = `Maafi chahta hoon, aapka order process nahi ho saka kyunke ${itemMatch} abhi out of stock ho gaya hai. Barae meharbani menu se koi aur item select karein.`;
+      }
+      
+      await sendWhatsAppText(phone, errMsg);
       await updateSessionState(session.id, "greeting", [], {});
     }
-  } else if (input === "confirm_no" || input === "no" || input === "cancel") {
+  } else if (input === "confirm_no") {
     await sendWhatsAppText(phone, t("Order cancelled. Type 'Hi' anytime to start over and order again.", session.language));
     await updateSessionState(session.id, "cancelled", [], {});
+  } else if (input === "edit_cart") {
+    const cart = session.cart as any[];
+    if (cart.length === 0) {
+      await sendWhatsAppText(phone, t("Your cart is empty. Please select an item from the menu first.", session.language));
+      return updateSessionState(session.id, "greeting", [], {});
+    }
+    const rows = cart.slice(0, 9).map((c, index) => {
+      let displayName = c.name || "Item";
+      if (c.isDeal) {
+        const m = displayName.match(/\[DEAL: (.*?)\]/);
+        if (m) displayName = `${m[1]} Item`;
+      }
+      return {
+        id: `rm_${index}`,
+        title: `Remove: ${displayName.substring(0, 15)}`,
+        description: `Qty: ${c.quantity} - Rs. ${c.price}`
+      };
+    });
+    await sendWhatsAppInteractiveList(phone, "Select an item to remove from your cart:", "Remove Items", [{ title: "Cart Items", rows }]);
+    return updateSessionState(session.id, "cart_edit", session.cart, session.tempData);
   } else {
     const checkoutSessionId = "chk_" + Date.now() + "_" + Math.random().toString(36).substring(7);
     const newTemp = { ...(session.tempData as any), checkoutSessionId };
     await sendWhatsAppInteractiveButtons(phone, t("Please confirm your order.", session.language), [
-      { id: "confirm_yes", title: "Yes, Confirm" },
-      { id: "confirm_no", title: "Cancel Order" }
+      { id: "confirm_yes", title: t("Yes, Confirm", session.language) },
+      { id: "edit_cart", title: t("Edit/Remove Items", session.language) },
+      { id: "confirm_no", title: t("Cancel Order", session.language) }
     ]);
     return updateSessionState(session.id, "order_confirmation", session.cart, newTemp);
   }
+}
+
+async function handleCartEdit(phone: string, session: any, input: string) {
+  if (input.startsWith("rm_")) {
+    const index = parseInt(input.replace("rm_", ""));
+    const cart = session.cart as any[];
+    if (index >= 0 && index < cart.length) {
+      cart.splice(index, 1);
+      await sendWhatsAppText(phone, "Item cart se remove kar diya gaya hai.");
+    }
+    
+    if (cart.length === 0) {
+      await sendWhatsAppText(phone, t("Your cart is empty. Please select an item from the menu first.", session.language));
+      return updateSessionState(session.id, "greeting", [], {});
+    }
+
+    // Go back to instructions/summary calculation
+    return handleInstructionsInput(phone, session, session.tempData.instructions || "none");
+  }
+
+  // If they send something else, send them back to summary
+  return handleInstructionsInput(phone, session, session.tempData.instructions || "none");
 }
 
 
@@ -949,6 +1073,9 @@ async function handleDealBuilder(phone: string, session: any, input: string) {
         selections: []
       }
     };
+    if (deal.description) {
+      await sendWhatsAppText(phone, `*${deal.name}*\n_${deal.description}_`);
+    }
     return processDealSlot(phone, session, newTemp);
   }
 

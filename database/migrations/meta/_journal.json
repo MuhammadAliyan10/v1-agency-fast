@@ -148,6 +148,13 @@
       "when": 1788283405086,
       "tag": "0020_true_wendell_vaughn",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1788296234082,
+      "tag": "0021_wealthy_george_stacy",
+      "breakpoints": true
     }
   ]
 }
