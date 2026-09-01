@@ -46,7 +46,7 @@ export async function submitOrder(data: CheckoutValues, cartItems: CartItem[], i
     const dbAddOns = await db.select().from(itemAddOns).where(inArray(itemAddOns.menuItemId, menuItemIds));
 
     let calculatedSubtotal = 0;
-    const orderItemsPayload = [];
+    const orderItemsPayload: any[] = [];
 
     // 3. Re-calculate total strictly based on DB records
     for (const item of cartItems) {
@@ -121,8 +121,8 @@ export async function submitOrder(data: CheckoutValues, cartItems: CartItem[], i
     const orderId = `CC-${timestampStr}${entropy}`;
 
     // 7. Insert Order and Order Items atomically
-    await db.batch([
-      db.insert(orders).values({
+    await db.transaction(async (tx) => {
+      await tx.insert(orders).values({
         id: orderId,
         customerName: parsed.data.customerName,
         customerPhone: parsed.data.customerPhone,
@@ -140,14 +140,15 @@ export async function submitOrder(data: CheckoutValues, cartItems: CartItem[], i
         couponCode: validCouponCode,
         totalAmount: totalAmount,
         idempotencyKey: idempotencyKey,
-      }),
-      db.insert(orderItems).values(
+      });
+
+      await tx.insert(orderItems).values(
         orderItemsPayload.map((payload) => ({
           orderId: orderId,
           ...payload,
         }))
-      ),
-    ]);
+      );
+    });
 
     // 8. Increment coupon usage count
     if (validCouponCode) {

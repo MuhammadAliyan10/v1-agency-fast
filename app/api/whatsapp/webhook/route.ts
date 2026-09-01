@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { db } from "@/database/db";
 import { whatsappMessages } from "@/database/schema";
-import { processWhatsAppMessage } from "@/lib/whatsapp/processor";
+import { Client } from "@upstash/qstash";
+
+const qstashClient = new Client({ token: process.env.QSTASH_TOKEN || "" });
 
 const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN;
 const APP_SECRET = process.env.WHATSAPP_APP_SECRET;
@@ -55,7 +57,9 @@ export async function POST(req: NextRequest) {
           const contact = change.value.contacts?.[0];
           const phone = message.from;
           const messageId = message.id;
-          
+          const metadata = change.value.metadata;
+          const restaurantId = metadata?.phone_number_id || "default";
+
           // Idempotency Check
           try {
             await db.insert(whatsappMessages).values({
@@ -79,8 +83,25 @@ export async function POST(req: NextRequest) {
             console.error("[WhatsApp Webhook] DB error on insert:", error);
           }
 
-          // Process the message synchronously to ensure Vercel doesn't kill the background task
-          await processWhatsAppMessage(phone, message, contact).catch(console.error);
+          // Process via QStash Background Job
+          try {
+            const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000";
+            await qstashClient.publishJSON({
+              url: `${baseUrl}/api/jobs/process-whatsapp`,
+              body: {
+                phone,
+                message,
+                contact,
+                restaurantId, // Extracted from Meta metadata (or "default" if absent)
+              },
+              // Give a custom deduplication ID based on Meta message ID as extra safety (QStash deduplicates for 10 min)
+              deduplicationId: `msg_${messageId}`,
+            });
+          } catch (qError) {
+            console.error("[WhatsApp Webhook] QStash publish error:", qError);
+            // Even if QStash fails, we must return 200 to Meta or it will retry indefinitely. 
+            // In a strict environment, we'd alert here.
+          }
         }
       }
     }

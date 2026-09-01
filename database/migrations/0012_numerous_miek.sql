@@ -1,0 +1,1 @@
+ALTER TABLE "whatsapp_messages" ALTER COLUMN "whatsapp_message_id" DROP NOT NULL;

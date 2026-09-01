@@ -48,6 +48,14 @@ export const orderSourceEnum = pgEnum("order_source", [
   "system"
 ]);
 
+export const outboundMessageStatusEnum = pgEnum("outbound_message_status", [
+  "pending",
+  "sending",
+  "sent",
+  "failed",
+  "retry"
+]);
+
 export const whatsappSessionStateEnum = pgEnum("whatsapp_session_state", [
   "language_selection",
   "active_order_menu",
@@ -296,6 +304,7 @@ export const orders = pgTable(
     estimatedReadyAt: timestamp("estimated_ready_at"),
     totalAmount: integer("total_amount").notNull(),
     idempotencyKey: varchar("idempotency_key", { length: 100 }).unique(),
+    checkoutSessionId: varchar("checkout_session_id", { length: 100 }).unique(),
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
   },
@@ -367,13 +376,15 @@ export const orderStatusHistory = pgTable("order_status_history", {
 
 export const whatsappMessages = pgTable("whatsapp_messages", {
   id: uuid("id").defaultRandom().primaryKey(),
-  whatsappMessageId: varchar("whatsapp_message_id", { length: 100 }).unique().notNull(),
+  whatsappMessageId: varchar("whatsapp_message_id", { length: 100 }).unique(),
   restaurantId: varchar("restaurant_id", { length: 50 }).default("default").notNull(),
   phone: varchar("phone", { length: 20 }).notNull(),
   direction: whatsappMessageDirectionEnum("direction").notNull(),
   status: whatsappMessageStatusEnum("status").default("pending").notNull(),
   payload: jsonb("payload"),
   processedAt: timestamp("processed_at"),
+  attemptCount: integer("attempt_count").default(0).notNull(),
+  lastAttemptAt: timestamp("last_attempt_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -388,12 +399,36 @@ export const whatsappSessions = pgTable(
     tempData: jsonb("temp_data"),
     language: varchar("language", { length: 10 }).default("en").notNull(),
     version: integer("version").default(1).notNull(),
+    lockedAt: timestamp("locked_at"),
     expiresAt: timestamp("expires_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => ({
     uniqueSession: unique("whatsapp_sessions_rest_phone_unq").on(table.restaurantId, table.phone),
+  })
+);
+
+// -----------------------------------------------------------------------------
+// Outbound Messages (Outbox Pattern)
+// -----------------------------------------------------------------------------
+export const outboundMessages = pgTable(
+  "outbound_messages",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    phone: varchar("phone", { length: 20 }).notNull(),
+    payload: jsonb("payload").notNull(),
+    status: outboundMessageStatusEnum("status").default("pending").notNull(),
+    attempts: integer("attempts").default(0).notNull(),
+    lastError: text("last_error"),
+    nextRetryAt: timestamp("next_retry_at"),
+    metaMessageId: varchar("meta_message_id", { length: 255 }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    statusIdx: index("outbound_messages_status_idx").on(table.status),
+    nextRetryIdx: index("outbound_messages_next_retry_idx").on(table.nextRetryAt),
   })
 );
 

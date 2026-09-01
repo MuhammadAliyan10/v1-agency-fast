@@ -190,8 +190,8 @@ export async function createManualOrder(data: {
     const timestampStr = Date.now().toString().slice(-4);
     const orderId = `CC-${timestampStr}${entropy}`;
 
-    await db.batch([
-      db.insert(orders).values({
+    await db.transaction(async (tx) => {
+      await tx.insert(orders).values({
         id: orderId,
         customerName: data.customerName,
         customerPhone: data.customerPhone,
@@ -205,8 +205,8 @@ export async function createManualOrder(data: {
         deliveryFee,
         discountAmount: 0,
         totalAmount,
-      }),
-      db.insert(orderItems).values(
+      });
+      await tx.insert(orderItems).values(
         data.items.map((item) => ({
           orderId,
           menuItemId: item.menuItemId,
@@ -219,8 +219,8 @@ export async function createManualOrder(data: {
           selectedAddOns: null,
           specialInstructions: item.specialInstructions || null,
         }))
-      ),
-    ]);
+      );
+    });
 
     revalidatePath("/admin/orders");
     return { success: true, orderId };

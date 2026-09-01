@@ -38,7 +38,7 @@ export async function getProductDetails(id: string) {
       where: eq(categories.isGlobalAddon, true)
     });
     
-    let globalAddons: { categoryId: string; categoryName: string; items: any[] }[] = [];
+    const globalAddons: { categoryId: string; categoryName: string; items: any[] }[] = [];
     
     for (const cat of addonCategories) {
       const items = await db.query.menuItems.findMany({

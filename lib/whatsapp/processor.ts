@@ -94,7 +94,7 @@ export async function processWhatsAppMessage(phone: string, message: any, contac
   const restaurantId = "default"; // Multi-tenant ready
   
   // 1. Get or Create Session
-  let sessionList = await db.select().from(whatsappSessions).where(
+  const sessionList = await db.select().from(whatsappSessions).where(
     sql`${whatsappSessions.restaurantId} = ${restaurantId} AND ${whatsappSessions.phone} = ${phone}`
   );
   
@@ -166,6 +166,30 @@ export async function processWhatsAppMessage(phone: string, message: any, contac
   }
 
   // 4. Global Command Interception (Prevents state loops)
+  if (input === "cancel" || input === "start over") {
+    await sendWhatsAppText(phone, t("Order cancelled. Let's start over.", session.language));
+    return updateSessionState(session.id, "greeting", [], {});
+  }
+
+  if (input === "menu") {
+    const categoriesList = await db.query.categories.findMany({
+      where: eq(categories.isActive, true),
+      orderBy: (c, { asc }) => [asc(c.sortOrder)],
+    });
+    let menuText = "*Main Menu*\n\n";
+    categoriesList.forEach(c => {
+      menuText += `*${c.name}*\n`;
+    });
+    menuText += "\nPlease type the name of the category or item you'd like to order.";
+    await sendWhatsAppText(phone, menuText);
+    return updateSessionState(session.id, "menu_browsing", session.cart || [], {});
+  }
+
+  if (input === "help") {
+    await sendWhatsAppText(phone, "Need help? You can type 'menu' to see what we offer, 'cart' to view your order, 'human' to speak to staff, or 'cancel' to start over.");
+    return;
+  }
+
   if (input === "hi" || input === "hello" || input === "restart") {
     
     // Check for Active Orders FIRST
@@ -618,7 +642,12 @@ async function handleItemSelection(phone: string, session: any, input: string) {
     const allCategories = await db.select().from(categories).where(eq(categories.isActive, true));
     const allItems = await db.select().from(menuItems).where(eq(menuItems.isAvailable, true));
     
-    const drinkCat = allCategories.find(c => c.name.toLowerCase().includes("drink") || c.name.toLowerCase().includes("beverage"));
+    const drinkCat = allCategories.find(c => 
+      c.name.toLowerCase().includes("drink") || 
+      c.name.toLowerCase().includes("beverage") ||
+      c.name.toLowerCase().includes("shake") ||
+      c.name.toLowerCase().includes("smoothie")
+    );
     if (drinkCat) {
       const drinks = allItems.filter(i => i.categoryId === drinkCat.id).slice(0, 10); // WhatsApp max 10 rows per section
       if (drinks.length > 0) {
@@ -742,7 +771,9 @@ async function handleNameInput(phone: string, session: any, input: string) {
 }
 
 async function handleInstructionsInput(phone: string, session: any, input: string) {
-  const newTemp = { ...(session.tempData as any), instructions: input };
+  // Generate idempotency key for this checkout attempt
+  const checkoutSessionId = "chk_" + Date.now() + "_" + Math.random().toString(36).substring(7);
+  const newTemp = { ...(session.tempData as any), instructions: input, checkoutSessionId };
   
   // Calculate summary (approximate for display)
   const cart = session.cart as any[];
@@ -773,11 +804,12 @@ async function handleConfirmation(phone: string, session: any, input: string) {
   if (input === "confirm_yes" || input === "yes") {
     try {
       const order = await createOrderFromWhatsApp(phone, session.restaurantId);
-      
-      const trackUrl = `https://agency-fast.vercel.app/track/${order.orderId}`;
-      await sendWhatsAppText(phone, t(`🎉 Order confirmed! Your Order ID is #${order.orderId}.\n\nTrack your delivery here: ${trackUrl}\n\nType 'Hi' anytime if you'd like to place another order!`, session.language));
-      
-      await updateSessionState(session.id, "order_created", [], {});
+      if ((order as any).isDuplicate) {
+        await sendWhatsAppText(phone, t(`✅ Your order is already received. Order #${order.orderId} is being processed.`, session.language));
+        await updateSessionState(session.id, "order_created", [], {});
+        return;
+      }
+      // The outbound message is queued atomically inside createOrderFromWhatsApp
     } catch (error: any) {
       console.error("Order creation failed:", error);
       await sendWhatsAppText(phone, `Sorry, we couldn't place your order: ${error.message}`);
@@ -787,10 +819,13 @@ async function handleConfirmation(phone: string, session: any, input: string) {
     await sendWhatsAppText(phone, t("Order cancelled. Type 'Hi' anytime to start over and order again.", session.language));
     await updateSessionState(session.id, "cancelled", [], {});
   } else {
+    const checkoutSessionId = "chk_" + Date.now() + "_" + Math.random().toString(36).substring(7);
+    const newTemp = { ...(session.tempData as any), checkoutSessionId };
     await sendWhatsAppInteractiveButtons(phone, t("Please confirm your order.", session.language), [
       { id: "confirm_yes", title: "Yes, Confirm" },
       { id: "confirm_no", title: "Cancel Order" }
     ]);
+    return updateSessionState(session.id, "order_confirmation", session.cart, newTemp);
   }
 }
 

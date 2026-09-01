@@ -29,7 +29,7 @@ export function TrendingSection({ categories, title = "Trending" }: TrendingSect
 
   // Target specific categories requested by user
   const targetKeywords = ["burger", "pizza", "drink", "dessert"];
-  let displayCategories = validCategories.filter(c =>
+  const displayCategories = validCategories.filter(c =>
     targetKeywords.some(keyword => c.name.toLowerCase().includes(keyword))
   ).slice(0, 4);
 

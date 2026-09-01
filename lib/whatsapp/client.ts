@@ -52,7 +52,6 @@ export async function sendWhatsAppMessage(
       console.error("[WhatsApp Client] Error sending message:", data);
       
       await db.insert(whatsappMessages).values({
-        whatsappMessageId: `err_${Date.now()}_${Math.random()}`,
         restaurantId,
         phone: to,
         direction: "outbound",
@@ -62,7 +61,7 @@ export async function sendWhatsAppMessage(
       return false;
     }
 
-    const messageId = data.messages?.[0]?.id || `out_${Date.now()}`;
+    const messageId = data.messages?.[0]?.id || null;
     
     await db.insert(whatsappMessages).values({
       whatsappMessageId: messageId,

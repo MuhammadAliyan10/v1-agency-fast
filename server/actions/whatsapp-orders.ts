@@ -1,6 +1,9 @@
 import { db } from "@/database/db";
-import { orders, orderItems, menuItems, whatsappSessions, orderStatusHistory, itemVariants } from "@/database/schema";
+import { Client } from "@upstash/qstash";
+import { orders, orderItems, menuItems, whatsappSessions, orderStatusHistory, itemVariants, outboundMessages } from "@/database/schema";
 import { eq, inArray, sql } from "drizzle-orm";
+
+const qstashClient = new Client({ token: process.env.QSTASH_TOKEN || "" });
 
 export async function createOrderFromWhatsApp(phone: string, restaurantId: string = "default") {
   // Neon HTTP driver does not support transactions, so we use sequential db queries
@@ -35,97 +38,157 @@ export async function createOrderFromWhatsApp(phone: string, restaurantId: strin
     deliveryNotes += deliveryNotes ? `\nInstructions: ${specialInstructions}` : `Instructions: ${specialInstructions}`;
   }
 
-  // 2. Fetch True Pricing & Verify Availability
-  const itemIds = cart.map((i: any) => i.menuItemId);
-  const dbItems = await db.select().from(menuItems).where(inArray(menuItems.id, itemIds));
-  
-  let subtotal = 0;
-  const finalItems = [];
+  const checkoutSessionId = tempData.checkoutSessionId;
+  if (!checkoutSessionId) {
+    throw new Error("Missing checkout session ID for idempotency.");
+  }
 
-  for (const cartItem of cart) {
-    const dbItem = dbItems.find(i => i.id === cartItem.menuItemId);
-    if (!dbItem || !dbItem.isAvailable) {
-      throw new Error(`Sorry, ${dbItem?.name || "an item"} is currently unavailable.`);
-    }
+  const orderId = `WA${Math.floor(1000 + Math.random() * 9000)}`;
+  let finalTotalAmount = 0;
+  const finalDeliveryAddress = deliveryAddress;
+
+  // 3. Create Order Atomically using Neon Serverless Pool transactions
+  try {
+    await db.transaction(async (tx) => {
+    // 2. Fetch True Pricing & Verify Availability (INSIDE TX)
+    const itemIds = cart.map((i: any) => i.menuItemId);
+    const dbItems = await tx.select().from(menuItems).where(inArray(menuItems.id, itemIds));
     
-    let unitPrice = dbItem.basePrice;
-    let finalItemName = dbItem.name;
-    let variantId = null;
+    let subtotal = 0;
+    const finalItems = [];
 
-    if (cartItem.variantId) {
-      const variant = await db.query.itemVariants.findFirst({ where: eq(itemVariants.id, cartItem.variantId) });
-      if (variant) {
-        unitPrice = variant.price;
-        finalItemName = `${dbItem.name} (${variant.name})`;
-        variantId = variant.id;
+    for (const cartItem of cart) {
+      const dbItem = dbItems.find(i => i.id === cartItem.menuItemId);
+      if (!dbItem || !dbItem.isAvailable) {
+        throw new Error(`Sorry, ${dbItem?.name || "an item"} is currently unavailable.`);
+      }
+      
+      let unitPrice = dbItem.basePrice;
+      let finalItemName = dbItem.name;
+      let variantId = null;
+
+      if (cartItem.variantId) {
+        const variants = await tx.select().from(itemVariants).where(eq(itemVariants.id, cartItem.variantId));
+        const variant = variants[0];
+        if (variant) {
+          unitPrice = variant.price;
+          finalItemName = `${dbItem.name} (${variant.name})`;
+          variantId = variant.id;
+        }
+      }
+
+      const itemSubtotal = unitPrice * cartItem.quantity;
+      subtotal += itemSubtotal;
+      
+      finalItems.push({
+        menuItemId: dbItem.id,
+        variantId,
+        itemName: finalItemName,
+        quantity: cartItem.quantity,
+        unitPrice,
+        subtotal: itemSubtotal,
+      });
+    }
+
+    const deliveryFee = 150; // Fixed delivery fee for MVP
+    const totalAmount = subtotal + deliveryFee;
+    finalTotalAmount = totalAmount;
+
+    await tx.insert(orders).values({
+      id: orderId,
+      customerName,
+      customerPhone: phone,
+      orderType: "delivery",
+      deliveryAddress,
+      deliveryNotes,
+      latitude,
+      longitude,
+      status: "pending",
+      source: "whatsapp",
+      paymentMethod: "COD",
+      subtotal,
+      deliveryFee,
+      totalAmount,
+      checkoutSessionId, // Enforces uniqueness preventing duplicate orders
+    });
+
+    // Create Order Items
+    for (const item of finalItems) {
+      await tx.insert(orderItems).values({
+        orderId,
+        menuItemId: item.menuItemId,
+        variantId: item.variantId,
+        itemName: item.itemName,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        subtotal: item.subtotal,
+      });
+    }
+
+    // Create Status History
+    await tx.insert(orderStatusHistory).values({
+      orderId,
+      toStatus: "pending",
+      source: "whatsapp",
+    });
+
+    // Clear session state
+    await tx.update(whatsappSessions)
+      .set({ 
+        state: "order_created", 
+        cart: [], 
+        tempData: {},
+        updatedAt: new Date()
+      })
+      .where(eq(whatsappSessions.id, session.id));
+
+    // Create Outbound Message inside the transaction
+    const trackUrl = `https://agency-fast.vercel.app/track/${orderId}`;
+    const textBody = `🎉 Order confirmed! Your Order ID is #${orderId}.\n\nTrack your delivery here: ${trackUrl}\n\nType 'Hi' anytime if you'd like to place another order!`;
+    
+    await tx.insert(outboundMessages).values({
+      phone: phone,
+      status: "pending",
+      payload: {
+        type: "text",
+        text: { body: textBody }
+      }
+    });
+    });
+  } catch (error: any) {
+    const isDuplicate = 
+      error.code === "23505" || 
+      error.message?.includes("duplicate key") ||
+      error.cause?.code === "23505";
+      
+    if (isDuplicate) {
+      // Find the existing order with this checkoutSessionId
+      const existingOrder = await db.query.orders.findFirst({
+        where: eq(orders.checkoutSessionId, checkoutSessionId)
+      });
+      if (existingOrder) {
+        return { 
+          orderId: existingOrder.id, 
+          totalAmount: existingOrder.totalAmount, 
+          deliveryAddress: existingOrder.deliveryAddress, 
+          customerName: existingOrder.customerName,
+          isDuplicate: true 
+        };
       }
     }
-
-    const itemSubtotal = unitPrice * cartItem.quantity;
-    subtotal += itemSubtotal;
-    
-    finalItems.push({
-      menuItemId: dbItem.id,
-      variantId,
-      itemName: finalItemName,
-      quantity: cartItem.quantity,
-      unitPrice,
-      subtotal: itemSubtotal,
-    });
+    throw error; // Re-throw if it wasn't a duplicate checkout or we couldn't find the order
   }
 
-  const deliveryFee = 150; // Fixed delivery fee for MVP
-  const totalAmount = subtotal + deliveryFee;
-
-  // 3. Create Order
-  const orderId = `WA${Math.floor(1000 + Math.random() * 9000)}`;
-
-  await db.insert(orders).values({
-    id: orderId,
-    customerName,
-    customerPhone: phone,
-    orderType: "delivery",
-    deliveryAddress,
-    deliveryNotes,
-    latitude,
-    longitude,
-    status: "pending",
-    source: "whatsapp",
-    paymentMethod: "COD",
-    subtotal,
-    deliveryFee,
-    totalAmount,
-  });
-
-  // 4. Create Order Items
-  for (const item of finalItems) {
-    await db.insert(orderItems).values({
-      orderId,
-      menuItemId: item.menuItemId,
-      variantId: item.variantId,
-      itemName: item.itemName,
-      quantity: item.quantity,
-      unitPrice: item.unitPrice,
-      subtotal: item.subtotal,
+  // Try to dispatch outbox processing immediately (fire and forget)
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000";
+    await qstashClient.publishJSON({
+      url: `${baseUrl}/api/jobs/process-outbox`,
+      body: { trigger: "order_created" },
     });
+  } catch (e) {
+    console.error("Failed to trigger outbox processing directly. Cron will pick it up.", e);
   }
 
-  // 5. Create Status History
-  await db.insert(orderStatusHistory).values({
-    orderId,
-    toStatus: "pending",
-    source: "whatsapp",
-  });
-
-  // 6. Update Session State
-  await db.update(whatsappSessions)
-    .set({ 
-      state: "order_created", 
-      cart: [], 
-      tempData: {},
-      updatedAt: new Date()
-    })
-    .where(eq(whatsappSessions.id, session.id));
-
-  return { orderId, totalAmount, deliveryAddress, customerName };
+  return { orderId, totalAmount: finalTotalAmount, deliveryAddress: finalDeliveryAddress, customerName };
 }
