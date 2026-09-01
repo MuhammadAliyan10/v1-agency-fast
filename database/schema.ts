@@ -49,11 +49,13 @@ export const orderSourceEnum = pgEnum("order_source", [
 ]);
 
 export const whatsappSessionStateEnum = pgEnum("whatsapp_session_state", [
+  "language_selection",
   "greeting",
   "category_selection",
   "item_selection",
   "cart_review",
   "checkout",
+  "previous_details_prompt",
   "name_input",
   "address_input",
   "alt_phone_input",
@@ -382,6 +384,7 @@ export const whatsappSessions = pgTable(
     state: whatsappSessionStateEnum("state").default("greeting").notNull(),
     cart: jsonb("cart").$type<{ menuItemId: string; variantId?: string; quantity: number }[]>(),
     tempData: jsonb("temp_data"),
+    language: varchar("language", { length: 10 }).default("en").notNull(),
     version: integer("version").default(1).notNull(),
     expiresAt: timestamp("expires_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),

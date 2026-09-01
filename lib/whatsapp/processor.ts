@@ -5,6 +5,80 @@ import { sendWhatsAppText, sendWhatsAppInteractiveList, sendWhatsAppInteractiveB
 import { transcribeVoiceNote } from "./ai-helper";
 import { createOrderFromWhatsApp } from "@/server/actions/whatsapp-orders";
 
+function t(en: string, lang: string = "en"): string {
+  if (lang === "en") return en;
+  const dict: Record<string, string> = {
+    "Welcome to Classy Crave! What can I do for you today? 🍔 Please select a category:": "Classy Crave mein khush aamdeed! 🍔 Baraye meharbani category select karein:",
+    "What else would you like to add? 🍔 Please select a category:": "Aap mazeed kya add karna chahenge? 🍔 Category select karein:",
+    "Your cart is empty. Please select an item from the menu first.": "Aapka cart khali hai. Pehle menu se koi item select karein.",
+    "Sorry, we are currently closed or out of stock.": "Maazrat, hum abhi band hain ya stock khatam hai.",
+    "Tap to view items": "Items dekhne ke liye tap karein",
+    "Menu Categories": "Menu Categories",
+    "Categories": "Categories",
+    "View Items": "Items Dekhein",
+    "Checkout Now": "Checkout Karein",
+    "View Menu Again": "Menu Dobara Dekhein",
+    "Yes, Show Deals/Drinks": "Haan, Deals/Drinks Dikhayein",
+    "Yes, Show Drinks": "Haan, Drinks Dikhayein",
+    "Yes, Show me!": "Haan, Dikhayein!",
+    "No thanks, Checkout": "Nahi shukriya, Checkout karein",
+    "Got it! Please provide your active CALLING number (not just your WhatsApp number) so the rider can reach you.": "Theek hai! Baraye meharbani apna active CALLING number batayein (sirf WhatsApp nahi) taake rider aap se raabta kar sake.",
+    "Use Previous": "Pichli Tafseelat Use Karein",
+    "Enter New": "Nayi Tafseelat Darj Karein"
+  };
+  
+  if (dict[en]) return dict[en];
+  
+  if (en.includes("to cart! Would you like to try our special")) {
+    return en.replace("Added", "Add kar diya:").replace("to cart! Would you like to try our special Crown Crust Pizza with that?", "cart mein! Kya aap hamara special Crown Crust Pizza try karna chahenge?");
+  }
+  if (en.includes("to cart! How about a sweet dessert")) {
+    return en.replace("Added", "Add kar diya:").replace("to cart! How about a sweet dessert to go with your meal?", "cart mein! Khane ke baad kuch meetha ho jaye?");
+  }
+  if (en.includes("to cart! Would you like a cold refreshing drink with that?")) {
+    return en.replace("Added", "Add kar diya:").replace("to cart! Would you like a cold refreshing drink with that?", "cart mein! Kya aap iske sath thandi cold drink lena pasand karenge?");
+  }
+  if (en.includes("to cart! Anything else?")) {
+    return en.replace("Added", "Add kar diya:").replace("to cart! Anything else?", "cart mein! Aur kuch?");
+  }
+  if (en.includes("How many")) {
+    return en.replace("How many", "Aap kitne").replace("would you like? (Tap a number or type your quantity)", "lena chahenge? (Number tap karein ya type karein)");
+  }
+  if (en.includes("Before you checkout, would you like a sweet dessert or Ice Cream to complete your meal?")) {
+    return "Checkout karne se pehle, kya aap apne khane ke baad kuch meetha (Dessert / Ice Cream) lena pasand karenge?";
+  }
+  if (en.includes("Great! Please reply with your full delivery address")) {
+    return "Zabardast! Baraye meharbani apna mukammal delivery address (jaise House 12, Street 4, Sector F) type karein, YA 📎 Attachment icon daba kar apni Location share karein.";
+  }
+  if (en.includes("Got it! Can I have your full name please?")) {
+    return "Samajh gaya! Baraye meharbani apna mukammal naam batayein?";
+  }
+  if (en.includes("Thanks! Any special instructions for the chef or rider?")) {
+    return "Shukriya! Chef ya rider ke liye koi khaas hidayat? (Agar nahi toh bas 'No' type kardein).";
+  }
+
+  if (en.includes("Got it! Do you have any special instructions for the kitchen? (Type 'none' if you don't).")) {
+    return "Samajh gaya! Kitchen ke liye koi khaas hidayat? (Agar nahi toh bas 'none' likh dein).";
+  }
+  if (en.includes("Perfect. Lastly, what is your full name?")) {
+    return "Zabardast! Akhri sawal, aapka mukammal naam kya hai?";
+  }
+  if (en.includes("Order cancelled. Type 'Hi' anytime to start over and order again.")) {
+    return "Order cancel kar diya gaya hai. Jab bhi naya order karna ho, bas 'Hi' bhejein.";
+  }
+  if (en.includes("Please confirm your order.")) {
+    return "Baraye meharbani apna order confirm karein.";
+  }
+  
+  if (en.includes("🎉 Order confirmed! Your Order ID is #")) {
+    return en.replace("Order confirmed! Your Order ID is #", "Zabardast! Aapka Order confirm ho gaya hai! Aapka Order ID # hai: ")
+             .replace("Track your delivery here:", "Apni delivery yahan track karein:")
+             .replace("Type 'Hi' anytime if you'd like to place another order!", "Naya order karne ke liye kisi bhi waqt 'Hi' bhejein!");
+  }
+  
+  return en;
+}
+
 export async function processWhatsAppMessage(phone: string, message: any, contact: any) {
   const restaurantId = "default"; // Multi-tenant ready
   
@@ -18,17 +92,31 @@ export async function processWhatsAppMessage(phone: string, message: any, contac
     const newSession = await db.insert(whatsappSessions).values({
       restaurantId,
       phone,
-      state: "greeting",
+      state: "language_selection",
       cart: [],
       tempData: {},
+      language: "en"
     }).returning();
     session = newSession[0];
   }
-
+  
   // 2. Extract Message Intent
   const textBody = message.text?.body?.toLowerCase().trim() || "";
   const interactiveReplyId = message.interactive?.list_reply?.id || message.interactive?.button_reply?.id;
   let input = interactiveReplyId || textBody;
+
+  // Intercept if new session but language not selected
+  if (session.state === "language_selection" && message.type === "text" && !input.startsWith("lang_")) {
+    // If they typed something but haven't selected a language yet
+    return sendWhatsAppInteractiveButtons(
+      phone,
+      "Please select your preferred language / Baraye meharbani apni zaban muntakhib karein:",
+      [
+        { id: "lang_en", title: "English" },
+        { id: "lang_ur", title: "Roman Urdu" }
+      ]
+    );
+  }
 
   if (message.type === "location") {
     input = "location_payload";
@@ -112,11 +200,47 @@ export async function processWhatsAppMessage(phone: string, message: any, contac
   // 5. State Machine Router
   try {
     switch (session.state) {
+      case "language_selection":
+        if (input === "lang_en" || input === "lang_ur") {
+          const lang = input === "lang_ur" ? "ur" : "en";
+          session.language = lang;
+          await db.update(whatsappSessions).set({ language: lang, state: "greeting" }).where(eq(whatsappSessions.id, session.id));
+          return handleGreeting(phone, session, true);
+        } else {
+          return sendWhatsAppInteractiveButtons(
+            phone,
+            "Please select your preferred language / Baraye meharbani apni zaban muntakhib karein:",
+            [
+              { id: "lang_en", title: "English" },
+              { id: "lang_ur", title: "Roman Urdu" }
+            ]
+          );
+        }
+
+      case "previous_details_prompt":
+        if (input === "use_prev") {
+          const prevOrder = (session.tempData as any).previousOrder;
+          const newTemp = { 
+            ...(session.tempData as any), 
+            name: prevOrder.customerName, 
+            address: prevOrder.deliveryAddress,
+            lat: prevOrder.latitude,
+            long: prevOrder.longitude,
+            altPhone: phone
+          };
+          await sendWhatsAppText(phone, t("Thanks! Any special instructions for the chef or rider? (Or type 'No')", session.language));
+          return updateSessionState(session.id, "checkout", session.cart || [], newTemp);
+        } else if (input === "use_new") {
+          await sendWhatsAppText(phone, t("Great! Please reply with your full delivery address (e.g. House 12, Street 4, Sector F) OR tap the 📎 Attachment icon and share your Location.", session.language));
+          return updateSessionState(session.id, "address_input", session.cart || [], session.tempData);
+        }
+        break;
+
       case "greeting":
       case "expired":
       case "order_created":
       case "cancelled":
-        await handleGreeting(phone, session);
+        await handleGreeting(phone, session, false);
         break;
       
       case "category_selection":
@@ -178,15 +302,15 @@ async function handleGreeting(phone: string, session: any, showImages: boolean =
   const isReturning = cart.length > 0;
   
   const greetingText = isReturning 
-    ? "What else would you like to add? 🍔 Please select a category:" 
-    : "Welcome to Classy Crave! What can I do for you today? 🍔 Please select a category:";
+    ? t("What else would you like to add? 🍔 Please select a category:", session.language) 
+    : t("Welcome to Classy Crave! What can I do for you today? 🍔 Please select a category:", session.language);
 
   if (showImages) {
     const baseUrl = "https://agency-fast.vercel.app";
     await Promise.all([
-      sendWhatsAppImage(phone, `${baseUrl}/menu/Deals.jpeg`),
-      sendWhatsAppImage(phone, `${baseUrl}/menu/IceCreams.jpeg`),
-      sendWhatsAppImage(phone, `${baseUrl}/menu/Items.jpeg`)
+      sendWhatsAppImage(phone, `${baseUrl}/Menu/Deals.jpeg`),
+      sendWhatsAppImage(phone, `${baseUrl}/Menu/IceCreams.jpeg`),
+      sendWhatsAppImage(phone, `${baseUrl}/Menu/Items.jpeg`)
     ]);
   }
 
@@ -194,8 +318,8 @@ async function handleGreeting(phone: string, session: any, showImages: boolean =
     sendWhatsAppInteractiveList(
       phone,
       greetingText,
-      "Menu Categories",
-      [{ title: "Categories", rows }]
+      t("Menu Categories", session.language),
+      [{ title: t("Categories", session.language), rows }]
     ),
     updateSessionState(session.id, "category_selection", session.cart || [], session.tempData || {})
   ]);
@@ -232,7 +356,7 @@ async function addItemToCartAndProceed(phone: string, session: any, itemId: stri
     ]
   );
 
-  return updateSessionState(session.id, "cart_review", session.cart, newTemp);
+  return updateSessionState(session.id, "cart_review", session.cart || [], newTemp);
 }
 
 async function handleQuantityInput(phone: string, session: any, input: string) {
@@ -297,7 +421,7 @@ async function handleQuantityInput(phone: string, session: any, input: string) {
 async function handleItemSelection(phone: string, session: any, input: string) {
   if (input === "checkout" || input === "done") {
     if ((session.cart as any[]).length === 0) {
-      return sendWhatsAppText(phone, "Your cart is empty. Please select an item from the menu first.");
+      return sendWhatsAppText(phone, t("Your cart is empty. Please select an item from the menu first.", session.language));
     }
     
     // Pitch Dessert if not pitched yet
@@ -319,13 +443,32 @@ async function handleItemSelection(phone: string, session: any, input: string) {
   }
 
   if (input === "final_checkout") {
-    await sendWhatsAppText(phone, "Great! Please reply with your full delivery address (e.g. House 12, Street 4, Sector F) OR tap the 📎 Attachment icon and share your Location.");
+    // Check previous orders
+    const lastOrder = await db.query.orders.findFirst({
+      where: eq(orders.customerPhone, phone),
+      orderBy: (orders, { desc }) => [desc(orders.createdAt)]
+    });
+
+    if (lastOrder && lastOrder.customerName && lastOrder.deliveryAddress) {
+      const newTemp = { ...(session.tempData as any), previousOrder: lastOrder };
+      await sendWhatsAppInteractiveButtons(
+        phone,
+        t("We found your previous details:\nName: ", session.language) + lastOrder.customerName + t("\nAddress: ", session.language) + lastOrder.deliveryAddress + t("\nPhone: ", session.language) + phone + t("\n\nWould you like to use these details or enter new ones?", session.language),
+        [
+          { id: "use_prev", title: t("Use Previous", session.language) },
+          { id: "use_new", title: t("Enter New", session.language) }
+        ]
+      );
+      return updateSessionState(session.id, "previous_details_prompt", session.cart, newTemp);
+    }
+
+    await sendWhatsAppText(phone, t("Great! Please reply with your full delivery address (e.g. House 12, Street 4, Sector F) OR tap the 📎 Attachment icon and share your Location.", session.language));
     return updateSessionState(session.id, "address_input", session.cart, session.tempData);
   }
 
   if (input === "show_desserts") {
     const baseUrl = "https://agency-fast.vercel.app";
-    await sendWhatsAppImage(phone, `${baseUrl}/menu/IceCreams.jpeg`, "Our delicious Ice Creams & Desserts! 🍦");
+    await sendWhatsAppImage(phone, `${baseUrl}/Menu/IceCreams.jpeg`, "Our delicious Ice Creams & Desserts! 🍦");
     
     // Attempt to route directly to dessert category if it exists
     const dessertCat = await db.query.categories.findFirst({
@@ -470,7 +613,7 @@ async function handleAddressInput(phone: string, session: any, input: string, me
   }
 
   const newTemp = { ...(session.tempData as any), address: finalAddress, lat, long };
-  await sendWhatsAppText(phone, "Got it! Please provide your active CALLING number (not just your WhatsApp number) so the rider can reach you.");
+  await sendWhatsAppText(phone, t("Got it! Please provide your active CALLING number (not just your WhatsApp number) so the rider can reach you.", session.language));
   return updateSessionState(session.id, "alt_phone_input", session.cart, newTemp);
 }
 
@@ -481,7 +624,7 @@ async function handleAltPhoneInput(phone: string, session: any, input: string) {
     return;
   }
   const newTemp = { ...(session.tempData as any), altPhone: input };
-  await sendWhatsAppText(phone, "Perfect. Lastly, what is your full name?");
+  await sendWhatsAppText(phone, t("Perfect. Lastly, what is your full name?", session.language));
   return updateSessionState(session.id, "name_input", session.cart, newTemp);
 }
 
@@ -493,7 +636,7 @@ async function handleNameInput(phone: string, session: any, input: string) {
   }
 
   const newTemp = { ...(session.tempData as any), name: input };
-  await sendWhatsAppText(phone, "Got it! Do you have any special instructions for the kitchen? (Type 'none' if you don't).");
+  await sendWhatsAppText(phone, t("Got it! Do you have any special instructions for the kitchen? (Type 'none' if you don't).", session.language));
   return updateSessionState(session.id, "checkout", session.cart, newTemp);
 }
 
@@ -531,7 +674,7 @@ async function handleConfirmation(phone: string, session: any, input: string) {
       const order = await createOrderFromWhatsApp(phone, session.restaurantId);
       
       const trackUrl = `https://agency-fast.vercel.app/track/${order.orderId}`;
-      await sendWhatsAppText(phone, `🎉 Order confirmed! Your Order ID is #${order.orderId}.\n\nTrack your delivery here: ${trackUrl}\n\nType 'Hi' anytime if you'd like to place another order!`);
+      await sendWhatsAppText(phone, t(`🎉 Order confirmed! Your Order ID is #${order.orderId}.\n\nTrack your delivery here: ${trackUrl}\n\nType 'Hi' anytime if you'd like to place another order!`, session.language));
       
       await updateSessionState(session.id, "order_created", [], {});
     } catch (error: any) {
@@ -540,10 +683,10 @@ async function handleConfirmation(phone: string, session: any, input: string) {
       await updateSessionState(session.id, "greeting", [], {});
     }
   } else if (input === "confirm_no" || input === "no" || input === "cancel") {
-    await sendWhatsAppText(phone, "Order cancelled. Type 'Hi' anytime to start over and order again.");
+    await sendWhatsAppText(phone, t("Order cancelled. Type 'Hi' anytime to start over and order again.", session.language));
     await updateSessionState(session.id, "cancelled", [], {});
   } else {
-    await sendWhatsAppInteractiveButtons(phone, "Please confirm your order.", [
+    await sendWhatsAppInteractiveButtons(phone, t("Please confirm your order.", session.language), [
       { id: "confirm_yes", title: "Yes, Confirm" },
       { id: "confirm_no", title: "Cancel Order" }
     ]);
