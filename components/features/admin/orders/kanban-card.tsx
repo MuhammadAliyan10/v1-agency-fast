@@ -15,10 +15,13 @@ import { ManualOrderDialog } from "./manual-order-dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { cancelLiveOrder, updateTableNumber, removeOrderItem, markOrderPaid } from "@/server/actions/live-orders";
-import { MoreVertical, Trash2 } from "lucide-react";
+import { getTablesWithStatus, transferTable } from "@/server/actions/tables";
+import { MoreVertical, Trash2, ArrowRightLeft } from "lucide-react";
 import { toast } from "sonner";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface KanbanCardProps {
   order: LiveOrder;
@@ -58,7 +61,19 @@ export function KanbanCard({ order, role, isOverlay, borderColor = "border-borde
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isTableEditing, setIsTableEditing] = useState(false);
   const [editTableValue, setEditTableValue] = useState(order.tableNumber || "");
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  const [selectedTransferTableId, setSelectedTransferTableId] = useState("");
   const queryClient = useQueryClient();
+
+  const { data: tablesData, isLoading: isTablesLoading } = useQuery({
+    queryKey: ["pos-tables"],
+    queryFn: async () => {
+      const res = await getTablesWithStatus();
+      if (!res.success) throw new Error(res.error);
+      return res.data;
+    },
+    enabled: isTransferModalOpen
+  });
 
   const cancelMutation = useMutation({
     mutationFn: (id: string) => cancelLiveOrder(id),
@@ -164,6 +179,20 @@ export function KanbanCard({ order, role, isOverlay, borderColor = "border-borde
     },
   });
 
+  const transferMutation = useMutation({
+    mutationFn: ({ orderId, newTableId }: { orderId: string, newTableId: string }) => transferTable(orderId, newTableId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["live-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["pos-tables"] });
+      queryClient.invalidateQueries({ queryKey: ["waiter-tables"] });
+      setIsTransferModalOpen(false);
+      setIsSheetOpen(false); // optionally close the sheet
+      toast.success("Table transferred successfully");
+    },
+    onError: (err: any) => toast.error(err.message || "Failed to transfer table"),
+  });
+
+
   
   // Status advancement logic
   const getNextStatus = (current: OrderStatus): { label: string, status: OrderStatus } | null => {
@@ -217,6 +246,7 @@ export function KanbanCard({ order, role, isOverlay, borderColor = "border-borde
   }, {} as Record<number, typeof order.items>);
 
   return (
+    <>
     <div
       ref={setNodeRef}
       style={style}
@@ -231,8 +261,9 @@ export function KanbanCard({ order, role, isOverlay, borderColor = "border-borde
       )}
       onClick={() => setIsSheetOpen(true)}
     >
-      <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-        <SheetContent className="w-[400px] sm:w-[450px] p-0 flex flex-col border-l-0 sm:border-l bg-background shadow-2xl">
+      <div onClick={(e) => e.stopPropagation()}>
+        <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+          <SheetContent className="w-[400px] sm:w-[450px] p-0 flex flex-col border-l-0 sm:border-l bg-background shadow-2xl">
           {/* Header */}
           <SheetHeader className="px-5 sm:px-6 py-4 border-b bg-muted/20 shrink-0 relative">
             {!isKitchen && (
@@ -244,6 +275,12 @@ export function KanbanCard({ order, role, isOverlay, borderColor = "border-borde
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
+                    {isDineIn && (
+                      <DropdownMenuItem onSelect={() => setIsTransferModalOpen(true)} className="cursor-pointer font-semibold">
+                        <ArrowRightLeft className="w-4 h-4 mr-2" />
+                        Transfer Table
+                      </DropdownMenuItem>
+                    )}
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-rose-600 focus:text-rose-600 focus:bg-rose-50 cursor-pointer font-semibold">
@@ -357,7 +394,7 @@ export function KanbanCard({ order, role, isOverlay, borderColor = "border-borde
                         Table {order.tableNumber || "N/A"}
                       </div>
                     )}
-                    <div className="text-xs font-medium text-muted-foreground">Waiter: {order.waiterName || "Staff"}</div>
+                    <div className="text-xs font-medium text-muted-foreground">Waiter: {order.waiterName || "Unassigned"}</div>
                   </div>
                   <div className="flex flex-col gap-1">
                     <div className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider flex items-center gap-1.5">
@@ -563,7 +600,10 @@ export function KanbanCard({ order, role, isOverlay, borderColor = "border-borde
                     {nextAction.label}
                   </Button>
                 )}
-                {(order.status === "ready_for_pickup" || order.status === "out_for_delivery" || order.status === "delivered") && !isDineIn && (
+                {(
+                  (order.orderType === "pickup" && (order.status === "ready_for_pickup" || order.status === "delivered")) ||
+                  (order.orderType === "delivery" && order.status === "delivered")
+                ) && (
                   <Button variant="outline" className="w-full h-10 font-semibold text-sm shadow-sm" onClick={() => window.print()}>
                     <Printer className="w-4 h-4 mr-2" />
                     Print Receipt
@@ -572,8 +612,9 @@ export function KanbanCard({ order, role, isOverlay, borderColor = "border-borde
               </div>
             </div>
           )}
-        </SheetContent>
-      </Sheet>
+          </SheetContent>
+        </Sheet>
+      </div>
 
       <div className="p-0">
         {/* Header */}
@@ -617,7 +658,7 @@ export function KanbanCard({ order, role, isOverlay, borderColor = "border-borde
                   <UtensilsCrossed className="h-3.5 w-3.5" />
                   Table {order.tableNumber || "N/A"} 
                   <span className="text-muted-foreground font-normal mx-1">•</span> 
-                  <span className="text-foreground">{order.waiterName || "Staff"}</span>
+                  <span className="text-foreground">{order.waiterName || "Unassigned"}</span>
                 </div>
                 {order.customerName && (
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
@@ -679,7 +720,7 @@ export function KanbanCard({ order, role, isOverlay, borderColor = "border-borde
         {isKitchen && isDineIn && (
           <div className="text-sm font-semibold text-purple-600 dark:text-purple-400 mt-2 mb-3 flex items-center gap-1">
             <UtensilsCrossed className="h-3.5 w-3.5" />
-            Table {order.tableNumber || "N/A"} • {order.waiterName || "Staff"}
+            Table {order.tableNumber || "N/A"} • {order.waiterName || "Unassigned"}
           </div>
         )}
 
@@ -764,6 +805,44 @@ export function KanbanCard({ order, role, isOverlay, borderColor = "border-borde
         )}
       </div>
     </div>
+    
+    <Dialog open={isTransferModalOpen} onOpenChange={setIsTransferModalOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Transfer Table</DialogTitle>
+          <DialogDescription>
+            Move this active order to another table. You can only select free tables.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="py-4">
+          <Select 
+            value={selectedTransferTableId}
+            onValueChange={setSelectedTransferTableId}
+          >
+            <SelectTrigger className="h-10 w-full bg-background">
+              <SelectValue placeholder="Select new table..." />
+            </SelectTrigger>
+            <SelectContent>
+              {tablesData?.map(table => (
+                <SelectItem key={table.id} value={table.id} disabled={table.isOccupied}>
+                  {table.name} {table.isOccupied ? "(Occupied)" : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setIsTransferModalOpen(false)}>Cancel</Button>
+          <Button 
+            disabled={!selectedTransferTableId || transferMutation.isPending}
+            onClick={() => transferMutation.mutate({ orderId: order.id, newTableId: selectedTransferTableId })}
+          >
+            {transferMutation.isPending ? "Transferring..." : "Transfer Order"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
 

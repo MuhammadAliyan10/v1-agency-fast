@@ -155,6 +155,13 @@
       "when": 1788296234082,
       "tag": "0021_wealthy_george_stacy",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1788297869889,
+      "tag": "0022_numerous_shaman",
+      "breakpoints": true
     }
   ]
 }

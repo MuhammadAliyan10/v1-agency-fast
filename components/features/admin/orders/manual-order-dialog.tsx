@@ -11,9 +11,12 @@ import { Search, Plus, Minus, X, Check, ShoppingBag, Loader2, Printer } from "lu
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getPOSMenuData } from "@/server/actions/menu";
 import { createManualOrder, getStaffWaiters, addItemsToExistingOrder, LiveOrder } from "@/server/actions/live-orders";
+import { getTablesWithStatus } from "@/server/actions/tables";
 import { z } from "zod";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const manualOrderSchema = z.object({
   orderType: z.enum(["delivery", "pickup", "dine_in"]),
@@ -22,6 +25,7 @@ const manualOrderSchema = z.object({
   deliveryAddress: z.string().optional(),
   deliveryNotes: z.string().optional(),
   tableNumber: z.string().optional(),
+  tableId: z.string().optional(),
   waiterId: z.string().optional().nullable(),
   deliveryFee: z.number().default(0),
   discountAmount: z.number().default(0),
@@ -39,8 +43,8 @@ const manualOrderSchema = z.object({
     if (!data.waiterId || data.waiterId.trim() === "") {
       ctx.addIssue({ path: ["waiterId"], message: "Waiter is required for Dine-In orders", code: z.ZodIssueCode.custom });
     }
-    if (!data.tableNumber || data.tableNumber.trim() === "") {
-      ctx.addIssue({ path: ["tableNumber"], message: "Table Number is required for Dine-In orders", code: z.ZodIssueCode.custom });
+    if (!data.tableId || data.tableId.trim() === "") {
+      ctx.addIssue({ path: ["tableId"], message: "Table is required for Dine-In orders", code: z.ZodIssueCode.custom });
     }
     if (!data.customerName || data.customerName.trim() === "") {
       ctx.addIssue({ path: ["customerName"], message: "Customer Name is required for Dine-In orders", code: z.ZodIssueCode.custom });
@@ -86,7 +90,7 @@ interface CartItem {
   totalPrice: number;
 }
 
-export function ManualOrderDialog({ children, existingOrder }: { children: React.ReactNode; existingOrder?: LiveOrder }) {
+export function ManualOrderDialog({ children, existingOrder, defaultTableId, defaultTableNumber }: { children: React.ReactNode; existingOrder?: LiveOrder; defaultTableId?: string; defaultTableNumber?: string }) {
   const [isOpen, setIsOpen] = useState(false);
   const queryClient = useQueryClient();
 
@@ -100,8 +104,11 @@ export function ManualOrderDialog({ children, existingOrder }: { children: React
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [tableId, setTableId] = useState("");
   const [tableNumber, setTableNumber] = useState("");
   const [waiterId, setWaiterId] = useState("");
+  const [pendingTableId, setPendingTableId] = useState<string | null>(null);
+  const [splitCheckModalOpen, setSplitCheckModalOpen] = useState(false);
   const [deliveryFee, setDeliveryFee] = useState(50);
   const [discountType, setDiscountType] = useState<"flat" | "percent">("flat");
   const [discountValue, setDiscountValue] = useState(0);
@@ -119,13 +126,16 @@ export function ManualOrderDialog({ children, existingOrder }: { children: React
       setOrderType("dine_in");
       setCustomerName(existingOrder.customerName || "");
       setCustomerPhone(existingOrder.customerPhone || "");
+      setTableId(existingOrder.tableId || "");
       setTableNumber(existingOrder.tableNumber || "");
       setWaiterId(existingOrder.waiterId || "");
       setCart([]);
     } else if (isOpen && !existingOrder) {
+      if (defaultTableId) setTableId(defaultTableId);
+      if (defaultTableNumber) setTableNumber(defaultTableNumber);
       setCart([]);
     }
-  }, [isOpen, existingOrder]);
+  }, [isOpen, existingOrder, defaultTableId, defaultTableNumber]);
 
   // Data Fetching
   const { data: menuData, isLoading: isMenuLoading } = useQuery({
@@ -142,6 +152,16 @@ export function ManualOrderDialog({ children, existingOrder }: { children: React
     queryKey: ["pos-staff"],
     queryFn: async () => {
       const res = await getStaffWaiters();
+      if (!res.success) throw new Error(res.error);
+      return res.data;
+    },
+    enabled: isOpen
+  });
+
+  const { data: tablesData, isLoading: isTablesLoading } = useQuery({
+    queryKey: ["pos-tables"],
+    queryFn: async () => {
+      const res = await getTablesWithStatus();
       if (!res.success) throw new Error(res.error);
       return res.data;
     },
@@ -173,7 +193,7 @@ export function ManualOrderDialog({ children, existingOrder }: { children: React
   // Computed valid state
   const isFormValid = useMemo(() => {
     if (orderType === "dine_in") {
-      return (tableNumber?.trim() || "") !== "" && (waiterId?.trim() || "") !== "" && (customerName?.trim() || "") !== "";
+      return (tableId?.trim() || "") !== "" && (waiterId?.trim() || "") !== "" && (customerName?.trim() || "") !== "";
     }
     if (orderType === "delivery") {
       return (customerName?.trim() || "") !== "" && (customerPhone?.trim() || "") !== "" && (deliveryAddress?.trim() || "") !== "";
@@ -182,7 +202,24 @@ export function ManualOrderDialog({ children, existingOrder }: { children: React
       return (customerName?.trim() || "") !== "" && (customerPhone?.trim() || "") !== "";
     }
     return false;
-  }, [orderType, tableNumber, waiterId, customerName, customerPhone, deliveryAddress]);
+  }, [orderType, tableId, waiterId, customerName, customerPhone, deliveryAddress]);
+
+  const handleTableChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selectedId = e.target.value;
+    if (!selectedId) {
+      setTableId("");
+      setTableNumber("");
+      return;
+    }
+    const table = tablesData?.find(t => t.id === selectedId);
+    if (table?.isOccupied && !existingOrder) {
+      setPendingTableId(selectedId);
+      setSplitCheckModalOpen(true);
+    } else {
+      setTableId(selectedId);
+      setTableNumber(table?.name || "");
+    }
+  };
 
   // Handlers
   const openItemConfig = (item: any) => {
@@ -284,6 +321,7 @@ export function ManualOrderDialog({ children, existingOrder }: { children: React
           customerName,
           customerPhone,
           deliveryAddress: orderType === "delivery" ? deliveryAddress : undefined,
+          tableId: orderType === "dine_in" ? tableId : undefined,
           tableNumber: orderType === "dine_in" ? tableNumber : undefined,
           waiterId: orderType === "dine_in" ? waiterId : undefined,
           deliveryFee: appliedDeliveryFee,
@@ -309,20 +347,14 @@ export function ManualOrderDialog({ children, existingOrder }: { children: React
       
       toast.success(existingOrder ? "Items Added to Order" : "Order Placed Successfully", {
         description: `Order ID: ${data.orderId}`,
-        action: {
-          label: "Print Receipt",
-          onClick: () => {
-            // Stub for print functionality
-            toast("Sending to printer...");
-          }
-        },
-        duration: 10000,
+        duration: 5000,
       });
       
       setCart([]);
       setCustomerName("");
       setCustomerPhone("");
       setDeliveryAddress("");
+      setTableId("");
       setTableNumber("");
       setWaiterId("");
     },
@@ -343,6 +375,7 @@ export function ManualOrderDialog({ children, existingOrder }: { children: React
   }, [orderType]);
 
   return (
+    <>
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         {children}
@@ -401,21 +434,41 @@ export function ManualOrderDialog({ children, existingOrder }: { children: React
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                       <Label>Table No.</Label>
-                      <Input value={tableNumber} onChange={e => setTableNumber(e.target.value)} placeholder="e.g. T-12" className="h-10 rounded-md bg-background" disabled={!!existingOrder} />
+                      <Select 
+                        value={tableId} 
+                        onValueChange={(val) => handleTableChange({ target: { value: val } } as any)} 
+                        disabled={!!existingOrder}
+                      >
+                        <SelectTrigger className="h-10 w-full bg-background">
+                          <SelectValue placeholder="Select Table" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {tablesData?.map(table => (
+                            <SelectItem key={table.id} value={table.id}>
+                              {table.name} {table.isOccupied ? "🔴 (Occupied)" : ""}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className="space-y-1.5">
                       <Label>Waiter <span className="text-destructive">*</span></Label>
-                      <select 
-                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                        value={waiterId}
-                        onChange={e => setWaiterId(e.target.value)}
+                      <Select 
+                        value={waiterId} 
+                        onValueChange={setWaiterId} 
                         disabled={!!existingOrder}
                       >
-                        <option value="">Select Waiter</option>
-                        {staffWaiters?.map(staff => (
-                          <option key={staff.id} value={staff.id}>{staff.name}</option>
-                        ))}
-                      </select>
+                        <SelectTrigger className="h-10 w-full bg-background">
+                          <SelectValue placeholder="Select Waiter" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {staffWaiters?.map(staff => (
+                            <SelectItem key={staff.id} value={staff.id}>
+                              {staff.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                 )}
@@ -423,18 +476,18 @@ export function ManualOrderDialog({ children, existingOrder }: { children: React
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label>Customer Phone {orderType !== "dine_in" && <span className="text-destructive">*</span>}</Label>
-                    <Input value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} placeholder="03XXXXXXXXX" className="h-10 rounded-md bg-background" disabled={!!existingOrder} />
+                    <Input value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} placeholder="03XXXXXXXXX" className="h-10 w-full bg-background shadow-none" disabled={!!existingOrder} />
                   </div>
                   <div className="space-y-1.5">
                     <Label>Customer Name {orderType !== "dine_in" && <span className="text-destructive">*</span>}</Label>
-                    <Input value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder="Walk-in Guest" className="h-10 rounded-md bg-background" disabled={!!existingOrder} />
+                    <Input value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder="Walk-in Guest" className="h-10 w-full bg-background shadow-none" disabled={!!existingOrder} />
                   </div>
                 </div>
 
                 {orderType === "delivery" && (
                   <div className="space-y-1.5">
                     <Label>Delivery Address <span className="text-destructive">*</span></Label>
-                    <Input value={deliveryAddress} onChange={e => setDeliveryAddress(e.target.value)} placeholder="Full address" className="h-10 rounded-md bg-background" />
+                    <Input value={deliveryAddress} onChange={e => setDeliveryAddress(e.target.value)} placeholder="Full address" className="h-10 w-full bg-background shadow-none" />
                   </div>
                 )}
               </div>
@@ -543,17 +596,21 @@ export function ManualOrderDialog({ children, existingOrder }: { children: React
               <div className="grid grid-cols-2 gap-3 mb-4">
                  <div className="space-y-1">
                     <Label className="text-xs">Payment Method</Label>
-                    <select 
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                      value={paymentMethod}
-                      onChange={e => setPaymentMethod(e.target.value as any)}
+                    <Select 
+                      value={paymentMethod} 
+                      onValueChange={(val: any) => setPaymentMethod(val)}
                     >
-                      <option value="Cash">Cash</option>
-                      <option value="Card">Card</option>
-                      <option value="JazzCash">JazzCash</option>
-                      <option value="EasyPaisa">EasyPaisa</option>
-                      {orderType === "delivery" && <option value="COD">COD</option>}
-                    </select>
+                      <SelectTrigger className="h-10 w-full bg-background shadow-none">
+                        <SelectValue placeholder="Payment Method" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Cash">Cash</SelectItem>
+                        <SelectItem value="Card">Card</SelectItem>
+                        <SelectItem value="JazzCash">JazzCash</SelectItem>
+                        <SelectItem value="EasyPaisa">EasyPaisa</SelectItem>
+                        {orderType === "delivery" && <SelectItem value="COD">COD</SelectItem>}
+                      </SelectContent>
+                    </Select>
                  </div>
                  <div className="space-y-1">
                     <Label className="text-xs">Status</Label>
@@ -571,16 +628,12 @@ export function ManualOrderDialog({ children, existingOrder }: { children: React
               >
                 {createMutation.isPending ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
-                ) : orderType === "dine_in" ? (
-                  <Check className="h-5 w-5" />
                 ) : (
-                  <Printer className="h-5 w-5" />
+                  <Check className="h-5 w-5" />
                 )}
                 {createMutation.isPending 
                   ? "Processing..." 
-                  : orderType === "dine_in" 
-                    ? "Place Order" 
-                    : "Place Order & Print"}
+                  : "Place Order"}
               </Button>
             </div>
           </div>
@@ -742,5 +795,30 @@ export function ManualOrderDialog({ children, existingOrder }: { children: React
         </DialogContent>
       </Dialog>
     </Dialog>
+
+    <AlertDialog open={splitCheckModalOpen} onOpenChange={setSplitCheckModalOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Table is Occupied</AlertDialogTitle>
+          <AlertDialogDescription>
+            The selected table currently has an active order. Are you creating a split check / separate bill for this table?
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => setPendingTableId(null)}>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={() => {
+            if (pendingTableId) {
+              setTableId(pendingTableId);
+              const table = tablesData?.find(t => t.id === pendingTableId);
+              setTableNumber(table?.name || "");
+            }
+            setSplitCheckModalOpen(false);
+          }}>
+            Yes, Continue
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }

@@ -10,8 +10,7 @@ export async function getWaiterActiveOrders() {
   try {
     const data = await db.query.orders.findMany({
       where: and(
-        // Admins can see all, waiters see only their own
-        session.role === "admin" ? undefined : eq(orders.waiterId, session.id),
+        // Waiters can see all active dine-in orders to support table management
         eq(orders.orderType, "dine_in"),
         inArray(orders.status, ["pending", "approved", "preparing", "ready_for_pickup"])
       ),

@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { createCoupon, updateCoupon, deleteCoupon } from "@/server/actions/coupons";
 
 interface Coupon {
@@ -58,7 +59,6 @@ export function CouponsAdmin({ initialCoupons, menuItems }: { initialCoupons: Co
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Delete coupon?")) return;
     const res = await deleteCoupon(id);
     if (res.success) { setCoupons(prev => prev.filter(c => c.id !== id)); toast.success("Deleted"); }
   };
@@ -98,7 +98,21 @@ export function CouponsAdmin({ initialCoupons, menuItems }: { initialCoupons: Co
               <div className="flex items-center gap-2 shrink-0">
                 <Switch checked={c.isActive} onCheckedChange={() => handleToggle(c)} />
                 <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => openEdit(c)}><Pencil className="w-4 h-4" /></Button>
-                <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => handleDelete(c.id)}><Trash2 className="w-4 h-4" /></Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive"><Trash2 className="w-4 h-4" /></Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete Coupon?</AlertDialogTitle>
+                      <AlertDialogDescription>Are you sure you want to delete this coupon? This action cannot be undone.</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => handleDelete(c.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
             </div>
           ))}

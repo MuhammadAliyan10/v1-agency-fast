@@ -12,6 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { createDeal, updateDeal, deleteDeal } from "@/server/actions/deals";
 import { PageHeader } from "@/components/shared/page-header";
@@ -143,7 +144,6 @@ export function DealsAdmin({ initialDeals, menuItems, categories }: { initialDea
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this deal? It will be archived and no longer available.")) return;
     const res = await deleteDeal(id);
     if (res.success) { 
       setDeals(prev => prev.filter(d => d.id !== id)); 
@@ -248,9 +248,23 @@ export function DealsAdmin({ initialDeals, menuItems, categories }: { initialDea
                     <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-primary/10 hover:text-primary" onClick={() => openEdit(deal)}>
                       <Pencil className="w-4 h-4" />
                     </Button>
-                    <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-rose-100 hover:text-rose-600 text-muted-foreground" onClick={() => handleDelete(deal.id)}>
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-rose-100 hover:text-rose-600 text-muted-foreground">
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete Deal?</AlertDialogTitle>
+                          <AlertDialogDescription>Are you sure you want to delete this deal? It will be archived and no longer available.</AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => handleDelete(deal.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 </div>
               </div>

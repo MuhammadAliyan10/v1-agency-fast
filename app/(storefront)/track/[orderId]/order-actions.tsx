@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Loader2, XCircle, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { cancelOrder } from "@/server/actions/storefront";
 import { useCart } from "@/store/use-cart";
 
@@ -35,8 +36,6 @@ export function OrderActions({ orderId, status, items }: OrderActionsProps) {
   const isPreparing = status === "preparing";
   
   const handleCancel = async () => {
-    if (!confirm("Are you sure you want to cancel this order?")) return;
-    
     setIsCancelling(true);
     const res = await cancelOrder(orderId);
     setIsCancelling(false);
@@ -87,15 +86,28 @@ export function OrderActions({ orderId, status, items }: OrderActionsProps) {
       </Button>
 
       {canCancel && (
-        <Button 
-          variant="destructive" 
-          className="font-bold rounded-none px-6 h-11 transition-all shadow-sm hover:shadow-md"
-          onClick={handleCancel}
-          disabled={isCancelling}
-        >
-          {isCancelling ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <XCircle className="w-4 h-4 mr-2" />}
-          Cancel Order
-        </Button>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button 
+              variant="destructive" 
+              className="font-bold rounded-none px-6 h-11 transition-all shadow-sm hover:shadow-md"
+              disabled={isCancelling}
+            >
+              {isCancelling ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <XCircle className="w-4 h-4 mr-2" />}
+              Cancel Order
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Cancel Order?</AlertDialogTitle>
+              <AlertDialogDescription>Are you sure you want to cancel this order? This action cannot be undone.</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Close</AlertDialogCancel>
+              <AlertDialogAction onClick={handleCancel} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Yes, Cancel</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       )}
     </div>
   );

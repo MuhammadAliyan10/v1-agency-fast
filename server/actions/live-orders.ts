@@ -33,6 +33,7 @@ export async function getLiveOrders() {
   noStore();
   try {
     const ridersAlias = alias(users, "ridersAlias");
+    const waitersAlias = alias(users, "waitersAlias");
 
     const liveOrdersData = await db
       .select({
@@ -47,10 +48,14 @@ export async function getLiveOrders() {
           name: ridersAlias.name,
           phone: ridersAlias.phone,
         },
+        waiter: {
+          name: waitersAlias.name,
+        },
       })
       .from(orders)
       .leftJoin(users, eq(orders.customerId, users.id))
       .leftJoin(ridersAlias, eq(orders.riderId, ridersAlias.id))
+      .leftJoin(waitersAlias, eq(orders.waiterId, waitersAlias.id))
       .where(notInArray(orders.status, ["delivered", "cancelled", "rejected"]))
       .orderBy(desc(orders.createdAt));
 
@@ -65,12 +70,13 @@ export async function getLiveOrders() {
       .from(orderItems)
       .where(inArray(orderItems.orderId, liveOrderIds));
 
-    const formattedOrders = liveOrdersData.map(({ order, customer, rider }) => {
+    const formattedOrders = liveOrdersData.map(({ order, customer, rider, waiter }) => {
       const items = itemsData.filter((i) => i.orderId === order.id);
       return {
         ...order,
         customerName: order.customerName || customer?.name || "Guest",
         customerPhone: order.customerPhone || customer?.phone || "N/A",
+        waiterName: waiter?.name || order.waiterName || null,
         rider: rider?.id ? { name: rider.name, phone: rider.phone } : null,
         items,
       };
@@ -300,6 +306,7 @@ const manualOrderSchema = z.object({
   deliveryAddress: z.string().optional(),
   deliveryNotes: z.string().optional(),
   tableNumber: z.string().optional(),
+  tableId: z.string().optional(),
   waiterId: z.string().optional().nullable(),
   deliveryFee: z.number().default(0),
   discountAmount: z.number().default(0),
@@ -317,8 +324,8 @@ const manualOrderSchema = z.object({
     if (!data.waiterId || data.waiterId.trim() === "") {
       ctx.addIssue({ path: ["waiterId"], message: "Waiter is required for Dine-In orders", code: z.ZodIssueCode.custom });
     }
-    if (!data.tableNumber || data.tableNumber.trim() === "") {
-      ctx.addIssue({ path: ["tableNumber"], message: "Table Number is required for Dine-In orders", code: z.ZodIssueCode.custom });
+    if (!data.tableId || data.tableId.trim() === "") {
+      ctx.addIssue({ path: ["tableId"], message: "Table is required for Dine-In orders", code: z.ZodIssueCode.custom });
     }
     if (!data.customerName || data.customerName.trim() === "") {
       ctx.addIssue({ path: ["customerName"], message: "Customer Name is required for Dine-In orders", code: z.ZodIssueCode.custom });
@@ -447,6 +454,7 @@ export async function createManualOrder(payload: z.infer<typeof manualOrderSchem
       customerName: finalCustomerName,
       customerPhone: finalCustomerPhone,
       orderType: validated.orderType,
+      tableId: validated.tableId || null,
       tableNumber: validated.tableNumber || null,
       waiterId: finalWaiterId,
       waiterName: null, // Legacy, can be left null

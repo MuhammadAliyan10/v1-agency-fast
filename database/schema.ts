@@ -345,6 +345,16 @@ export const coupons = pgTable(
 );
 
 // -----------------------------------------------------------------------------
+// Restaurant Tables
+// -----------------------------------------------------------------------------
+export const restaurantTables = pgTable("restaurant_tables", {
+  id:       uuid("id").defaultRandom().primaryKey(),
+  name:     varchar("name", { length: 50 }).notNull(),
+  capacity: integer("capacity").default(4).notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+});
+
+// -----------------------------------------------------------------------------
 // Orders
 // -----------------------------------------------------------------------------
 export const orders = pgTable(
@@ -358,6 +368,7 @@ export const orders = pgTable(
     customerName:      varchar("customer_name", { length: 120 }).notNull(),
     customerPhone:     varchar("customer_phone", { length: 20 }).notNull(),
     orderType:         orderTypeEnum("order_type").default("delivery").notNull(),
+    tableId:           uuid("table_id").references(() => restaurantTables.id, { onDelete: "set null" }),
     tableNumber:       varchar("table_number", { length: 20 }),
     // Legacy plain string kept for backward compat / display when waiterId is null
     waiterName:        varchar("waiter_name", { length: 120 }),
@@ -391,6 +402,7 @@ export const orders = pgTable(
     createdStatusIdx: index("orders_created_status_idx").on(table.createdAt, table.status),
     riderIdIdx:       index("orders_rider_id_idx").on(table.riderId),
     waiterIdIdx:      index("orders_waiter_id_idx").on(table.waiterId),
+    tableIdIdx:       index("orders_table_id_idx").on(table.tableId),
   })
 );
 
@@ -580,7 +592,12 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
   customer: one(users, { fields: [orders.customerId], references: [users.id], relationName: "customerOrders" }),
   rider:    one(users, { fields: [orders.riderId],    references: [users.id], relationName: "riderDeliveries" }),
   waiter:   one(users, { fields: [orders.waiterId],   references: [users.id], relationName: "waiterOrders" }),
+  table:    one(restaurantTables, { fields: [orders.tableId], references: [restaurantTables.id] }),
   items:    many(orderItems),
+}));
+
+export const restaurantTablesRelations = relations(restaurantTables, ({ many }) => ({
+  orders: many(orders),
 }));
 
 export const orderItemsRelations = relations(orderItems, ({ one }) => ({
