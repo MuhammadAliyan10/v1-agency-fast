@@ -131,9 +131,15 @@ function OrderCard({ order, updateItemMutation, bumpMutation }: { order: Kitchen
 
             {item.specialInstructions && (
               <div className="mt-1 pl-8">
-                <p className="text-lg font-black text-red-600 bg-red-100 p-2 rounded-md inline-block uppercase border-2 border-red-600">
-                  {item.specialInstructions}
-                </p>
+                {item.specialInstructions.startsWith("[DEAL:") ? (
+                  <p className="text-lg font-black text-purple-100 bg-purple-700 p-2 rounded-md inline-block uppercase border-2 border-purple-900 shadow-sm">
+                    {item.specialInstructions}
+                  </p>
+                ) : (
+                  <p className="text-lg font-black text-red-600 bg-red-100 p-2 rounded-md inline-block uppercase border-2 border-red-600">
+                    {item.specialInstructions}
+                  </p>
+                )}
               </div>
             )}
           </div>

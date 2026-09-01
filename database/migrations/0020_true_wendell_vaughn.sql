@@ -1,0 +1,2 @@
+ALTER TYPE "public"."whatsapp_session_state" ADD VALUE 'macro_selection' BEFORE 'active_order_menu';--> statement-breakpoint
+ALTER TYPE "public"."whatsapp_session_state" ADD VALUE 'deal_builder' BEFORE 'active_order_menu';

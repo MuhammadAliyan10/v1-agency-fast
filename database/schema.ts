@@ -65,6 +65,8 @@ export const outboundMessageStatusEnum = pgEnum("outbound_message_status", [
 
 export const whatsappSessionStateEnum = pgEnum("whatsapp_session_state", [
   "language_selection",
+  "macro_selection",
+  "deal_builder",
   "active_order_menu",
   "reorder_menu",
   "greeting",

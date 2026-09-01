@@ -77,6 +77,12 @@ export async function createOrderFromWhatsApp(phone: string, restaurantId: strin
         }
       }
 
+      // Respect Deal Overrides
+      if (cartItem.isDeal) {
+        unitPrice = cartItem.price !== undefined ? cartItem.price : unitPrice;
+        finalItemName = cartItem.name || finalItemName;
+      }
+
       const itemSubtotal = unitPrice * cartItem.quantity;
       subtotal += itemSubtotal;
       
@@ -87,6 +93,7 @@ export async function createOrderFromWhatsApp(phone: string, restaurantId: strin
         quantity: cartItem.quantity,
         unitPrice,
         subtotal: itemSubtotal,
+        specialInstructions: cartItem.specialInstructions || null,
       });
     }
 
@@ -122,6 +129,7 @@ export async function createOrderFromWhatsApp(phone: string, restaurantId: strin
         quantity: item.quantity,
         unitPrice: item.unitPrice,
         subtotal: item.subtotal,
+        specialInstructions: item.specialInstructions,
       });
     }
 

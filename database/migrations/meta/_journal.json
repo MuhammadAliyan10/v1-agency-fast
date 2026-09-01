@@ -141,6 +141,13 @@
       "when": 1788280493029,
       "tag": "0019_public_wolfsbane",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1788283405086,
+      "tag": "0020_true_wendell_vaughn",
+      "breakpoints": true
     }
   ]
 }

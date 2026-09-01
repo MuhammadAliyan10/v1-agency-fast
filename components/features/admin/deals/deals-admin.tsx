@@ -272,9 +272,11 @@ export function DealsAdmin({ initialDeals, menuItems, categories }: { initialDea
           <form onSubmit={form.handleSubmit(handleSave)}>
             <Tabs defaultValue="info" className="w-full">
               <div className="px-6 pt-4">
-                <TabsList className="grid w-full grid-cols-2 mb-4 h-11 p-1">
-                  <TabsTrigger value="info" className="font-bold text-sm h-full">1. Deal Details</TabsTrigger>
-                  <TabsTrigger value="slots" className="font-bold text-sm h-full">
+                <TabsList className="w-full flex justify-start mb-4 h-auto p-0 bg-transparent border-b rounded-none">
+                  <TabsTrigger value="info" className="font-bold text-sm h-11 px-6 rounded-none border-0 border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary text-muted-foreground">
+                    1. Deal Details
+                  </TabsTrigger>
+                  <TabsTrigger value="slots" className="font-bold text-sm h-11 px-6 rounded-none border-0 border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary text-muted-foreground">
                     2. Deal Builder <Badge variant="secondary" className="ml-2 bg-muted-foreground/20 text-foreground text-[10px] h-5 px-1.5">{fields.length}</Badge>
                   </TabsTrigger>
                 </TabsList>
