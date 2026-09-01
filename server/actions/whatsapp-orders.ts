@@ -181,11 +181,13 @@ export async function createOrderFromWhatsApp(phone: string, restaurantId: strin
 
   // Try to dispatch outbox processing immediately (fire and forget)
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000";
-    await qstashClient.publishJSON({
-      url: `${baseUrl}/api/jobs/process-outbox`,
-      body: { trigger: "order_created" },
-    });
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL; // They set this in Vercel now
+    if (baseUrl) {
+      await qstashClient.publishJSON({
+        url: `${baseUrl}/api/jobs/process-outbox`,
+        body: { trigger: "order_created" },
+      });
+    }
   } catch (e) {
     console.error("Failed to trigger outbox processing directly. Cron will pick it up.", e);
   }
