@@ -1,17 +1,22 @@
 import { PageHeader } from "@/components/shared/page-header";
-import { LiveKanban } from "@/components/features/admin/orders/live-kanban";
+import { LiveOrdersBoard } from "@/components/features/admin/orders/kanban-board";
+import { verifyToken } from "@/lib/auth/session";
+import { cookies } from "next/headers";
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
 
-export default function OrdersPage() {
+export const dynamic = "force-dynamic";
+
+export default async function LiveOrdersPage() {
+  // Extract role from session
+  const cookieStore = await cookies();
+  const sessionCookie = cookieStore.get("cc_admin_session");
+  const session = sessionCookie ? await verifyToken(sessionCookie.value) : null;
+  const role = session?.role || "admin";
+
   return (
-    <div className="space-y-6 h-[calc(100vh-120px)] flex flex-col">
-      <PageHeader 
-        heading="Live Orders" 
-        description="Manage incoming and live orders in real-time." 
-      />
-      
-      <div className="flex-1 min-h-0">
-        <LiveKanban />
-      </div>
+    <div className="h-full flex flex-col min-w-0 max-w-full">
+      <LiveOrdersBoard role={role as "admin" | "manager" | "kitchen" | "cashier"} />
     </div>
   );
 }

@@ -1,437 +1,746 @@
-// components/features/admin/orders/manual-order-dialog.tsx
 "use client";
 
-import { useState, useEffect, useTransition } from "react";
-import { Search, Plus, Minus, Trash2, ShoppingBag, Phone, User, MapPin, ChevronDown, Loader2 } from "lucide-react";
-import { toast } from "sonner";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
+import { useState, useMemo, useEffect } from "react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
-import { createManualOrder, getMenuForManualOrder } from "@/server/actions/live-orders";
-import { STORE_CONSTANTS } from "@/lib/constants";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Search, Plus, Minus, X, Check, ShoppingBag, Loader2, Printer } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { getPOSMenuData } from "@/server/actions/menu";
+import { createManualOrder, getStaffWaiters, addItemsToExistingOrder, LiveOrder } from "@/server/actions/live-orders";
+import { z } from "zod";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
-interface MenuItemVariant {
-  id: string;
-  name: string;
-  price: number;
-}
+const manualOrderSchema = z.object({
+  orderType: z.enum(["delivery", "pickup", "dine_in"]),
+  customerPhone: z.string().optional(),
+  customerName: z.string().optional(),
+  deliveryAddress: z.string().optional(),
+  deliveryNotes: z.string().optional(),
+  tableNumber: z.string().optional(),
+  waiterName: z.string().optional(),
+  deliveryFee: z.number().default(0),
+  discountAmount: z.number().default(0),
+  paymentMethod: z.enum(["COD", "Cash", "Card", "JazzCash", "EasyPaisa"]).default("Cash"),
+  paymentStatus: z.enum(["paid", "unpaid"]).default("unpaid"),
+  items: z.array(z.object({
+    menuItemId: z.string(),
+    variantId: z.string().optional().nullable(),
+    quantity: z.number().min(1),
+    selectedAddOns: z.array(z.string()).optional(),
+    specialInstructions: z.string().optional(),
+  })).min(1),
+}).superRefine((data, ctx) => {
+  if (data.orderType === "dine_in") {
+    if (!data.waiterName || data.waiterName.trim() === "") {
+      ctx.addIssue({ path: ["waiterName"], message: "Waiter Name is required for Dine-In orders", code: z.ZodIssueCode.custom });
+    }
+    if (!data.tableNumber || data.tableNumber.trim() === "") {
+      ctx.addIssue({ path: ["tableNumber"], message: "Table Number is required for Dine-In orders", code: z.ZodIssueCode.custom });
+    }
+    if (!data.customerName || data.customerName.trim() === "") {
+      ctx.addIssue({ path: ["customerName"], message: "Customer Name is required for Dine-In orders", code: z.ZodIssueCode.custom });
+    }
+  }
+  if (data.orderType === "delivery") {
+    if (!data.customerName || data.customerName.trim() === "") {
+      ctx.addIssue({ path: ["customerName"], message: "Customer Name is required for Delivery", code: z.ZodIssueCode.custom });
+    }
+    if (!data.customerPhone || data.customerPhone.trim() === "") {
+      ctx.addIssue({ path: ["customerPhone"], message: "Customer Phone is required for Delivery", code: z.ZodIssueCode.custom });
+    }
+    if (!data.deliveryAddress || data.deliveryAddress.trim() === "") {
+      ctx.addIssue({ path: ["deliveryAddress"], message: "Delivery Address is required for Delivery", code: z.ZodIssueCode.custom });
+    }
+  }
+  if (data.orderType === "pickup") {
+    if (!data.customerName || data.customerName.trim() === "") {
+      ctx.addIssue({ path: ["customerName"], message: "Customer Name is required for Pickup", code: z.ZodIssueCode.custom });
+    }
+    if (!data.customerPhone || data.customerPhone.trim() === "") {
+      ctx.addIssue({ path: ["customerPhone"], message: "Customer Phone is required for Pickup", code: z.ZodIssueCode.custom });
+    }
+  }
+});
 
-interface MenuItem {
-  id: string;
-  name: string;
-  basePrice: number;
-  imageUrl: string | null;
-  variants: MenuItemVariant[];
-  category: { name: string } | null;
-}
+// Hashing function for cart items
+const generateItemHash = (menuItemId: string, variantId?: string | null, addOns: string[] = []) => {
+  const addOnsStr = [...addOns].sort().join(",");
+  return `${menuItemId}_${variantId || "none"}_${addOnsStr}`;
+};
 
-interface CartLine {
+interface CartItem {
+  hash: string;
   menuItemId: string;
-  variantId?: string;
-  itemName: string;
+  name: string;
+  variantId?: string | null;
   variantName?: string;
   quantity: number;
-  unitPrice: number;
-  subtotal: number;
+  selectedAddOns: { id: string; name: string; price: number }[];
   specialInstructions?: string;
+  unitPrice: number;
+  totalPrice: number;
 }
 
-interface ManualOrderDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}
+export function ManualOrderDialog({ children, existingOrder }: { children: React.ReactNode; existingOrder?: LiveOrder }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const queryClient = useQueryClient();
 
-export function ManualOrderDialog({ open, onOpenChange }: ManualOrderDialogProps) {
-  const [isPending, startTransition] = useTransition();
-  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
-  const [menuSearch, setMenuSearch] = useState("");
-  const [cartLines, setCartLines] = useState<CartLine[]>([]);
-  const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
-
+  // POS State
+  const [orderType, setOrderType] = useState<"delivery" | "pickup" | "dine_in">("dine_in");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  
+  // Cart State
+  const [cart, setCart] = useState<CartItem[]>([]);
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
-  const [orderType, setOrderType] = useState<"delivery" | "pickup">("delivery");
   const [deliveryAddress, setDeliveryAddress] = useState("");
-  const [deliveryNotes, setDeliveryNotes] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<"COD" | "JazzCash" | "EasyPaisa">("COD");
+  const [tableNumber, setTableNumber] = useState("");
+  const [waiterName, setWaiterName] = useState("");
+  const [deliveryFee, setDeliveryFee] = useState(50);
+  const [discountType, setDiscountType] = useState<"flat" | "percent">("flat");
+  const [discountValue, setDiscountValue] = useState(0);
+  const [paymentMethod, setPaymentMethod] = useState<"Cash" | "Card" | "JazzCash" | "EasyPaisa" | "COD">("Cash");
+  const [paymentStatus, setPaymentStatus] = useState<"paid" | "unpaid">("paid");
+  
+  // Item Config Modal State
+  const [configItem, setConfigItem] = useState<any | null>(null);
+  const [selectedVariant, setSelectedVariant] = useState<string | null>(null);
+  const [selectedAddOns, setSelectedAddOns] = useState<Set<string>>(new Set());
 
+  // Initialize from existingOrder if provided
   useEffect(() => {
-    if (!open) return;
-    getMenuForManualOrder().then((res) => {
-      if (res.success) setMenuItems((res.data as MenuItem[]) || []);
-    });
-  }, [open]);
-
-  const filteredItems = menuItems.filter((item) =>
-    item.name.toLowerCase().includes(menuSearch.toLowerCase()) ||
-    item.category?.name.toLowerCase().includes(menuSearch.toLowerCase())
-  );
-
-  const getItemPrice = (item: MenuItem): { price: number; variantId?: string; variantName?: string } => {
-    const selectedVariantId = selectedVariants[item.id];
-    if (item.variants.length > 0) {
-      const variant = item.variants.find((v) => v.id === selectedVariantId) || item.variants[0];
-      return { price: variant.price, variantId: variant.id, variantName: variant.name };
+    if (isOpen && existingOrder) {
+      setOrderType("dine_in");
+      setCustomerName(existingOrder.customerName || "");
+      setCustomerPhone(existingOrder.customerPhone || "");
+      setTableNumber(existingOrder.tableNumber || "");
+      setWaiterName(existingOrder.waiterName || "");
+      setCart([]);
+    } else if (isOpen && !existingOrder) {
+      setCart([]);
     }
-    return { price: item.basePrice };
+  }, [isOpen, existingOrder]);
+
+  // Data Fetching
+  const { data: menuData, isLoading: isMenuLoading } = useQuery({
+    queryKey: ["pos-menu"],
+    queryFn: async () => {
+      const res = await getPOSMenuData();
+      if (!res.success) throw new Error(res.error);
+      return res.data;
+    },
+    enabled: isOpen
+  });
+
+  const { data: staffWaiters, isLoading: isStaffLoading } = useQuery({
+    queryKey: ["pos-staff"],
+    queryFn: async () => {
+      const res = await getStaffWaiters();
+      if (!res.success) throw new Error(res.error);
+      return res.data;
+    },
+    enabled: isOpen
+  });
+
+  // Derived Values
+  const filteredItems = useMemo(() => {
+    if (!menuData) return [];
+    let items = menuData.items;
+    
+    if (selectedCategory !== "all") {
+      items = items.filter(i => i.categoryId === selectedCategory);
+    }
+    
+    if (searchQuery) {
+      const lower = searchQuery.toLowerCase();
+      items = items.filter(i => i.name.toLowerCase().includes(lower));
+    }
+    
+    return items;
+  }, [menuData, selectedCategory, searchQuery]);
+
+  const subtotal = cart.reduce((acc, item) => acc + item.totalPrice, 0);
+  const calculatedDiscount = discountType === "percent" ? (subtotal * Math.min(discountValue, 100)) / 100 : discountValue;
+  const appliedDeliveryFee = orderType === "delivery" ? deliveryFee : 0;
+  const grandTotal = Math.max(0, subtotal + appliedDeliveryFee - calculatedDiscount);
+
+  // Computed valid state
+  const isFormValid = useMemo(() => {
+    if (orderType === "dine_in") {
+      return (tableNumber?.trim() || "") !== "" && (waiterName?.trim() || "") !== "" && (customerName?.trim() || "") !== "";
+    }
+    if (orderType === "delivery") {
+      return (customerName?.trim() || "") !== "" && (customerPhone?.trim() || "") !== "" && (deliveryAddress?.trim() || "") !== "";
+    }
+    if (orderType === "pickup") {
+      return (customerName?.trim() || "") !== "" && (customerPhone?.trim() || "") !== "";
+    }
+    return false;
+  }, [orderType, tableNumber, waiterName, customerName, customerPhone, deliveryAddress]);
+
+  // Handlers
+  const openItemConfig = (item: any) => {
+    const itemVariants = menuData?.variants.filter(v => v.menuItemId === item.id) || [];
+    const itemAddOns = menuData?.addOns.filter(a => a.menuItemId === item.id) || [];
+    
+    if (itemVariants.length === 0 && itemAddOns.length === 0) {
+      // Direct add to cart
+      addToCart(item.id, item.name, item.basePrice);
+      return;
+    }
+    
+    setConfigItem(item);
+    setSelectedVariant(itemVariants.length > 0 ? itemVariants[0].id : null);
+    setSelectedAddOns(new Set());
   };
 
-  const addToCart = (item: MenuItem) => {
-    const { price, variantId, variantName } = getItemPrice(item);
-    const lineKey = `${item.id}-${variantId ?? "base"}`;
-
-    setCartLines((prev) => {
-      const existing = prev.findIndex((l) => `${l.menuItemId}-${l.variantId ?? "base"}` === lineKey);
-      if (existing > -1) {
-        const updated = [...prev];
-        const line = updated[existing];
-        const newQty = line.quantity + 1;
-        updated[existing] = { ...line, quantity: newQty, subtotal: line.unitPrice * newQty };
-        return updated;
+  const addToCart = (menuItemId: string, name: string, basePrice: number, variantId?: string | null, addOnIds: string[] = []) => {
+    const hash = generateItemHash(menuItemId, variantId, addOnIds);
+    
+    setCart(prev => {
+      const existing = prev.find(p => p.hash === hash);
+      if (existing) {
+        return prev.map(p => p.hash === hash ? { 
+          ...p, 
+          quantity: p.quantity + 1,
+          totalPrice: (p.quantity + 1) * p.unitPrice
+        } : p);
       }
-      return [
-        ...prev,
-        {
-          menuItemId: item.id,
-          variantId,
-          itemName: item.name,
-          variantName,
-          quantity: 1,
-          unitPrice: price,
-          subtotal: price,
-        },
-      ];
-    });
-  };
-
-  const updateLineQty = (index: number, delta: number) => {
-    setCartLines((prev) => {
-      const updated = [...prev];
-      const newQty = updated[index].quantity + delta;
-      if (newQty <= 0) {
-        updated.splice(index, 1);
-        return updated;
+      
+      let unitPrice = basePrice;
+      let variantName;
+      if (variantId) {
+        const v = menuData?.variants.find(v => v.id === variantId);
+        if (v) {
+          unitPrice = v.price;
+          variantName = v.name;
+        }
       }
-      updated[index] = { ...updated[index], quantity: newQty, subtotal: updated[index].unitPrice * newQty };
-      return updated;
+      
+      const addOnObjects = [];
+      for (const aid of addOnIds) {
+        const a = menuData?.addOns.find(a => a.id === aid);
+        if (a) {
+          unitPrice += a.price;
+          addOnObjects.push({ id: a.id, name: a.name, price: a.price });
+        }
+      }
+      
+      return [...prev, {
+        hash,
+        menuItemId,
+        name,
+        variantId,
+        variantName,
+        quantity: 1,
+        selectedAddOns: addOnObjects,
+        unitPrice,
+        totalPrice: unitPrice
+      }];
     });
+    
+    setConfigItem(null);
   };
 
-  const updateLineNote = (index: number, note: string) => {
-    setCartLines((prev) => {
-      const updated = [...prev];
-      updated[index] = { ...updated[index], specialInstructions: note };
-      return updated;
-    });
+  const updateQuantity = (hash: string, delta: number) => {
+    setCart(prev => prev.map(p => {
+      if (p.hash === hash) {
+        const newQ = Math.max(0, p.quantity + delta);
+        return { ...p, quantity: newQ, totalPrice: newQ * p.unitPrice };
+      }
+      return p;
+    }).filter(p => p.quantity > 0));
   };
 
-  const subtotal = cartLines.reduce((sum, l) => sum + l.subtotal, 0);
-  const deliveryFee = orderType === "pickup" ? 0 : STORE_CONSTANTS.DELIVERY_FEE;
-  const total = subtotal + deliveryFee;
-
-  const handleSubmit = () => {
-    if (!customerName.trim() || !customerPhone.trim()) {
-      toast.error("Customer name and phone are required");
-      return;
-    }
-    if (cartLines.length === 0) {
-      toast.error("Add at least one item to the order");
-      return;
-    }
-    if (orderType === "delivery" && !deliveryAddress.trim()) {
-      toast.error("Delivery address is required");
-      return;
-    }
-
-    startTransition(async () => {
-      const res = await createManualOrder({
-        customerName: customerName.trim(),
-        customerPhone: customerPhone.trim(),
-        orderType,
-        deliveryAddress: orderType === "pickup" ? undefined : deliveryAddress.trim(),
-        deliveryNotes: deliveryNotes.trim() || undefined,
-        paymentMethod,
-        items: cartLines,
-      });
-
-      if (res.success) {
-        toast.success(`Order #${res.orderId} created successfully!`);
-        // Reset
-        setCartLines([]);
-        setCustomerName("");
-        setCustomerPhone("");
-        setDeliveryAddress("");
-        setDeliveryNotes("");
-        setOrderType("delivery");
-        setPaymentMethod("COD");
-        setMenuSearch("");
-        onOpenChange(false);
+  const createMutation = useMutation({
+    mutationFn: async () => {
+      if (cart.length === 0) throw new Error("Cart is empty");
+      if (orderType === "delivery" && (!deliveryAddress || !customerPhone)) {
+        throw new Error("Delivery orders require an address and phone number.");
+      }
+      
+      if (existingOrder) {
+        const payload = {
+          orderId: existingOrder.id,
+          items: cart.map(c => ({
+            menuItemId: c.menuItemId,
+            variantId: c.variantId,
+            quantity: c.quantity,
+            selectedAddOns: c.selectedAddOns.map(a => a.id),
+          }))
+        };
+        const res = await addItemsToExistingOrder(payload);
+        if (!res.success) throw new Error(res.error);
+        return res;
       } else {
-        toast.error(res.error ?? "Failed to create order");
+        const payload: z.infer<typeof manualOrderSchema> = {
+          orderType,
+          customerName,
+          customerPhone,
+          deliveryAddress: orderType === "delivery" ? deliveryAddress : undefined,
+          tableNumber: orderType === "dine_in" ? tableNumber : undefined,
+          waiterName: orderType === "dine_in" ? waiterName : undefined,
+          deliveryFee: appliedDeliveryFee,
+          discountAmount: calculatedDiscount,
+          paymentMethod,
+          paymentStatus,
+          items: cart.map(c => ({
+            menuItemId: c.menuItemId,
+            variantId: c.variantId,
+            quantity: c.quantity,
+            selectedAddOns: c.selectedAddOns.map(a => a.id),
+          }))
+        };
+        
+        const res = await createManualOrder(payload);
+        if (!res.success) throw new Error(res.error);
+        return res;
       }
-    });
-  };
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["live-orders"] });
+      setIsOpen(false);
+      
+      toast.success(existingOrder ? "Items Added to Order" : "Order Placed Successfully", {
+        description: `Order ID: ${data.orderId}`,
+        action: {
+          label: "Print Receipt",
+          onClick: () => {
+            // Stub for print functionality
+            toast("Sending to printer...");
+          }
+        },
+        duration: 10000,
+      });
+      
+      // Reset State
+      setCart([]);
+      setCustomerName("");
+      setCustomerPhone("");
+      setDeliveryAddress("");
+      setTableNumber("");
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Failed to place order");
+    }
+  });
+
+  // Effects for Order Type changes
+  useEffect(() => {
+    if (orderType === "delivery") {
+      setPaymentMethod("COD");
+      setPaymentStatus("unpaid");
+    } else {
+      setPaymentMethod("Cash");
+      setPaymentStatus("paid");
+    }
+  }, [orderType]);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[95vw] sm:max-w-4xl lg:max-w-5xl w-full h-[95vh] md:h-[85vh] flex flex-col p-0 gap-0 overflow-hidden rounded-2xl">
-        <DialogHeader className="px-6 pt-6 pb-4 border-b shrink-0">
-          <DialogTitle className="text-xl font-bold flex items-center gap-2">
-            <ShoppingBag className="w-5 h-5" />
-            New Manual Order
-          </DialogTitle>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        {children}
+      </DialogTrigger>
+      <DialogContent className="!max-w-[95vw] w-full h-[95vh] p-0 flex flex-col overflow-hidden bg-background">
+        <DialogHeader className="px-6 py-4 border-b shrink-0 flex-row justify-between items-center">
+          <div>
+            <DialogTitle className="text-2xl font-bold">{existingOrder ? `Append to Order #${existingOrder.id}` : "New POS Order"}</DialogTitle>
+            <DialogDescription>{existingOrder ? "Add new rounds/items to this existing order." : "Quickly construct manual orders for walk-ins and direct calls."}</DialogDescription>
+          </div>
         </DialogHeader>
 
-        <div className="flex flex-col md:flex-row flex-1 min-h-0">
-          {/* LEFT: Menu Picker */}
-          <div className="flex flex-col w-full md:w-[55%] border-b md:border-b-0 md:border-r min-h-[50%] md:min-h-0 flex-1">
-            <div className="p-4 border-b shrink-0">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search menu..."
-                  value={menuSearch}
-                  onChange={(e) => setMenuSearch(e.target.value)}
-                  className="pl-9"
-                />
-              </div>
-            </div>
-            <ScrollArea className="flex-1 min-h-0 overflow-hidden">
-              <div className="p-3 space-y-2">
-                {filteredItems.length === 0 && (
-                  <p className="text-center text-sm text-muted-foreground py-8">No items found</p>
-                )}
-                {filteredItems.map((item) => {
-                  const { price } = getItemPrice(item);
-                  return (
-                    <div
-                      key={item.id}
-                      className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/40 transition-colors"
-                    >
-                      <div className="flex-1 min-w-0 mr-3">
-                        <p className="font-medium text-sm truncate">{item.name}</p>
-                        <p className="text-xs text-muted-foreground">{item.category?.name}</p>
-                        {item.variants.length > 0 && (
-                          <Select
-                            value={selectedVariants[item.id] || item.variants[0]?.id}
-                            onValueChange={(val) =>
-                              setSelectedVariants((prev) => ({ ...prev, [item.id]: val }))
-                            }
-                          >
-                            <SelectTrigger className="h-6 text-xs mt-1 w-[130px]">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {item.variants.map((v) => (
-                                <SelectItem key={v.id} value={v.id} className="text-xs">
-                                  {v.name} — Rs. {v.price}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-3 shrink-0">
-                        <span className="font-bold text-sm">Rs. {price}</span>
-                        <Button size="sm" variant="outline" className="h-8 w-8 p-0 rounded-full" onClick={() => addToCart(item)}>
-                          <Plus className="w-3.5 h-3.5" />
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </ScrollArea>
-          </div>
-
-          {/* RIGHT: Order Summary + Customer Details */}
-          <div className="flex flex-col w-full md:w-[45%] min-h-[50%] md:min-h-0 flex-1">
-            <Tabs defaultValue="items" className="flex flex-col flex-1 min-h-0">
-              <TabsList className="rounded-none border-b px-4 h-12 justify-start bg-transparent shrink-0">
-                <TabsTrigger value="items" className="rounded-md data-[state=active]:bg-muted">
-                  Items {cartLines.length > 0 && <Badge className="ml-1 h-5 px-1.5 text-xs">{cartLines.length}</Badge>}
-                </TabsTrigger>
-                <TabsTrigger value="customer" className="rounded-md data-[state=active]:bg-muted">
-                  Customer
-                </TabsTrigger>
-              </TabsList>
-
-              {/* Cart Items Tab */}
-              <TabsContent value="items" className="flex-1 flex flex-col min-h-0 mt-0">
-                <ScrollArea className="flex-1 min-h-0 overflow-hidden">
-                  <div className="p-4 space-y-3">
-                    {cartLines.length === 0 && (
-                      <div className="text-center py-10 text-muted-foreground text-sm">
-                        <ShoppingBag className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                        Add items from the menu
-                      </div>
+        <div className="flex-1 flex overflow-hidden">
+          {/* LEFT PANEL: Cart & Form */}
+          <div className="w-[40%] xl:w-[35%] flex flex-col bg-background border-r">
+            <div className="flex-1 p-5 border-b overflow-y-auto">
+              <div className="mb-6 space-y-3">
+                <Label className="text-base font-bold">Order Type</Label>
+                <Tabs value={orderType} onValueChange={(v) => setOrderType(v as any)}>
+                  <TabsList className="w-full justify-start h-auto p-0 bg-transparent rounded-none border-b">
+                    {existingOrder ? (
+                      <TabsTrigger 
+                        value="dine_in" 
+                        className="text-sm font-semibold rounded-none bg-transparent border-transparent border-t-0 border-l-0 border-r-0 border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-6 py-2 transition-none"
+                      >
+                        Dine-In (Append)
+                      </TabsTrigger>
+                    ) : (
+                      <>
+                        <TabsTrigger 
+                          value="dine_in" 
+                          className="text-sm font-semibold rounded-none bg-transparent border-transparent border-t-0 border-l-0 border-r-0 border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-6 py-2 transition-none"
+                        >
+                          Dine-In
+                        </TabsTrigger>
+                        <TabsTrigger 
+                          value="pickup" 
+                          className="text-sm font-semibold rounded-none bg-transparent border-transparent border-t-0 border-l-0 border-r-0 border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-6 py-2 transition-none"
+                        >
+                          Pickup
+                        </TabsTrigger>
+                        <TabsTrigger 
+                          value="delivery" 
+                          className="text-sm font-semibold rounded-none bg-transparent border-transparent border-t-0 border-l-0 border-r-0 border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-6 py-2 transition-none"
+                        >
+                          Delivery
+                        </TabsTrigger>
+                      </>
                     )}
-                    {cartLines.map((line, idx) => (
-                      <div key={idx} className="border rounded-lg p-3 space-y-2">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-sm truncate">{line.itemName}</p>
-                            {line.variantName && (
-                              <p className="text-xs text-muted-foreground">{line.variantName}</p>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => updateLineQty(idx, -1)}>
-                              <Minus className="w-3 h-3" />
-                            </Button>
-                            <span className="w-5 text-center font-bold text-sm">{line.quantity}</span>
-                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => updateLineQty(idx, 1)}>
-                              <Plus className="w-3 h-3" />
-                            </Button>
-                            <span className="font-semibold text-sm ml-1 min-w-[60px] text-right">
-                              Rs. {line.subtotal}
-                            </span>
-                          </div>
+                  </TabsList>
+                </Tabs>
+              </div>
+
+              <div className="space-y-4 mb-8 bg-muted/30 p-4 rounded-md border">
+                {orderType === "dine_in" && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label>Table No.</Label>
+                      <Input value={tableNumber} onChange={e => setTableNumber(e.target.value)} placeholder="e.g. T-12" className="h-10 rounded-md bg-background" disabled={!!existingOrder} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Waiter Name <span className="text-destructive">*</span></Label>
+                      <select 
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                        value={waiterName}
+                        onChange={e => setWaiterName(e.target.value)}
+                        disabled={!!existingOrder}
+                      >
+                        <option value="">Select Waiter</option>
+                        {staffWaiters?.map(staff => (
+                          <option key={staff.id} value={staff.name}>{staff.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                )}
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label>Customer Phone {orderType !== "dine_in" && <span className="text-destructive">*</span>}</Label>
+                    <Input value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} placeholder="03XXXXXXXXX" className="h-10 rounded-md bg-background" disabled={!!existingOrder} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Customer Name {orderType !== "dine_in" && <span className="text-destructive">*</span>}</Label>
+                    <Input value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder="Walk-in Guest" className="h-10 rounded-md bg-background" disabled={!!existingOrder} />
+                  </div>
+                </div>
+
+                {orderType === "delivery" && (
+                  <div className="space-y-1.5">
+                    <Label>Delivery Address <span className="text-destructive">*</span></Label>
+                    <Input value={deliveryAddress} onChange={e => setDeliveryAddress(e.target.value)} placeholder="Full address" className="h-10 rounded-md bg-background" />
+                  </div>
+                )}
+              </div>
+
+              {/* Existing Items History */}
+              {existingOrder && existingOrder.items && existingOrder.items.length > 0 && (
+                <div className="space-y-3 mb-6">
+                  <h3 className="font-bold flex items-center gap-2 border-b pb-2 text-muted-foreground">
+                    <ShoppingBag className="h-4 w-4" /> Previously Ordered
+                  </h3>
+                  <div className="opacity-70 space-y-2 pointer-events-none">
+                    {existingOrder.items.map(item => (
+                      <div key={item.id} className="flex gap-3 items-start justify-between bg-muted/10 p-2 rounded-lg border border-dashed">
+                        <div className="flex-1">
+                          <div className="font-bold text-sm">{item.itemName}</div>
+                          {item.variantName && <div className="text-xs text-muted-foreground">{item.variantName}</div>}
+                          {Array.isArray(item.selectedAddOns) && item.selectedAddOns.map((a: any, i) => (
+                            <div key={i} className="text-xs text-muted-foreground">+ {a.name || ""}</div>
+                          ))}
+                          <div className="text-sm font-semibold mt-1">Rs. {item.unitPrice}</div>
                         </div>
-                        <Input
-                          placeholder="Special instructions (optional)"
-                          className="h-7 text-xs"
-                          value={line.specialInstructions || ""}
-                          onChange={(e) => updateLineNote(idx, e.target.value)}
-                        />
+                        <div className="flex items-center justify-center bg-background border rounded-md h-7 px-2">
+                          <span className="text-xs font-bold text-center">{item.quantity}x</span>
+                        </div>
+                        <div className="w-16 text-right font-bold text-sm text-muted-foreground">Rs. {String(item.subtotal)}</div>
                       </div>
                     ))}
                   </div>
-                </ScrollArea>
+                </div>
+              )}
 
-                {cartLines.length > 0 && (
-                  <div className="p-4 border-t space-y-1 text-sm shrink-0">
-                    <div className="flex justify-between text-muted-foreground">
-                      <span>Subtotal</span>
-                      <span>Rs. {subtotal}</span>
-                    </div>
-                    <div className="flex justify-between text-muted-foreground">
-                      <span>Delivery Fee</span>
-                      <span>{orderType === "pickup" ? "Free" : `Rs. ${deliveryFee}`}</span>
-                    </div>
-                    <div className="flex justify-between font-bold text-base pt-1 border-t">
-                      <span>Total</span>
-                      <span>Rs. {total}</span>
-                    </div>
-                  </div>
-                )}
-              </TabsContent>
-
-              {/* Customer Details Tab */}
-              <TabsContent value="customer" className="flex-1 mt-0 overflow-auto">
-                <div className="p-4 space-y-4">
-                  <div className="space-y-2">
-                    <Label className="text-xs font-semibold uppercase text-muted-foreground">Customer Name *</Label>
-                    <div className="relative">
-                      <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input className="pl-9" placeholder="Ali Khan" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-xs font-semibold uppercase text-muted-foreground">Phone *</Label>
-                    <div className="relative">
-                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input className="pl-9" placeholder="03XX-XXXXXXX" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-xs font-semibold uppercase text-muted-foreground">Order Type</Label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {(["delivery", "pickup"] as const).map((type) => (
-                        <button
-                          key={type}
-                          type="button"
-                          onClick={() => setOrderType(type)}
-                          className={`py-2.5 text-sm font-semibold rounded-lg border transition-all capitalize ${
-                            orderType === type
-                              ? "bg-primary text-primary-foreground border-primary"
-                              : "border-muted hover:bg-muted/40"
-                          }`}
-                        >
-                          {type}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {orderType === "delivery" && (
-                    <div className="space-y-2">
-                      <Label className="text-xs font-semibold uppercase text-muted-foreground">Delivery Address *</Label>
-                      <div className="relative">
-                        <MapPin className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
-                        <Textarea
-                          className="pl-9 min-h-[80px] resize-none"
-                          placeholder="House #, Street, Area, City"
-                          value={deliveryAddress}
-                          onChange={(e) => setDeliveryAddress(e.target.value)}
-                        />
+              {/* Cart Items */}
+              <div className="space-y-3">
+                <h3 className="font-bold flex items-center gap-2 border-b pb-2">
+                  <ShoppingBag className="h-5 w-5" /> {existingOrder ? "New Items (This Round)" : "Current Order"}
+                </h3>
+                {cart.length === 0 ? (
+                  <div className="py-10 text-center text-muted-foreground text-sm">Cart is empty. Select items from the menu.</div>
+                ) : (
+                  cart.map(item => (
+                    <div key={item.hash} className="flex gap-3 items-start justify-between bg-muted/10 p-2 rounded-lg border">
+                      <div className="flex-1">
+                        <div className="font-bold text-sm">{item.name}</div>
+                        {item.variantName && <div className="text-xs text-muted-foreground">{item.variantName}</div>}
+                        {item.selectedAddOns.map(a => (
+                          <div key={a.id} className="text-xs text-muted-foreground">+ {a.name}</div>
+                        ))}
+                        <div className="text-sm font-semibold mt-1">Rs. {item.unitPrice}</div>
                       </div>
+                      <div className="flex items-center gap-2 bg-background border rounded-md">
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => updateQuantity(item.hash, -1)}><Minus className="h-3 w-3" /></Button>
+                        <span className="text-sm font-bold w-4 text-center">{item.quantity}</span>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => updateQuantity(item.hash, 1)}><Plus className="h-3 w-3" /></Button>
+                      </div>
+                      <div className="w-16 text-right font-bold text-sm">Rs. {item.totalPrice}</div>
                     </div>
-                  )}
+                  ))
+                )}
+              </div>
+            </div>
 
-                  <div className="space-y-2">
-                    <Label className="text-xs font-semibold uppercase text-muted-foreground">Order Notes</Label>
-                    <Textarea
-                      className="min-h-[60px] resize-none"
-                      placeholder="Any notes for the kitchen or rider..."
-                      value={deliveryNotes}
-                      onChange={(e) => setDeliveryNotes(e.target.value)}
+            {/* Total Footer */}
+            <div className="p-5 bg-muted/20 shrink-0">
+              <div className="space-y-2 mb-4">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Subtotal</span>
+                  <span className="font-semibold">Rs. {subtotal}</span>
+                </div>
+                
+                {orderType === "delivery" && (
+                  <div className="flex justify-between text-sm items-center">
+                    <span className="text-muted-foreground">Delivery Fee</span>
+                    <Input 
+                      type="number" 
+                      className="h-7 w-20 text-right font-semibold" 
+                      value={deliveryFee} 
+                      onChange={e => setDeliveryFee(Number(e.target.value))} 
                     />
                   </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-xs font-semibold uppercase text-muted-foreground">Payment Method</Label>
-                    <Select value={paymentMethod} onValueChange={(v) => setPaymentMethod(v as typeof paymentMethod)}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="COD">Cash on Delivery</SelectItem>
-                        <SelectItem value="JazzCash">JazzCash</SelectItem>
-                        <SelectItem value="EasyPaisa">EasyPaisa</SelectItem>
-                      </SelectContent>
-                    </Select>
+                )}
+                
+                <div className="flex justify-between text-sm items-center pt-1 border-t">
+                  <span className="text-muted-foreground">Discount</span>
+                  <div className="flex items-center gap-1">
+                    <Button variant={discountType === "percent" ? "secondary" : "ghost"} size="sm" className="h-7 px-2 text-xs" onClick={() => setDiscountType("percent")}>%</Button>
+                    <Button variant={discountType === "flat" ? "secondary" : "ghost"} size="sm" className="h-7 px-2 text-xs" onClick={() => setDiscountType("flat")}>Rs</Button>
+                    <Input 
+                      type="number" 
+                      className="h-7 w-16 text-right" 
+                      value={discountValue} 
+                      onChange={e => {
+                        const v = Number(e.target.value);
+                        if (discountType === "percent" && v > 100) return;
+                        setDiscountValue(v);
+                      }} 
+                    />
                   </div>
                 </div>
-              </TabsContent>
-            </Tabs>
+              </div>
+
+              <div className="flex justify-between items-center mb-4">
+                <span className="text-2xl font-bold">Total</span>
+                <span className="text-3xl font-black text-primary">Rs. {grandTotal}</span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                 <div className="space-y-1">
+                    <Label className="text-xs">Payment Method</Label>
+                    <select 
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      value={paymentMethod}
+                      onChange={e => setPaymentMethod(e.target.value as any)}
+                    >
+                      <option value="Cash">Cash</option>
+                      <option value="Card">Card</option>
+                      <option value="JazzCash">JazzCash</option>
+                      <option value="EasyPaisa">EasyPaisa</option>
+                      {orderType === "delivery" && <option value="COD">COD</option>}
+                    </select>
+                 </div>
+                 <div className="space-y-1">
+                    <Label className="text-xs">Status</Label>
+                    <div className="flex gap-1 h-9 bg-muted p-1 rounded-md">
+                       <Button variant={paymentStatus === "unpaid" ? "destructive" : "ghost"} className="flex-1 h-full text-xs" onClick={() => setPaymentStatus("unpaid")}>Unpaid</Button>
+                       <Button variant={paymentStatus === "paid" ? "default" : "ghost"} className="flex-1 h-full text-xs" onClick={() => setPaymentStatus("paid")}>Paid</Button>
+                    </div>
+                 </div>
+              </div>
+
+              <Button 
+                className="w-full h-14 text-lg font-bold gap-2" 
+                disabled={cart.length === 0 || createMutation.isPending || !isFormValid}
+                onClick={() => createMutation.mutate()}
+              >
+                {createMutation.isPending ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : orderType === "dine_in" ? (
+                  <Check className="h-5 w-5" />
+                ) : (
+                  <Printer className="h-5 w-5" />
+                )}
+                {createMutation.isPending 
+                  ? "Processing..." 
+                  : orderType === "dine_in" 
+                    ? "Place Order" 
+                    : "Place Order & Print"}
+              </Button>
+            </div>
+          </div>
+
+          {/* RIGHT PANEL: Menu */}
+          <div className="w-[60%] xl:w-[65%] flex flex-col bg-muted/10 relative">
+            {isMenuLoading && (
+              <div className="absolute inset-0 z-10 bg-background/50 flex items-center justify-center backdrop-blur-sm">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            )}
+            
+            <div className="p-4 border-b flex gap-4 shrink-0 bg-background">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input 
+                  placeholder="Search menu instantly..." 
+                  className="pl-9 h-11 text-lg font-medium shadow-sm"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto overflow-x-hidden p-4">
+                <div className="flex gap-2 pb-4 overflow-x-auto">
+                  <Button 
+                    variant={selectedCategory === "all" ? "default" : "outline"} 
+                    className="rounded-full whitespace-nowrap"
+                    onClick={() => setSelectedCategory("all")}
+                  >
+                    All Items
+                  </Button>
+                  {menuData?.categories.map(c => (
+                    <Button 
+                      key={c.id} 
+                      variant={selectedCategory === c.id ? "default" : "outline"}
+                      className="rounded-full whitespace-nowrap"
+                      onClick={() => setSelectedCategory(c.id)}
+                    >
+                      {c.name}
+                    </Button>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 mt-2 pb-20">
+                  {filteredItems.map(item => {
+                    const hasVariants = menuData?.variants.some(v => v.menuItemId === item.id);
+                    const hasAddOns = menuData?.addOns.some(a => a.menuItemId === item.id);
+                    // Find quantity of this item in the cart to show a quick badge
+                    const cartQty = cart.filter(c => c.menuItemId === item.id).reduce((sum, c) => sum + c.quantity, 0);
+
+                    return (
+                      <button 
+                        key={item.id}
+                        className="group flex flex-col text-left bg-background border rounded-xl overflow-hidden shadow-sm hover:shadow-md hover:border-primary transition-all active:scale-95 relative h-[240px] w-full"
+                        onClick={() => openItemConfig(item)}
+                      >
+                        {/* Top Image */}
+                        <div className="w-full h-[120px] bg-muted relative shrink-0">
+                          {item.imageUrl ? (
+                            <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <ShoppingBag className="w-10 h-10 text-muted-foreground/30" />
+                            </div>
+                          )}
+                          {/* Top Badges (Variants/Addons) */}
+                          <div className="absolute top-2 left-2 flex flex-col gap-1">
+                             {hasVariants && <span className="text-[10px] bg-background/90 backdrop-blur-sm px-1.5 py-0.5 rounded font-medium shadow-sm border border-border/50">Variants</span>}
+                             {hasAddOns && <span className="text-[10px] bg-background/90 backdrop-blur-sm px-1.5 py-0.5 rounded font-medium shadow-sm border border-border/50">Add-ons</span>}
+                          </div>
+                          {cartQty > 0 && (
+                            <div className="absolute top-2 right-2 bg-primary text-primary-foreground text-xs font-bold px-2 py-1 rounded-md shadow-sm">
+                              {cartQty} in cart
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Content */}
+                        <div className="p-3 w-full flex flex-col flex-1 min-h-0">
+                          <h4 className="font-bold text-sm line-clamp-1 mb-1 shrink-0">{item.name}</h4>
+                          <div className="overflow-hidden mb-2">
+                            <p className="text-[11px] text-muted-foreground line-clamp-2 leading-snug break-words">
+                              {item.description || "A delicious meal prepared fresh for you."}
+                            </p>
+                          </div>
+                          <div className="text-primary font-black text-sm mt-auto shrink-0">Rs. {item.basePrice}</div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                  {filteredItems.length === 0 && (
+                     <div className="col-span-full py-20 text-center text-muted-foreground">
+                       No items found matching your search.
+                     </div>
+                  )}
+                </div>
+            </div>
           </div>
         </div>
-
-        <DialogFooter className="px-6 py-4 border-t shrink-0 gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit} disabled={isPending || cartLines.length === 0} className="gap-2 min-w-[160px]">
-            {isPending ? (
-              <><Loader2 className="w-4 h-4 animate-spin" /> Creating Order...</>
-            ) : (
-              <><ShoppingBag className="w-4 h-4" /> Create Order • Rs. {total}</>
-            )}
-          </Button>
-        </DialogFooter>
       </DialogContent>
+
+      {/* Item Configuration Sub-Modal */}
+      <Dialog open={!!configItem} onOpenChange={(open) => !open && setConfigItem(null)}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>{configItem?.name}</DialogTitle>
+            <DialogDescription>Configure options before adding to cart</DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-6">
+            {(menuData?.variants?.filter(v => v.menuItemId === configItem?.id)?.length || 0) > 0 && (
+              <div className="space-y-3">
+                <Label className="text-base font-bold">Size / Variant</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {menuData?.variants.filter(v => v.menuItemId === configItem?.id).map(v => (
+                    <Button 
+                      key={v.id} 
+                      variant={selectedVariant === v.id ? "default" : "outline"} 
+                      onClick={() => setSelectedVariant(v.id)}
+                      className="justify-between"
+                    >
+                      {v.name} <span>Rs. {v.price}</span>
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {(menuData?.addOns?.filter(a => a.menuItemId === configItem?.id)?.length || 0) > 0 && (
+              <div className="space-y-3">
+                <Label className="text-base font-bold">Add-ons</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {menuData?.addOns.filter(a => a.menuItemId === configItem?.id).map(a => (
+                    <Button 
+                      key={a.id} 
+                      variant={selectedAddOns.has(a.id) ? "default" : "outline"} 
+                      onClick={() => {
+                        const newSet = new Set(selectedAddOns);
+                        if (newSet.has(a.id)) newSet.delete(a.id);
+                        else newSet.add(a.id);
+                        setSelectedAddOns(newSet);
+                      }}
+                      className="justify-between"
+                    >
+                      {a.name} <span>+Rs. {a.price}</span>
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button onClick={() => addToCart(configItem.id, configItem.name, configItem.basePrice, selectedVariant, Array.from(selectedAddOns))} className="w-full h-12 text-lg">
+              Add to Order
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }

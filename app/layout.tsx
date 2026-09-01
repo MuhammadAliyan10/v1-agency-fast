@@ -1,29 +1,27 @@
 // app/layout.tsx
 import type { Metadata } from "next";
-import { Cormorant_Garamond, DM_Sans } from "next/font/google";
+import { Inter, Figtree } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/providers/theme-provider";
+import QueryProvider from "@/components/providers/query-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { SplashScreen } from "@/components/ui/splash-screen";
 
 // ─────────────────────────────────────────────
 // Typography
-// Heading: Cormorant Garamond — editorial luxury serif
-// Body:    DM Sans — clean, legible, modern
+// Heading: Inter
+// Body:    Figtree
 // ─────────────────────────────────────────────
-const cormorant = Cormorant_Garamond({
+const inter = Inter({
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
-  style: ["normal", "italic"],
   variable: "--font-heading",
   display: "swap",
 });
 
-const dmSans = DM_Sans({
+const figtree = Figtree({
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
   variable: "--font-sans",
   display: "swap",
 });
@@ -105,7 +103,7 @@ export default function RootLayout({ children }: LayoutProps) {
     <html
       lang="en"
       suppressHydrationWarning
-      className={cn("h-full antialiased", cormorant.variable, dmSans.variable)}
+      className={cn("h-full antialiased", inter.variable, figtree.variable)}
     >
       <head>
         {/* Preconnect to Google Fonts CDN */}
@@ -167,9 +165,11 @@ export default function RootLayout({ children }: LayoutProps) {
           disableTransitionOnChange
         >
           <TooltipProvider>
-            <main id="main-content" className="flex-1">
-              {children}
-            </main>
+            <QueryProvider>
+              <main id="main-content" className="flex-1">
+                {children}
+              </main>
+            </QueryProvider>
           </TooltipProvider>
         </ThemeProvider>
         <Toaster position="top-center" />

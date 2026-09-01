@@ -20,6 +20,18 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Globe, MessageCircle, MoreHorizontal, CheckCircle2, Car, Store, Loader2 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
+import { useTransition } from "react";
+import { updateLiveOrderStatus, type OrderStatus } from "@/server/actions/live-orders";
 import type { RecentOrderSummary } from "@/types/analytics";
 
 interface RecentOrdersTableProps {
@@ -64,38 +76,113 @@ export function RecentOrdersTable({ data }: RecentOrdersTableProps) {
               <TableRow className="hover:bg-transparent border-border">
                 <TableHead className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Order</TableHead>
                 <TableHead className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Customer</TableHead>
+                <TableHead className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Source</TableHead>
+                <TableHead className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Type</TableHead>
                 <TableHead className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Status</TableHead>
                 <TableHead className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">Amount</TableHead>
                 <TableHead className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">Time</TableHead>
+                <TableHead className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {data.map((order) => (
-                <TableRow 
-                  key={order.id} 
-                  className="cursor-pointer hover:bg-muted/50"
-                  onClick={() => router.push(`/admin/orders?id=${order.id}`)}
-                >
-                  <TableCell className="font-medium">#{order.id}</TableCell>
-                  <TableCell>
-                    <div className="flex flex-col">
-                      <span>{order.customerName}</span>
-                      <span className="text-xs text-muted-foreground">{order.itemsCount} items</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className={statusConfig[order.status]?.className || ""}>
-                      {statusConfig[order.status]?.label || order.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right font-medium">
-                    Rs. {order.totalAmount.toLocaleString()}
-                  </TableCell>
-                  <TableCell className="text-right text-muted-foreground text-xs">
-                    {formatDistanceToNow(new Date(order.createdAt), { addSuffix: true })}
-                  </TableCell>
-                </TableRow>
-              ))}
+              {data.map((order) => {
+                const [isPending, startTransition] = useTransition();
+
+                const handleUpdateStatus = (newStatus: OrderStatus) => {
+                  startTransition(async () => {
+                    const result = await updateLiveOrderStatus(order.id, newStatus);
+                    if (result.success) {
+                      toast.success(`Order #${order.id} marked as ${newStatus}`);
+                      router.refresh();
+                    } else {
+                      toast.error(result.message || "Failed to update status");
+                    }
+                  });
+                };
+
+                return (
+                  <TableRow 
+                    key={order.id} 
+                    className="cursor-pointer hover:bg-muted/50"
+                  >
+                    <TableCell className="font-medium" onClick={() => router.push(`/admin/orders?id=${order.id}`)}>
+                      #{order.id}
+                    </TableCell>
+                    <TableCell onClick={() => router.push(`/admin/orders?id=${order.id}`)}>
+                      <div className="flex flex-col">
+                        <span>{order.customerName}</span>
+                        <span className="text-xs text-muted-foreground">{order.itemsCount} items</span>
+                      </div>
+                    </TableCell>
+                    <TableCell onClick={() => router.push(`/admin/orders?id=${order.id}`)}>
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        {order.source === "whatsapp" ? (
+                          <MessageCircle className="h-3.5 w-3.5 text-green-500" />
+                        ) : order.source === "website" ? (
+                          <Globe className="h-3.5 w-3.5 text-blue-500" />
+                        ) : (
+                          <Store className="h-3.5 w-3.5 text-purple-500" />
+                        )}
+                        <span className="capitalize">{order.source}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell onClick={() => router.push(`/admin/orders?id=${order.id}`)}>
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        {order.orderType === "delivery" ? (
+                          <Car className="h-3.5 w-3.5" />
+                        ) : (
+                          <ShoppingBag className="h-3.5 w-3.5" />
+                        )}
+                        <span className="capitalize">{order.orderType}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell onClick={() => router.push(`/admin/orders?id=${order.id}`)}>
+                      <Badge variant="outline" className={statusConfig[order.status]?.className || ""}>
+                        {statusConfig[order.status]?.label || order.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right font-medium" onClick={() => router.push(`/admin/orders?id=${order.id}`)}>
+                      Rs. {order.totalAmount.toLocaleString()}
+                    </TableCell>
+                    <TableCell className="text-right text-muted-foreground text-xs" onClick={() => router.push(`/admin/orders?id=${order.id}`)}>
+                      {formatDistanceToNow(new Date(order.createdAt), { addSuffix: true })}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {order.status === "pending" ? (
+                        <Button 
+                          size="sm" 
+                          variant="default"
+                          className="h-8 gap-1"
+                          disabled={isPending}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleUpdateStatus("approved");
+                          }}
+                        >
+                          {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                          Accept
+                        </Button>
+                      ) : (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0" onClick={(e) => e.stopPropagation()}>
+                              <span className="sr-only">Open menu</span>
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Quick Update</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleUpdateStatus("preparing"); }}>Mark Preparing</DropdownMenuItem>
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleUpdateStatus("out_for_delivery"); }}>Mark Out for Delivery</DropdownMenuItem>
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleUpdateStatus("delivered"); }}>Mark Delivered</DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         )}

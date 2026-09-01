@@ -222,3 +222,37 @@ export async function getCategories() {
     return { success: false, error: "Failed to fetch categories" };
   }
 }
+
+// -----------------------------------------------------------------------------
+// POS Specialized Queries
+// -----------------------------------------------------------------------------
+export async function getPOSMenuData() {
+  await requireAdmin();
+  try {
+    const allCategories = await db.select().from(categories).where(eq(categories.isActive, true)).orderBy(categories.sortOrder);
+    const allItems = await db.select().from(menuItems).where(eq(menuItems.isAvailable, true));
+    
+    // Fetch all variants and addons for available items
+    const itemIds = allItems.map(i => i.id);
+    let variants: any[] = [];
+    let addOns: any[] = [];
+    
+    if (itemIds.length > 0) {
+      variants = await db.select().from(itemVariants).where(and(sql`${itemVariants.menuItemId} IN ${itemIds}`, eq(itemVariants.isAvailable, true)));
+      addOns = await db.select().from(itemAddOns).where(and(sql`${itemAddOns.menuItemId} IN ${itemIds}`, eq(itemAddOns.isAvailable, true)));
+    }
+
+    return {
+      success: true,
+      data: {
+        categories: allCategories,
+        items: allItems,
+        variants,
+        addOns
+      }
+    };
+  } catch (error) {
+    console.error("Error fetching POS menu data:", error);
+    return { success: false, error: "Failed to fetch POS menu data" };
+  }
+}

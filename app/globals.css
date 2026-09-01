@@ -271,6 +271,34 @@
   .text-pretty  { text-wrap: pretty; }
 
   /* Fade & slide animations */
+  .receipt-edge {
+    background-image: radial-gradient(circle at 10px -5px, transparent 12px, var(--card-bg, #fff) 13px),
+                      radial-gradient(circle at 10px 15px, transparent 12px, var(--card-bg, #fff) 13px);
+    background-size: 20px 10px;
+    background-position: 0 0, 0 100%;
+    background-repeat: repeat-x;
+  }
+  .dark .receipt-edge {
+    --card-bg: oklch(0.21 0.015 60);
+  }
+  .admin-theme .receipt-edge {
+    --card-bg: oklch(1 0 0);
+  }
+  .dark .admin-theme .receipt-edge {
+    --card-bg: oklch(0.145 0 0);
+  }
+  
+  /* Mask-based bottom zigzag for premium receipt look */
+  .receipt-bottom {
+    -webkit-mask-image: linear-gradient(to top, transparent 10px, black 10.5px), radial-gradient(circle at 10px 10px, black 10px, transparent 10.5px);
+    mask-image: linear-gradient(to top, transparent 10px, black 10.5px), radial-gradient(circle at 10px 10px, black 10px, transparent 10.5px);
+    -webkit-mask-size: 100% 100%, 20px 20px;
+    mask-size: 100% 100%, 20px 20px;
+    -webkit-mask-repeat: no-repeat, repeat-x;
+    mask-repeat: no-repeat, repeat-x;
+    -webkit-mask-position: 0 0, 0 100%;
+    mask-position: 0 0, 0 100%;
+  }
   .animate-fade-in {
     animation: fadeIn 0.7s ease-out both;
   }
@@ -349,4 +377,30 @@
     padding: 4mm !important;
     box-sizing: border-box;
   }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   GLOBAL SCROLLBAR STYLES
+   ───────────────────────────────────────────────────────────── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: var(--border);
+  border-radius: 20px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--muted-foreground);
 }

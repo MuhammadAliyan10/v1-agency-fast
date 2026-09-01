@@ -1,0 +1,317 @@
+"use client";
+
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  DndContext,
+  DragOverlay,
+  closestCorners,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragStartEvent,
+  DragOverEvent,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import { SortableContext, arrayMove, horizontalListSortingStrategy } from "@dnd-kit/sortable";
+import { useState, useMemo, useEffect, useRef } from "react";
+import { getLiveOrders, updateLiveOrderStatus, OrderStatus, LiveOrder } from "@/server/actions/live-orders";
+import { KanbanColumn } from "./kanban-column";
+import { KanbanCard } from "./kanban-card";
+import { ManualOrderDialog } from "./manual-order-dialog";
+import { toast } from "sonner";
+import { Loader2, Plus, Volume2, VolumeX, Clock } from "lucide-react";
+import { PageHeader } from "@/components/shared/page-header";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Search } from "lucide-react";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+
+interface LiveOrdersBoardProps {
+  role: "admin" | "manager" | "kitchen" | "cashier";
+}
+
+const KITCHEN_COLUMNS: OrderStatus[] = ["pending", "preparing", "ready_for_pickup"];
+const ADMIN_COLUMNS: OrderStatus[] = [
+  "pending",
+  "approved",
+  "preparing",
+  "ready_for_pickup",
+  "out_for_delivery",
+];
+
+export function LiveOrdersBoard({ role }: LiveOrdersBoardProps) {
+  const isKitchen = role === "kitchen";
+  const columns = isKitchen ? KITCHEN_COLUMNS : ADMIN_COLUMNS;
+  
+  const queryClient = useQueryClient();
+  const [activeOrder, setActiveOrder] = useState<LiveOrder | null>(null);
+  const [isMuted, setIsMuted] = useState(false);
+  const [etaDialog, setEtaDialog] = useState<{ isOpen: boolean; orderId: string | null; newStatus: OrderStatus | null; minutes: string }>({
+    isOpen: false,
+    orderId: null,
+    newStatus: null,
+    minutes: "30",
+  });
+  
+  const [searchQuery, setSearchQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState("all");
+
+  // Fetch orders with polling (handled by query-provider defaults)
+  const { data: result, isLoading } = useQuery({
+    queryKey: ["live-orders"],
+    queryFn: () => getLiveOrders(),
+  });
+
+  const orders = result?.data || [];
+
+  const filteredOrders = useMemo(() => {
+    let filtered = orders;
+    
+    if (typeFilter !== "all") {
+      filtered = filtered.filter(o => o.orderType === typeFilter);
+    }
+    
+    if (searchQuery.trim() !== "") {
+      const q = searchQuery.toLowerCase().trim();
+      filtered = filtered.filter(o => 
+        o.id.toLowerCase().includes(q) || 
+        (o.customerName && o.customerName.toLowerCase().includes(q)) ||
+        (o.customerPhone && o.customerPhone.includes(q))
+      );
+    }
+    
+    return filtered;
+  }, [orders, searchQuery, typeFilter]);
+
+  // Audio Alert for New Orders
+  const previousPendingCount = useRef(0);
+  const hasInitialized = useRef(false);
+  
+  useEffect(() => {
+    const currentPending = orders.filter(o => o.status === "pending").length;
+    
+    if (hasInitialized.current && currentPending > previousPendingCount.current && !isMuted) {
+      const audio = new Audio("/sounds/new-order-bell.mp3");
+      audio.play().catch(err => console.log("Audio play blocked by browser:", err));
+    }
+    
+    previousPendingCount.current = currentPending;
+    hasInitialized.current = true;
+  }, [orders]);
+
+  // Optimistic UI mutation
+  const updateStatusMutation = useMutation({
+    mutationFn: ({ id, status, etaMinutes }: { id: string; status: OrderStatus; etaMinutes?: number }) =>
+      updateLiveOrderStatus(id, status, etaMinutes),
+    onMutate: async (newOrder) => {
+      await queryClient.cancelQueries({ queryKey: ["live-orders"] });
+      const previous = queryClient.getQueryData(["live-orders"]);
+      
+      queryClient.setQueryData(["live-orders"], (old: any) => {
+        if (!old?.data) return old;
+        return {
+          ...old,
+          data: old.data.map((o: LiveOrder) =>
+            o.id === newOrder.id ? { ...o, status: newOrder.status } : o
+          ),
+        };
+      });
+      return { previous };
+    },
+    onError: (err, newOrder, context) => {
+      queryClient.setQueryData(["live-orders"], context?.previous);
+      toast.error("Failed to update status");
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["live-orders"] });
+    },
+  });
+
+  // DnD Sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor)
+  );
+
+  const handleStatusChange = (orderId: string, newStatus: OrderStatus) => {
+    const order = orders.find(o => o.id === orderId);
+    if (!order) return;
+
+    // Prompt for ETA if moving from pending to approved or preparing
+    if (order.status === "pending" && (newStatus === "approved" || newStatus === "preparing")) {
+      setEtaDialog({ isOpen: true, orderId, newStatus, minutes: "30" });
+      return;
+    }
+
+    updateStatusMutation.mutate({ id: orderId, status: newStatus });
+  };
+
+  const submitEtaDialog = () => {
+    if (!etaDialog.orderId || !etaDialog.newStatus) return;
+    const mins = parseInt(etaDialog.minutes, 10);
+    
+    updateStatusMutation.mutate({ 
+      id: etaDialog.orderId, 
+      status: etaDialog.newStatus, 
+      etaMinutes: isNaN(mins) ? undefined : mins 
+    });
+    
+    setEtaDialog({ isOpen: false, orderId: null, newStatus: null, minutes: "30" });
+  };
+
+  const onDragStart = (event: DragStartEvent) => {
+    const { active } = event;
+    const order = orders.find((o) => o.id === active.id);
+    if (order) setActiveOrder(order);
+  };
+
+  const onDragEnd = (event: DragEndEvent) => {
+    setActiveOrder(null);
+    const { active, over } = event;
+    if (!over) return;
+
+    const orderId = active.id as string;
+    let newStatus = over.id as OrderStatus;
+    
+    // If dropped over another card (useSortable), get the column status of that card
+    const overOrder = orders.find(o => o.id === over.id);
+    if (overOrder) {
+      newStatus = overOrder.status as OrderStatus;
+    }
+    
+    const order = orders.find(o => o.id === orderId);
+    if (order && order.status !== newStatus) {
+      handleStatusChange(orderId, newStatus);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="h-full flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="flex-none pb-4 pt-2 w-full">
+        <PageHeader 
+          heading="Kitchen Board" 
+          description="Live order management & KOT tracking" 
+          className="mb-0"
+        >
+          {role !== "kitchen" && (
+            <ManualOrderDialog>
+              <Button size="sm" className="gap-1.5 h-9 hidden sm:flex">
+                <Plus className="h-4 w-4" />
+                New Order
+              </Button>
+            </ManualOrderDialog>
+          )}
+          <Button 
+            size="sm" 
+            variant="outline" 
+            className="gap-1.5 h-9" 
+            onClick={() => setIsMuted(!isMuted)}
+            title={isMuted ? "Unmute new order alerts" : "Mute new order alerts"}
+          >
+            {isMuted ? <VolumeX className="h-4 w-4 text-muted-foreground" /> : <Volume2 className="h-4 w-4 text-emerald-500" />}
+            <span className="hidden sm:inline">{isMuted ? "Muted" : "Alerts On"}</span>
+          </Button>
+        </PageHeader>
+        
+        {/* Filters */}
+        <div className="flex flex-col sm:flex-row items-center gap-4 bg-background border rounded-[10px] p-2 shadow-sm mt-4">
+          <div className="relative w-full sm:max-w-xs flex-1">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search ID, name, phone..."
+              className="pl-9 h-9 border-none bg-muted/30 focus-visible:ring-1 focus-visible:ring-primary shadow-inner text-sm"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+          <div className="h-6 w-px bg-border hidden sm:block"></div>
+          <ToggleGroup type="single" value={typeFilter} onValueChange={(v) => v && setTypeFilter(v)} className="justify-start w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+            <ToggleGroupItem value="all" className="h-9 px-4 text-xs font-semibold rounded-md">All Orders</ToggleGroupItem>
+            <ToggleGroupItem value="dine_in" className="h-9 px-4 text-xs font-semibold rounded-md whitespace-nowrap">Dine-In</ToggleGroupItem>
+            <ToggleGroupItem value="delivery" className="h-9 px-4 text-xs font-semibold rounded-md whitespace-nowrap">Delivery</ToggleGroupItem>
+            <ToggleGroupItem value="pickup" className="h-9 px-4 text-xs font-semibold rounded-md whitespace-nowrap">Pickup</ToggleGroupItem>
+          </ToggleGroup>
+        </div>
+      </div>
+
+      <div className="flex-1 relative">
+        <div className="absolute inset-0 overflow-auto pb-8 pt-2">
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCorners}
+            onDragStart={onDragStart}
+            onDragEnd={onDragEnd}
+          >
+            <div className="flex gap-4 h-max min-h-[calc(100vh-220px)] w-max items-stretch">
+              {columns.map((colStatus) => (
+                <KanbanColumn
+                  key={colStatus}
+                  status={colStatus}
+                  orders={filteredOrders.filter((o) => o.status === colStatus)}
+                  role={role}
+                  onStatusChange={handleStatusChange}
+                />
+              ))}
+            </div>
+            <DragOverlay>
+              {activeOrder ? (
+                <KanbanCard order={activeOrder} role={role as any} isOverlay />
+              ) : null}
+            </DragOverlay>
+          </DndContext>
+        </div>
+      </div>
+
+      <Dialog open={etaDialog.isOpen} onOpenChange={(open) => !open && setEtaDialog(prev => ({ ...prev, isOpen: false }))}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Confirm Preparation Time</DialogTitle>
+            <DialogDescription>
+              Provide an estimated time for this order to be ready. This will notify the customer via WhatsApp.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="minutes" className="text-right">
+                Minutes
+              </Label>
+              <Input
+                id="minutes"
+                type="number"
+                value={etaDialog.minutes}
+                onChange={(e) => setEtaDialog(prev => ({ ...prev, minutes: e.target.value }))}
+                className="col-span-3"
+                autoFocus
+              />
+            </div>
+            <div className="flex gap-2 justify-end mt-2">
+              {[15, 30, 45, 60].map(m => (
+                <Button key={m} variant="outline" size="sm" onClick={() => setEtaDialog(prev => ({ ...prev, minutes: m.toString() }))}>
+                  {m}m
+                </Button>
+              ))}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEtaDialog(prev => ({ ...prev, isOpen: false }))}>Cancel</Button>
+            <Button onClick={submitEtaDialog} className="gap-2">
+              <Clock className="h-4 w-4" />
+              Confirm & Notify
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}

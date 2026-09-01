@@ -2,12 +2,14 @@ import { db } from "@/database/db";
 import { orders, orderItems, menuItems, categories, inventoryItems } from "@/database/schema";
 import { eq, and, gte, lt, desc, sql, inArray, or, ne } from "drizzle-orm";
 import { startOfDay, endOfDay, subDays, format } from "date-fns";
+import { formatInTimeZone, toDate } from "date-fns-tz";
 import type { 
   DashboardKPIs, 
   WeeklyRevenuePoint, 
   TopSellingItem, 
   RecentOrderSummary, 
-  LowStockAlert 
+  LowStockAlert,
+  OrderSourceData
 } from "@/types/analytics";
 
 export async function getDashboardKPIs(): Promise<DashboardKPIs> {
@@ -87,11 +89,14 @@ export async function getWeeklyRevenueTrend(): Promise<WeeklyRevenuePoint[]> {
     .groupBy(sql`date_trunc('day', ${orders.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Karachi')`)
     .orderBy(sql`date_trunc('day', ${orders.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Karachi')`);
 
-  // Fill in missing days with 0
+  // Fill in missing days with 0 (using Karachi timezone to match SQL)
   const trend: WeeklyRevenuePoint[] = [];
+  const timeZone = 'Asia/Karachi';
+  
   for (let i = 6; i >= 0; i--) {
     const d = subDays(new Date(), i);
-    const dateStr = format(d, "MMM dd");
+    // Format exactly as 'MMM dd' in Karachi TZ (e.g. 'Sep 01')
+    const dateStr = formatInTimeZone(d, timeZone, "MMM dd");
     const found = result.find(r => r.date === dateStr);
     trend.push({
       date: dateStr,
@@ -132,6 +137,8 @@ export async function getRecentOrders(limit = 5): Promise<RecentOrderSummary[]> 
       customerPhone: orders.customerPhone,
       itemsCount: sql<number>`count(${orderItems.id})::int`,
       totalAmount: orders.totalAmount,
+      source: orders.source,
+      orderType: orders.orderType,
       status: orders.status,
       createdAt: orders.createdAt,
     })
@@ -197,4 +204,18 @@ export async function getLowStockAlerts(limit = 5): Promise<LowStockAlert[]> {
   }
 
   return alerts.slice(0, limit);
+}
+
+export async function getOrderSourceDistribution(): Promise<OrderSourceData[]> {
+  const result = await db
+    .select({
+      source: orders.source,
+      revenue: sql<number>`sum(${orders.totalAmount})::int`,
+      orders: sql<number>`count(${orders.id})::int`,
+    })
+    .from(orders)
+    .where(ne(orders.status, 'cancelled'))
+    .groupBy(orders.source);
+
+  return result;
 }

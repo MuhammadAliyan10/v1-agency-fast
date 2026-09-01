@@ -38,7 +38,13 @@ export const orderStatusEnum = pgEnum("order_status", [
   "cancelled",
 ]);
 
-export const orderTypeEnum = pgEnum("order_type", ["delivery", "pickup"]);
+export const orderTypeEnum = pgEnum("order_type", ["delivery", "pickup", "dine_in"]);
+
+export const orderItemStatusEnum = pgEnum("order_item_status", [
+  "pending",
+  "preparing",
+  "served"
+]);
 
 export const orderSourceEnum = pgEnum("order_source", [
   "website",
@@ -92,6 +98,8 @@ export const whatsappMessageStatusEnum = pgEnum("whatsapp_message_status", [
 
 export const paymentMethodEnum = pgEnum("payment_method", [
   "COD",
+  "Cash",
+  "Card",
   "JazzCash",
   "EasyPaisa",
 ]);
@@ -286,6 +294,8 @@ export const orders = pgTable(
     customerName: varchar("customer_name", { length: 120 }).notNull(),
     customerPhone: varchar("customer_phone", { length: 20 }).notNull(),
     orderType: orderTypeEnum("order_type").default("delivery").notNull(),
+    tableNumber: varchar("table_number", { length: 20 }),
+    waiterName: varchar("waiter_name", { length: 120 }),
     deliveryAddress: text("delivery_address"),
     deliveryNotes: text("delivery_notes"),
     // GPS coordinates for Google Maps deep-link
@@ -313,6 +323,8 @@ export const orders = pgTable(
     orderTypeIdx: index("orders_order_type_idx").on(table.orderType),
     customerPhoneIdx: index("orders_customer_phone_idx").on(table.customerPhone),
     createdAtIdx: index("orders_created_at_idx").on(table.createdAt),
+    updatedAtIdx: index("orders_updated_at_idx").on(table.updatedAt),
+    createdStatusIdx: index("orders_created_status_idx").on(table.createdAt, table.status),
     riderIdIdx: index("orders_rider_id_idx").on(table.riderId),
   })
 );
@@ -333,6 +345,8 @@ export const orderItems = pgTable(
     quantity: integer("quantity").notNull(),
     unitPrice: integer("unit_price").notNull(),
     subtotal: integer("subtotal").notNull(),
+    status: orderItemStatusEnum("status").default("pending").notNull(),
+    roundNumber: integer("round_number").default(1).notNull(),
     selectedAddOns: jsonb("selected_add_ons"),
     specialInstructions: text("special_instructions"),
   },
