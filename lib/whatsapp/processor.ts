@@ -165,19 +165,22 @@ async function handleGreeting(phone: string, session: any, showImages: boolean =
 
   if (showImages) {
     const baseUrl = "https://agency-fast.vercel.app";
-    await sendWhatsAppImage(phone, `${baseUrl}/menu/Deals.jpeg`);
-    await sendWhatsAppImage(phone, `${baseUrl}/menu/IceCreams.jpeg`);
-    await sendWhatsAppImage(phone, `${baseUrl}/menu/Items.jpeg`);
+    await Promise.all([
+      sendWhatsAppImage(phone, `${baseUrl}/menu/Deals.jpeg`),
+      sendWhatsAppImage(phone, `${baseUrl}/menu/IceCreams.jpeg`),
+      sendWhatsAppImage(phone, `${baseUrl}/menu/Items.jpeg`)
+    ]);
   }
 
-  await sendWhatsAppInteractiveList(
-    phone,
-    greetingText,
-    "Menu Categories",
-    [{ title: "Categories", rows }]
-  );
-
-  await updateSessionState(session.id, "category_selection", session.cart || [], session.tempData || {});
+  await Promise.all([
+    sendWhatsAppInteractiveList(
+      phone,
+      greetingText,
+      "Menu Categories",
+      [{ title: "Categories", rows }]
+    ),
+    updateSessionState(session.id, "category_selection", session.cart || [], session.tempData || {})
+  ]);
 }
 
 async function addItemToCartAndProceed(phone: string, session: any, itemId: string, variantId: string | null = null) {
