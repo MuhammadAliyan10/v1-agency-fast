@@ -142,3 +142,25 @@ export async function sendWhatsAppInteractiveList(
     },
   });
 }
+
+export async function downloadWhatsAppMedia(mediaId: string): Promise<Buffer | null> {
+  if (!ACCESS_TOKEN) return null;
+  try {
+    const res = await fetch(`https://graph.facebook.com/v20.0/${mediaId}`, {
+      headers: { Authorization: `Bearer ${ACCESS_TOKEN}` }
+    });
+    const data = await res.json();
+    if (!data.url) return null;
+
+    const mediaRes = await fetch(data.url, {
+      headers: { Authorization: `Bearer ${ACCESS_TOKEN}` }
+    });
+    
+    if (!mediaRes.ok) return null;
+    const arrayBuffer = await mediaRes.arrayBuffer();
+    return Buffer.from(arrayBuffer);
+  } catch (error) {
+    console.error("[WhatsApp Media Error]", error);
+    return null;
+  }
+}

@@ -1,0 +1,1 @@
+ALTER TYPE "public"."whatsapp_session_state" ADD VALUE 'alt_phone_input' BEFORE 'order_confirmation';

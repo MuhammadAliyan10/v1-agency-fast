@@ -1,7 +1,8 @@
 import { db } from "@/database/db";
 import { whatsappSessions, menuItems, categories, itemVariants, orders } from "@/database/schema";
 import { eq, sql, inArray } from "drizzle-orm";
-import { sendWhatsAppText, sendWhatsAppInteractiveList, sendWhatsAppInteractiveButtons, sendWhatsAppImage } from "./client";
+import { sendWhatsAppText, sendWhatsAppInteractiveList, sendWhatsAppInteractiveButtons, sendWhatsAppImage, downloadWhatsAppMedia } from "./client";
+import { transcribeVoiceNote } from "./ai-helper";
 import { createOrderFromWhatsApp } from "@/server/actions/whatsapp-orders";
 
 export async function processWhatsAppMessage(phone: string, message: any, contact: any) {
@@ -33,7 +34,24 @@ export async function processWhatsAppMessage(phone: string, message: any, contac
     input = "location_payload";
   }
 
-  if (!input) return; // unsupported message type (image, audio, etc for MVP)
+  // Handle Audio Voice Notes
+  if (message.type === "audio" && message.audio?.id) {
+    const audioBuffer = await downloadWhatsAppMedia(message.audio.id);
+    if (audioBuffer) {
+      const transcription = await transcribeVoiceNote(audioBuffer);
+      if (transcription) {
+        input = transcription.trim().toLowerCase();
+      } else {
+        await sendWhatsAppText(phone, "Sorry, I couldn't process your voice note clearly. Please try typing instead.");
+        return;
+      }
+    } else {
+      await sendWhatsAppText(phone, "Sorry, I couldn't download your voice note right now.");
+      return;
+    }
+  }
+
+  if (!input) return; // unsupported message type (image, video, etc)
 
   // 3. Human Handoff Check
   if (input === "human" || input === "agent" || input === "talk to staff") {

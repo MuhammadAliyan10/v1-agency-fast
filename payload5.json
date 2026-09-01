@@ -1,0 +1,38 @@
+{
+  "object": "whatsapp_business_account",
+  "entry": [
+    {
+      "id": "1093924463579632",
+      "changes": [
+        {
+          "value": {
+            "messaging_product": "whatsapp",
+            "metadata": {
+              "display_phone_number": "15556631064",
+              "phone_number_id": "1291704514028890"
+            },
+            "contacts": [
+              {
+                "profile": { "name": "A L i Y A N" },
+                "wa_id": "923026767428",
+                "user_id": "PK.1786533105827011",
+                "country_code": "PK"
+              }
+            ],
+            "messages": [
+              {
+                "from": "923026767428",
+                "from_user_id": "PK.1786533105827011",
+                "id": "wamid_VERCEL_LIVE_TEST_124",
+                "timestamp": "1788188000",
+                "type": "text",
+                "text": { "body": "Hi" }
+              }
+            ]
+          },
+          "field": "messages"
+        }
+      ]
+    }
+  ]
+}
