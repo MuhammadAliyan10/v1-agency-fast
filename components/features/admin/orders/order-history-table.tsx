@@ -180,7 +180,7 @@ export function OrderHistoryTable({ orders, totalCount, totalPages, currentPage 
       </div>
 
       {selectedOrders.length > 0 && (
-        <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 flex items-center justify-between animate-in fade-in slide-in-from-top-2">
+        <div className="bg-primary/5 border border-primary/20 p-3 flex items-center justify-between animate-in fade-in slide-in-from-top-2">
           <span className="text-sm font-semibold text-primary">
             {selectedOrders.length} order(s) selected
           </span>
@@ -191,7 +191,7 @@ export function OrderHistoryTable({ orders, totalCount, totalPages, currentPage 
       )}
 
       {/* Table */}
-      <div className="border border-border/80 rounded-xl bg-card overflow-hidden shadow-sm mt-6">
+      <div className="border border-border/80 bg-card overflow-hidden shadow-sm mt-6">
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>

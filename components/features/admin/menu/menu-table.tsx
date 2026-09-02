@@ -262,7 +262,7 @@ export function MenuTable({ data, categories }: MenuTableProps) {
       </div>
 
       {/* Table */}
-      <div className="border border-border rounded-xl bg-card overflow-hidden shadow-sm">
+      <div className="border border-border bg-card overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
@@ -306,7 +306,7 @@ export function MenuTable({ data, categories }: MenuTableProps) {
                 data.items.map(item => (
                   <TableRow key={item.id} className={cn("border-border transition-colors cursor-pointer", isPending && "opacity-50")}>
                     <TableCell>
-                      <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center overflow-hidden border border-border">
+                      <div className="w-10 h-10 bg-muted flex items-center justify-center overflow-hidden border border-border">
                         {item.imageUrl ? (
                           <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
                         ) : (

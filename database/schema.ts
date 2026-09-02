@@ -137,6 +137,7 @@ export const users = pgTable(
     email:          varchar("email", { length: 255 }).unique(),
     passwordHash:   text("password_hash"),
     role:           userRoleEnum("role").default("customer").notNull(),
+    age:            integer("age"),
     isActive:       boolean("is_active").default(true),
     // Instant-revocation: increment this on deactivate/permission change
     sessionVersion: integer("session_version").default(1).notNull(),
@@ -157,12 +158,7 @@ export const staffPermissions = pgTable("staff_permissions", {
     .references(() => users.id, { onDelete: "cascade" })
     .notNull()
     .unique(),
-  canManageMenu:         boolean("can_manage_menu").default(true).notNull(),
-  canViewFinance:        boolean("can_view_finance").default(true).notNull(),
-  canManageCoupons:      boolean("can_manage_coupons").default(true).notNull(),
-  canViewInventory:      boolean("can_view_inventory").default(true).notNull(),
-  canBroadcastWhatsapp:  boolean("can_broadcast_whatsapp").default(false).notNull(),
-  canManageStaff:        boolean("can_manage_staff").default(false).notNull(),
+  permissions:           jsonb("permissions").$type<any>().notNull().default({}),
   maxDiscountPercentage: integer("max_discount_percentage").default(0).notNull(),
   updatedAt:             timestamp("updated_at").defaultNow(),
 });
@@ -365,6 +361,7 @@ export const orders = pgTable(
     riderId:           uuid("rider_id").references(() => users.id, { onDelete: "set null" }),
     // FK to the waiter/staff user who took the order (replaces plain waiterName string)
     waiterId:          uuid("waiter_id").references(() => users.id, { onDelete: "set null" }),
+    createdById:       uuid("created_by_id").references(() => users.id, { onDelete: "set null" }),
     customerName:      varchar("customer_name", { length: 120 }).notNull(),
     customerPhone:     varchar("customer_phone", { length: 20 }).notNull(),
     orderType:         orderTypeEnum("order_type").default("delivery").notNull(),

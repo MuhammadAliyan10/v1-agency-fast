@@ -84,7 +84,7 @@ export function TrendingSection({ categories, title = "Trending" }: TrendingSect
                   key={cat.id}
                   onClick={() => setActiveCategoryId(cat.id)}
                   className={cn(
-                    "px-4 py-2 rounded-full text-xs font-bold transition-all border snap-start whitespace-nowrap",
+                    "px-4 py-2  text-xs font-bold transition-all border snap-start whitespace-nowrap",
                     isActive
                       ? "bg-zinc-900 border-zinc-900 text-white shadow-md"
                       : "bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50"

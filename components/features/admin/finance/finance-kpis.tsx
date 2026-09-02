@@ -44,10 +44,10 @@ function KPICard({
   };
 
   return (
-    <div className={cn("rounded-2xl border p-5 flex flex-col gap-3 transition-all", variantStyles[variant])}>
+    <div className={cn(" border p-5 flex flex-col gap-3 transition-all", variantStyles[variant])}>
       <div className="flex items-center justify-between">
         <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">{label}</span>
-        <div className={cn("p-1.5 rounded-lg", iconStyles[variant])}>
+        <div className={cn("p-1.5 ", iconStyles[variant])}>
           <Icon className="w-3.5 h-3.5" />
         </div>
       </div>

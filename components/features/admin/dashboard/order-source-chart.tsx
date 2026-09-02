@@ -29,21 +29,29 @@ const chartConfig = {
   },
   whatsapp: {
     label: "WhatsApp",
-    color: "hsl(var(--chart-2))",
+    color: "#25D366", // WhatsApp Green
+  },
+  manager: {
+    label: "Manager / POS",
+    color: "#f97316", // Orange
   },
   admin: {
-    label: "POS / Admin",
-    color: "hsl(var(--chart-3))",
+    label: "Admin",
+    color: "hsl(var(--primary))",
   },
 } satisfies ChartConfig;
 
 export function OrderSourceChart({ data }: OrderSourceChartProps) {
   // Format data for Recharts Pie
-  const chartData = data.map((item) => ({
-    name: item.source,
-    value: item.orders,
-    fill: chartConfig[item.source as keyof typeof chartConfig]?.color || "hsl(var(--muted))",
-  }));
+  const chartData = data.map((item) => {
+    const key = (item.source || "website").toLowerCase();
+    const hasConfig = key in chartConfig;
+    return {
+      name: hasConfig ? key : item.source,
+      value: item.orders,
+      fill: hasConfig ? `var(--color-${key})` : "hsl(var(--muted))",
+    };
+  });
 
   return (
     <Card className="h-full flex flex-col shadow-sm">

@@ -4,11 +4,11 @@ function TableSkeleton({ rows = 6, cols = 5 }: { rows?: number; cols?: number })
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
-        <Skeleton className="h-9 w-64 rounded-lg" />
-        <Skeleton className="h-9 w-36 rounded-lg" />
-        <Skeleton className="h-9 w-28 rounded-lg ml-auto" />
+        <Skeleton className="h-9 w-64" />
+        <Skeleton className="h-9 w-36" />
+        <Skeleton className="h-9 w-28 ml-auto" />
       </div>
-      <div className="border border-border/80 rounded-xl overflow-hidden">
+      <div className="border border-border/80 overflow-hidden">
         <div className="bg-muted/20 p-4 border-b border-border/60">
           <div className="flex gap-6">
             {Array.from({ length: cols }).map((_, i) => (

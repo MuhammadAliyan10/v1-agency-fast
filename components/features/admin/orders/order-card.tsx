@@ -84,7 +84,7 @@ export function OrderCard({ order, onUpdateStatus, onClick, isUpdating, updating
   return (
     <div
       className={cn(
-        "rounded-xl border border-border/80 shadow-sm cursor-pointer transition-all duration-200 hover:shadow-md hover:border-primary/40",
+        " border border-border/80 shadow-sm cursor-pointer transition-all duration-200 hover:shadow-md hover:border-primary/40",
         config.bgClass,
         isThisUpdating && "opacity-60 pointer-events-none"
       )}
@@ -132,7 +132,7 @@ export function OrderCard({ order, onUpdateStatus, onClick, isUpdating, updating
 
       {/* Special Instructions Alert */}
       {hasSpecialInstructions && (
-        <div className="mx-4 mb-3 flex items-center gap-1.5 text-xs font-semibold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 px-2.5 py-1.5 rounded-md">
+        <div className="mx-4 mb-3 flex items-center gap-1.5 text-xs font-semibold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 px-2.5 py-1.5">
           <AlertCircle className="w-3.5 h-3.5 shrink-0" />
           Special Instructions
         </div>
@@ -141,7 +141,7 @@ export function OrderCard({ order, onUpdateStatus, onClick, isUpdating, updating
       {/* Assigned Rider Info */}
       {order.rider && (
         <div className="px-4 mb-3">
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/40 p-2 rounded-md border border-border/50">
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/40 p-2 border border-border/50">
             <Bike className="w-3.5 h-3.5 shrink-0 text-primary" />
             <span>Rider: <span className="font-semibold text-foreground">{order.rider.name}</span></span>
           </div>

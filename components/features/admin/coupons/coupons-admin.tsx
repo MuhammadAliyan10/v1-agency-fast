@@ -67,10 +67,10 @@ export function CouponsAdmin({ initialCoupons, menuItems }: { initialCoupons: Co
 
   return (
     <div className="space-y-4">
-      <Button onClick={openCreate} className="gap-2 rounded-sm"><Plus className="w-4 h-4" /> New Coupon</Button>
+      <Button onClick={openCreate} className="gap-2"><Plus className="w-4 h-4" /> New Coupon</Button>
 
       {coupons.length === 0 ? (
-        <div className="text-center py-16 text-muted-foreground border border-dashed rounded-lg">
+        <div className="text-center py-16 text-muted-foreground border border-dashed">
           <Ticket className="w-10 h-10 mx-auto mb-3 opacity-20" />
           <p className="font-medium">No coupons created yet</p>
         </div>
@@ -125,28 +125,28 @@ export function CouponsAdmin({ initialCoupons, menuItems }: { initialCoupons: Co
           <form onSubmit={form.handleSubmit(handleSave)} className="space-y-4">
             <div>
               <Label>Code</Label>
-              <Input {...form.register("code", { required: true })} placeholder="EID2025" className="mt-1 rounded-sm uppercase font-mono" onChange={e => form.setValue("code", e.target.value.toUpperCase())} />
+              <Input {...form.register("code", { required: true })} placeholder="EID2025" className="mt-1 uppercase font-mono" onChange={e => form.setValue("code", e.target.value.toUpperCase())} />
             </div>
-            <div><Label>Description (Optional)</Label><Input {...form.register("description")} className="mt-1 rounded-sm" /></div>
+            <div><Label>Description (Optional)</Label><Input {...form.register("description")} className="mt-1" /></div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Discount Type</Label>
                 <Select value={watchedType} onValueChange={v => form.setValue("discountType", v)}>
-                  <SelectTrigger className="mt-1 rounded-sm"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                   <SelectContent><SelectItem value="flat">Flat (Rs.)</SelectItem><SelectItem value="percent">Percent (%)</SelectItem></SelectContent>
                 </Select>
               </div>
               <div><Label>{watchedType === "flat" ? "Amount (Rs.)" : "Percent (%)"}</Label>
-                <Input type="number" {...form.register("discountValue", { required: true })} className="mt-1 rounded-sm" /></div>
+                <Input type="number" {...form.register("discountValue", { required: true })} className="mt-1" /></div>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div><Label>Min Order (Rs.)</Label><Input type="number" {...form.register("minOrderAmount")} placeholder="0 = no minimum" className="mt-1 rounded-sm" /></div>
-              <div><Label>Max Uses</Label><Input type="number" {...form.register("maxUses")} placeholder="Leave blank = unlimited" className="mt-1 rounded-sm" /></div>
+              <div><Label>Min Order (Rs.)</Label><Input type="number" {...form.register("minOrderAmount")} placeholder="0 = no minimum" className="mt-1" /></div>
+              <div><Label>Max Uses</Label><Input type="number" {...form.register("maxUses")} placeholder="Leave blank = unlimited" className="mt-1" /></div>
             </div>
 
             <div>
               <Label className="mb-2 block">Applicable Items <span className="text-muted-foreground font-normal">(leave empty = all items)</span></Label>
-              <div className="border border-border/50 rounded-sm max-h-40 overflow-y-auto p-2 space-y-1">
+              <div className="border border-border/50 max-h-40 overflow-y-auto p-2 space-y-1">
                 {menuItems.map(item => (
                   <label key={item.id} className="flex items-center gap-2 cursor-pointer hover:bg-muted/30 px-2 py-1 rounded">
                     <input type="checkbox" checked={selectedItemIds.includes(item.id)} onChange={() => toggleItem(item.id)} className="rounded" />

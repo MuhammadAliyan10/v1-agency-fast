@@ -1,24 +1,18 @@
 // lib/auth/session.ts
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
+import { hasPermission, type RBACMatrix, type RBACDomain, type RBACAction } from "./rbac";
 
 export type UserRole = "admin" | "manager" | "kitchen" | "waiter" | "rider" | "customer";
 
 export interface SessionPayload {
   id:             string;
+  email:          string;
   role:           UserRole;
   name:           string;
   sessionVersion: number;
   // Permissions embedded at login-time — zero DB hit per request
-  permissions: {
-    canManageMenu:        boolean;
-    canViewFinance:       boolean;
-    canManageCoupons:     boolean;
-    canViewInventory:     boolean;
-    canBroadcastWhatsapp: boolean;
-    canManageStaff:       boolean;
-    maxDiscountPercentage: number;
-  };
+  permissions: RBACMatrix & { maxDiscountPercentage: number };
 }
 
 export const PORTAL_ROUTES: Record<UserRole, string> = {
@@ -127,16 +121,13 @@ export async function requireRider(): Promise<SessionPayload> {
 
 /** Convenience — require a specific manager permission (Admins bypass) */
 export async function requireManagerPermission(
-  permission: keyof SessionPayload["permissions"]
+  domain: RBACDomain,
+  action: RBACAction
 ): Promise<SessionPayload> {
   const session = await requireAdmin(); // ensures they are at least admin or manager
   
-  if (session.role === "admin") {
-    return session; // Root admin has all permissions implicitly
-  }
-  
-  if (!session.permissions[permission]) {
-    throw new Error(`UNAUTHORIZED: Missing required permission: ${permission}`);
+  if (!hasPermission(session, domain, action)) {
+    throw new Error(`UNAUTHORIZED: Missing required permission: ${domain}:${action}`);
   }
   
   return session;

@@ -20,7 +20,7 @@ export function ProductGallery({ imageUrl, name, categoryName }: ProductGalleryP
     <div className="relative w-full h-[40vh] md:h-[50vh] bg-zinc-100">
       <button 
         onClick={() => router.back()}
-        className="absolute top-4 left-4 z-50 bg-white/95 backdrop-blur-md rounded-full p-2 shadow-md text-zinc-950 hover:bg-white active:scale-95 transition-all border border-zinc-200"
+        className="absolute top-4 left-4 z-50 bg-white/95 backdrop-blur-md p-2 shadow-md text-zinc-950 hover:bg-white active:scale-95 transition-all border border-zinc-200"
         aria-label="Go back"
       >
         <ChevronLeft className="w-6 h-6" strokeWidth={2.5} />

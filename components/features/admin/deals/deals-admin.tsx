@@ -172,7 +172,7 @@ export function DealsAdmin({ initialDeals, menuItems, categories }: { initialDea
       </PageHeader>
 
       {deals.length === 0 ? (
-        <div className="text-center py-20 text-muted-foreground border border-dashed rounded-xl bg-muted/10">
+        <div className="text-center py-20 text-muted-foreground border border-dashed bg-muted/10">
           <Tag className="w-12 h-12 mx-auto mb-4 opacity-20" />
           <p className="font-semibold text-lg text-foreground">No Deals Available</p>
           <p className="text-sm mt-1">Create your first combo or event deal to attract more customers.</p>
@@ -186,7 +186,7 @@ export function DealsAdmin({ initialDeals, menuItems, categories }: { initialDea
             
             return (
               <div key={deal.id} className={cn(
-                "bg-card border rounded-xl overflow-hidden shadow-sm transition-all hover:shadow-md flex flex-col",
+                "bg-card border  overflow-hidden shadow-sm transition-all hover:shadow-md flex flex-col",
                 !deal.isActive && "opacity-60 grayscale-[0.5]"
               )}>
                 {/* Header / Image Area */}
@@ -334,7 +334,7 @@ export function DealsAdmin({ initialDeals, menuItems, categories }: { initialDea
                     </div>
                   </div>
                   
-                  <div className="p-4 bg-muted/30 border border-dashed rounded-lg flex items-center justify-between">
+                  <div className="p-4 bg-muted/30 border border-dashed flex items-center justify-between">
                     <div className="space-y-0.5">
                       <Label className="text-base font-bold text-foreground flex items-center gap-2">
                         Deal Status
@@ -361,7 +361,7 @@ export function DealsAdmin({ initialDeals, menuItems, categories }: { initialDea
                   </div>
 
                   {fields.length === 0 ? (
-                    <div className="text-center py-10 text-muted-foreground bg-muted/10 border border-dashed rounded-lg">
+                    <div className="text-center py-10 text-muted-foreground bg-muted/10 border border-dashed">
                       <PackageOpen className="w-8 h-8 mx-auto mb-2 opacity-20" />
                       <p className="font-medium text-sm">No slots added yet.</p>
                       <p className="text-[11px] mt-1 px-4">A Deal requires at least one slot (e.g. "1x Zinger Burger" or "1x Any Medium Pizza").</p>
@@ -369,12 +369,12 @@ export function DealsAdmin({ initialDeals, menuItems, categories }: { initialDea
                   ) : (
                     <div className="space-y-3">
                       {fields.map((field, index) => (
-                        <div key={field.id} className="relative bg-card border rounded-lg p-3 sm:p-4 shadow-sm group transition-all hover:border-primary/30">
+                        <div key={field.id} className="relative bg-card border p-3 sm:p-4 shadow-sm group transition-all hover:border-primary/30">
                           <Button 
                             type="button" 
                             variant="destructive" 
                             size="icon" 
-                            className="absolute -top-2.5 -right-2.5 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                            className="absolute -top-2.5 -right-2.5 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
                             onClick={() => remove(index)}
                           >
                             <X className="w-3 h-3" />
@@ -394,7 +394,7 @@ export function DealsAdmin({ initialDeals, menuItems, categories }: { initialDea
                             </div>
                             
                             {/* Assignment Type */}
-                            <div className="sm:col-span-12 bg-muted/40 p-3 rounded-md border border-black/5 space-y-3">
+                            <div className="sm:col-span-12 bg-muted/40 p-3 border border-black/5 space-y-3">
                               <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground uppercase tracking-widest mb-1">
                                 <Info className="w-3.5 h-3.5" /> Slot Assignment (Choose One)
                               </div>
@@ -450,7 +450,7 @@ export function DealsAdmin({ initialDeals, menuItems, categories }: { initialDea
                   )}
 
                   {/* Pricing Summary Box inside Tab 2 */}
-                  <div className="mt-6 bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/20 p-4 rounded-xl">
+                  <div className="mt-6 bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/20 p-4">
                     <h4 className="font-black text-sm uppercase tracking-widest text-primary mb-3 flex items-center gap-2">
                       <Tag className="w-4 h-4" /> Pricing & Savings
                     </h4>

@@ -11,93 +11,131 @@ import { createStaff, updateStaffPermissions, type StaffMember } from "@/server/
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { DEFAULT_RBAC_MATRIX, type RBACMatrix, type RBACDomain } from "@/lib/auth/rbac";
+import { z } from "zod";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 
-export function StaffDialog({ 
-  children, 
-  staff 
-}: { 
-  children: React.ReactNode; 
+const rbacMatrixSchema = z.record(
+  z.string(),
+  z.object({
+    read: z.boolean(),
+    create: z.boolean(),
+    update: z.boolean(),
+    delete: z.boolean(),
+  })
+);
+
+export function StaffDialog({
+  children,
+  staff
+}: {
+  children: React.ReactNode;
   staff?: StaffMember;
 }) {
   const [isOpen, setIsOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
-  const [formData, setFormData] = useState({
-    name: "",
-    phone: "",
-    email: "",
-    password: "",
-    role: "waiter" as "admin" | "manager" | "kitchen" | "waiter" | "rider",
+  const staffSchema = z.object({
+    name: z.string().min(1, "Name is required"),
+    phone: z.string().min(1, "Phone is required"),
+    email: z.string().email("Invalid email").or(z.literal("")),
+    age: z.number().nullable().or(z.literal("")),
+    password: z.string().optional(),
+    role: z.enum(["admin", "manager", "kitchen", "waiter", "rider"]),
+    permissions: rbacMatrixSchema.optional(),
+    maxDiscountPercentage: z.number().min(0).max(100).default(0),
+  }).superRefine((data, ctx) => {
+    if (!staff && ["admin", "manager"].includes(data.role) && !data.password) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Password is required for admins and managers",
+        path: ["password"]
+      });
+    }
+    if (["admin", "manager"].includes(data.role) && !data.email) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Email is required for admins and managers",
+        path: ["email"]
+      });
+    }
   });
 
-  const [permissions, setPermissions] = useState({
-    canManageMenu: false,
-    canViewFinance: false,
-    canManageCoupons: false,
-    canViewInventory: false,
-    canBroadcastWhatsapp: false,
-    canManageStaff: false,
-    maxDiscountPercentage: 0,
+  type StaffFormValues = z.infer<typeof staffSchema>;
+
+  const form = useForm<any>({
+    resolver: zodResolver(staffSchema),
+    defaultValues: {
+      name: "",
+      phone: "",
+      email: "",
+      age: "",
+      password: "",
+      role: "waiter",
+      permissions: DEFAULT_RBAC_MATRIX,
+      maxDiscountPercentage: 0,
+    },
   });
+
+  const domainLabels: Record<RBACDomain, string> = {
+    menu: "Menu",
+    finance: "Finance",
+    coupons: "Coupons",
+    inventory: "Inventory",
+    staff: "Staff",
+    orders: "Orders",
+    whatsapp: "WhatsApp",
+  };
 
   useEffect(() => {
     if (isOpen && staff) {
-      setFormData({
+      form.reset({
         name: staff.name,
         phone: staff.phone,
         email: staff.email || "",
+        age: staff.age || "",
         password: "", // never populate password
-        role: staff.role,
+        role: staff.role as any,
+        permissions: (staff.permissions?.permissions as any) || DEFAULT_RBAC_MATRIX,
+        maxDiscountPercentage: staff.permissions?.maxDiscountPercentage || 0,
       });
-      if (staff.permissions) {
-        setPermissions({
-          canManageMenu: staff.permissions.canManageMenu,
-          canViewFinance: staff.permissions.canViewFinance,
-          canManageCoupons: staff.permissions.canManageCoupons,
-          canViewInventory: staff.permissions.canViewInventory,
-          canBroadcastWhatsapp: staff.permissions.canBroadcastWhatsapp,
-          canManageStaff: staff.permissions.canManageStaff,
-          maxDiscountPercentage: staff.permissions.maxDiscountPercentage || 0,
-        });
-      }
     } else if (isOpen && !staff) {
-      setFormData({
+      form.reset({
         name: "",
         phone: "",
         email: "",
+        age: "",
         password: "",
         role: "waiter",
-      });
-      setPermissions({
-        canManageMenu: false,
-        canViewFinance: false,
-        canManageCoupons: false,
-        canViewInventory: false,
-        canBroadcastWhatsapp: false,
-        canManageStaff: false,
+        permissions: DEFAULT_RBAC_MATRIX,
         maxDiscountPercentage: 0,
       });
     }
-  }, [isOpen, staff]);
+  }, [isOpen, staff, form]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
+  const role = form.watch("role");
 
+  const onSubmit = async (data: any) => {
     try {
       const payload = {
-        ...formData,
-        permissions: formData.role === "manager" ? permissions : undefined,
+        name: data.name,
+        phone: data.phone,
+        email: data.email,
+        age: data.age === "" ? undefined : data.age,
+        password: data.password || undefined,
+        role: data.role,
+        permissions: data.role === "manager" ? {
+          permissions: data.permissions,
+          maxDiscountPercentage: data.maxDiscountPercentage,
+        } : undefined,
       };
 
       let res;
       if (staff) {
-        res = await updateStaffPermissions(staff.id, payload);
+        res = await updateStaffPermissions(staff.id, payload as any);
       } else {
-        if (!formData.password) {
-          throw new Error("Password is required for new staff.");
-        }
         res = await createStaff(payload as any);
       }
 
@@ -110,8 +148,6 @@ export function StaffDialog({
       router.refresh();
     } catch (err: any) {
       toast.error(err.message || "Failed to save staff member");
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -120,116 +156,184 @@ export function StaffDialog({
       <DialogTrigger asChild>
         {children}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[700px]">
         <DialogHeader>
           <DialogTitle>{staff ? "Edit Staff Member" : "Add New Staff"}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4 py-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Full Name</Label>
-              <Input 
-                required 
-                value={formData.name} 
-                onChange={e => setFormData({ ...formData, name: e.target.value })}
-                placeholder="Ali Khan"
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Full Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Ali Khan" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="phone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Phone Number</FormLabel>
+                    <FormControl>
+                      <Input placeholder="03XXXXXXXXX" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
             </div>
-            <div className="space-y-2">
-              <Label>Phone Number</Label>
-              <Input 
-                required 
-                value={formData.phone} 
-                onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                placeholder="03XXXXXXXXX"
-              />
-            </div>
-          </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Email (Optional)</Label>
-              <Input 
-                type="email"
-                value={formData.email} 
-                onChange={e => setFormData({ ...formData, email: e.target.value })}
-                placeholder="ali@classycrave.pk"
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email (Login ID)</FormLabel>
+                    <FormControl>
+                      <Input type="email" placeholder="ali@classycrave.pk" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="age"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Age (Optional)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        placeholder="25"
+                        {...field}
+                        onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : "")}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
             </div>
-            <div className="space-y-2">
-              <Label>{staff ? "New Password (Optional)" : "Password"}</Label>
-              <Input 
-                type="password"
-                required={!staff}
-                value={formData.password} 
-                onChange={e => setFormData({ ...formData, password: e.target.value })}
-                placeholder="********"
+
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="role"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Role</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a role" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="admin">Admin (Full Access)</SelectItem>
+                        <SelectItem value="manager">Manager (Custom Access)</SelectItem>
+                        <SelectItem value="kitchen">Kitchen Staff</SelectItem>
+                        <SelectItem value="waiter">Waiter / Floor Staff</SelectItem>
+                        <SelectItem value="rider">Delivery Rider</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{staff ? "New Password (Optional)" : "Password"}</FormLabel>
+                    <FormControl>
+                      <Input type="password" placeholder="********" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
             </div>
-          </div>
 
-          <div className="space-y-2">
-            <Label>Role</Label>
-            <Select 
-              value={formData.role} 
-              onValueChange={(val: any) => setFormData({ ...formData, role: val })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select a role" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="admin">Admin (Full Access)</SelectItem>
-                <SelectItem value="manager">Manager (Custom Access)</SelectItem>
-                <SelectItem value="kitchen">Kitchen Staff</SelectItem>
-                <SelectItem value="waiter">Waiter / Floor Staff</SelectItem>
-                <SelectItem value="rider">Delivery Rider</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {formData.role === "manager" && (
-            <div className="mt-6 space-y-4 border rounded-lg p-4 bg-muted/20">
-              <h4 className="font-bold text-sm">Manager Permissions</h4>
-              <div className="grid grid-cols-2 gap-4">
-                {Object.keys(permissions).map((key) => (
-                  <div key={key} className="flex items-center space-x-2">
-                    <Checkbox 
-                      id={key} 
-                      checked={(permissions as any)[key]} 
-                      onCheckedChange={(checked) => setPermissions({ ...permissions, [key]: checked })}
-                    />
-                    <label
-                      htmlFor={key}
-                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                    >
-                      {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
-                    </label>
-                  </div>
-                ))}
+            {role === "manager" && (
+              <div className="mt-6 space-y-4 border p-4 bg-muted/20">
+                <h4 className="font-bold text-sm">Manager Permissions</h4>
+                <div className="grid grid-cols-5 gap-2 border-b pb-2 mb-2 text-xs font-semibold text-muted-foreground">
+                  <div>Domain</div>
+                  <div className="text-center">Read</div>
+                  <div className="text-center">Create</div>
+                  <div className="text-center">Update</div>
+                  <div className="text-center">Delete (Archive/Cancel)</div>
+                </div>
+                <div className="space-y-3">
+                  {Object.keys(domainLabels).map((domain) => {
+                    const key = domain as RBACDomain;
+                    return (
+                      <div key={key} className="grid grid-cols-5 gap-2 items-center text-sm">
+                        <div className="font-medium">{domainLabels[key]}</div>
+                        {["read", "create", "update", "delete"].map((action) => (
+                          <div key={action} className="flex justify-center">
+                            <FormField
+                              control={form.control}
+                              name={`permissions.${key}.${action}` as any}
+                              render={({ field }) => (
+                                <Checkbox
+                                  checked={field.value}
+                                  onCheckedChange={field.onChange}
+                                />
+                              )}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })}
+                </div>
+                <h4 className="font-bold text-sm mt-6 mb-2">Discount Limits</h4>
+                <div className="space-y-2 max-w-[200px]">
+                  <FormField
+                    control={form.control}
+                    name="maxDiscountPercentage"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Max Discount (%)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            min="0"
+                            max="100"
+                            {...field}
+                            onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                          />
+                        </FormControl>
+                        <p className="text-[10px] text-muted-foreground">Limit for manual POS discounts.</p>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
               </div>
-              <h4 className="font-bold text-sm mt-6 mb-2">Discount Limits</h4>
-              <div className="space-y-2 max-w-[200px]">
-                <Label>Max Discount (%)</Label>
-                <Input 
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={permissions.maxDiscountPercentage}
-                  onChange={(e) => setPermissions({ ...permissions, maxDiscountPercentage: parseInt(e.target.value) || 0 })}
-                />
-                <p className="text-[10px] text-muted-foreground">Limit for manual POS discounts.</p>
-              </div>
-            </div>
-          )}
+            )}
 
-          <div className="flex justify-end gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>Cancel</Button>
-            <Button type="submit" disabled={isLoading}>
-              {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              {staff ? "Save Changes" : "Create Staff"}
-            </Button>
-          </div>
-        </form>
+            <div className="flex justify-end gap-2 pt-4">
+              <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>Cancel</Button>
+              <Button type="submit" disabled={form.formState.isSubmitting}>
+                {form.formState.isSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                {form.formState.isSubmitting ? "Processing..." : (staff ? "Save Changes" : "Create Staff")}
+              </Button>
+            </div>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );

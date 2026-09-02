@@ -91,7 +91,7 @@ export default function TrackingPage({ params }: { params: Promise<{ orderId: st
   if (error || !data) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-white text-center">
-        <div className="w-20 h-20 bg-destructive/10 text-destructive rounded-full flex items-center justify-center mb-8">
+        <div className="w-20 h-20 bg-destructive/10 text-destructive flex items-center justify-center mb-8">
           <Clock className="w-10 h-10" />
         </div>
         <h2 className="text-3xl font-heading font-black mb-3">Order Not Found</h2>
@@ -169,7 +169,7 @@ export default function TrackingPage({ params }: { params: Promise<{ orderId: st
                   navigator.clipboard.writeText(data.id);
                   toast.success("Order ID copied to clipboard!");
                 }}
-                className="p-1 hover:bg-muted rounded-md transition-colors text-muted-foreground hover:text-foreground flex-shrink-0 ml-1"
+                className="p-1 hover:bg-muted transition-colors text-muted-foreground hover:text-foreground flex-shrink-0 ml-1"
                 title="Copy Order ID"
               >
                 <Copy className="w-3.5 h-3.5" />
@@ -196,13 +196,13 @@ export default function TrackingPage({ params }: { params: Promise<{ orderId: st
         {/* Horizontal Status Bar */}
         <div className="bg-white border-2 border-border/60 p-6 md:p-8 mb-8 relative overflow-hidden">
           {/* Subtle bg accent */}
-          <div className="absolute top-0 right-0 w-48 h-48 bg-green-500/[0.03] rounded-full blur-3xl -z-10 -translate-y-1/2 translate-x-1/3" />
+          <div className="absolute top-0 right-0 w-48 h-48 bg-green-500/[0.03] blur-3xl -z-10 -translate-y-1/2 translate-x-1/3" />
           
           <h2 className="text-lg font-black font-heading mb-8 uppercase tracking-widest text-muted-foreground">Live Status</h2>
           
           {isCancelled ? (
             <div className="flex flex-col items-center justify-center py-10 text-center">
-              <div className="w-20 h-20 bg-destructive/10 text-destructive rounded-full flex items-center justify-center mb-6">
+              <div className="w-20 h-20 bg-destructive/10 text-destructive flex items-center justify-center mb-6">
                 <Clock className="w-10 h-10" />
               </div>
               <h3 className="text-2xl font-bold text-destructive mb-3">Order Cancelled</h3>
@@ -241,7 +241,7 @@ export default function TrackingPage({ params }: { params: Promise<{ orderId: st
 
                       <div 
                         className={cn(
-                          "w-10 h-10 rounded-full flex items-center justify-center shrink-0 border-2 transition-all duration-700 bg-white",
+                          "w-10 h-10  flex items-center justify-center shrink-0 border-2 transition-all duration-700 bg-white",
                           isCompleted 
                             ? "border-green-500 text-green-500" 
                             : "border-border text-muted-foreground opacity-50",
@@ -296,7 +296,7 @@ export default function TrackingPage({ params }: { params: Promise<{ orderId: st
                             alt={item.itemName} 
                             className="w-full h-full object-cover"
                           />
-                          <div className="absolute -top-2 -right-2 w-6 h-6 bg-foreground text-background text-xs font-bold flex items-center justify-center rounded-full">
+                          <div className="absolute -top-2 -right-2 w-6 h-6 bg-foreground text-background text-xs font-bold flex items-center justify-center">
                             {item.quantity}
                           </div>
                         </div>
@@ -406,7 +406,7 @@ export default function TrackingPage({ params }: { params: Promise<{ orderId: st
 
             {data.rider && (data.status === "out_for_delivery" || data.status === "delivered") && (
               <div className="bg-primary/5 border-2 border-primary/20 p-6 flex items-center gap-4">
-                <div className="w-12 h-12 bg-primary/20 text-primary rounded-full flex items-center justify-center shrink-0">
+                <div className="w-12 h-12 bg-primary/20 text-primary flex items-center justify-center shrink-0">
                   <Bike className="w-6 h-6" />
                 </div>
                 <div>

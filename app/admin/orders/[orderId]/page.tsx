@@ -47,7 +47,7 @@ export default async function OrderDetailsPage({
     <div className="space-y-8 max-w-[1200px] mx-auto print:m-0 print:p-0 print:space-y-0 print:w-full print:max-w-full">
       {/* Navigation & Actions (Hidden in Print) */}
       <div className="flex items-start gap-4 mb-8 print:hidden">
-        <Button variant="outline" size="icon" asChild className="rounded-full mt-1 shrink-0 border-border/80 hover:bg-muted/50">
+        <Button variant="outline" size="icon" asChild className="mt-1 shrink-0 border-border/80 hover:bg-muted/50">
           <Link href="/admin/orders/history">
             <ArrowLeft className="w-4 h-4" />
           </Link>
@@ -98,7 +98,7 @@ export default async function OrderDetailsPage({
                       </div>
                     )}
                     {item.specialInstructions && (
-                      <p className="text-sm text-amber-600 bg-amber-50 print:bg-transparent print:border print:border-black/20 rounded-md p-2 mt-2 ml-6 italic">
+                      <p className="text-sm text-amber-600 bg-amber-50 print:bg-transparent print:border print:border-black/20 p-2 mt-2 ml-6 italic">
                         "Note: {item.specialInstructions}"
                       </p>
                     )}
@@ -179,7 +179,7 @@ export default async function OrderDetailsPage({
             </div>
 
             {(order.delayReason || order.rejectionReason) && (
-              <div className="mt-4 p-3 bg-red-50 border border-red-100 rounded-lg text-sm text-red-800">
+              <div className="mt-4 p-3 bg-red-50 border border-red-100 text-sm text-red-800">
                 <div className="flex items-start gap-2">
                   <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
                   <div>
@@ -199,8 +199,8 @@ export default async function OrderDetailsPage({
             
             {isDineIn ? (
               <div className="space-y-5 text-sm">
-                <div className="flex items-center gap-3 bg-primary/5 p-4 rounded-xl border border-primary/20">
-                  <div className="bg-primary/10 p-2.5 rounded-full"><UtensilsCrossed className="w-5 h-5 text-primary" /></div>
+                <div className="flex items-center gap-3 bg-primary/5 p-4 border border-primary/20">
+                  <div className="bg-primary/10 p-2.5"><UtensilsCrossed className="w-5 h-5 text-primary" /></div>
                   <div>
                     <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Dine-In Table</div>
                     <div className="font-black text-xl text-primary">Table {order.tableNumber || "N/A"}</div>
@@ -210,12 +210,12 @@ export default async function OrderDetailsPage({
                   <>
                     <Separator className="opacity-50" />
                     <div className="flex items-center gap-3">
-                      <div className="bg-muted p-2 rounded-full"><User className="w-4 h-4 text-muted-foreground" /></div>
+                      <div className="bg-muted p-2"><User className="w-4 h-4 text-muted-foreground" /></div>
                       <div className="font-bold text-base">{order.customerName}</div>
                     </div>
                     {order.customerPhone && (
                       <div className="flex items-center gap-3">
-                        <div className="bg-muted p-2 rounded-full"><Phone className="w-4 h-4 text-muted-foreground" /></div>
+                        <div className="bg-muted p-2"><Phone className="w-4 h-4 text-muted-foreground" /></div>
                         <div className="font-medium">{order.customerPhone}</div>
                       </div>
                     )}
@@ -223,7 +223,7 @@ export default async function OrderDetailsPage({
                 )}
                 {order.waiterName && (
                   <div className="flex items-center gap-3">
-                    <div className="bg-muted p-2 rounded-full"><UserCircle2 className="w-4 h-4 text-muted-foreground" /></div>
+                    <div className="bg-muted p-2"><UserCircle2 className="w-4 h-4 text-muted-foreground" /></div>
                     <div className="font-medium text-muted-foreground">Waiter: <span className="text-foreground font-semibold">{order.waiterName}</span></div>
                   </div>
                 )}
@@ -231,12 +231,12 @@ export default async function OrderDetailsPage({
             ) : (
               <div className="space-y-5 text-sm">
                 <div className="flex items-center gap-3">
-                  <div className="bg-muted p-2 rounded-full"><User className="w-4 h-4 text-muted-foreground" /></div>
+                  <div className="bg-muted p-2"><User className="w-4 h-4 text-muted-foreground" /></div>
                   <div className="font-bold text-base">{order.customerName || "Walk-in Guest"}</div>
                 </div>
                 {order.customerPhone && (
                   <div className="flex items-center gap-3">
-                    <div className="bg-muted p-2 rounded-full"><Phone className="w-4 h-4 text-muted-foreground" /></div>
+                    <div className="bg-muted p-2"><Phone className="w-4 h-4 text-muted-foreground" /></div>
                     <div className="font-medium">{order.customerPhone}</div>
                   </div>
                 )}
@@ -245,7 +245,7 @@ export default async function OrderDetailsPage({
                   <>
                     <Separator className="opacity-50" />
                     <div className="flex items-start gap-3">
-                      <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900 p-2 rounded-full mt-0.5"><MapPinned className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" /></div>
+                      <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900 p-2 mt-0.5"><MapPinned className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" /></div>
                       <div className="leading-relaxed text-muted-foreground pt-1">
                         <span className="block font-semibold text-foreground text-xs uppercase mb-0.5">Delivery Address</span>
                         {order.deliveryAddress}
@@ -255,7 +255,7 @@ export default async function OrderDetailsPage({
                 )}
                 
                 {order.deliveryNotes && (
-                  <div className="bg-amber-50/50 border border-amber-100 p-4 rounded-xl italic text-amber-800 shadow-sm">
+                  <div className="bg-amber-50/50 border border-amber-100 p-4 italic text-amber-800 shadow-sm">
                     "Note: {order.deliveryNotes}"
                   </div>
                 )}
@@ -263,8 +263,8 @@ export default async function OrderDetailsPage({
                 {order.orderType === "delivery" && (
                   <>
                     <Separator className="opacity-50" />
-                    <div className="flex items-center gap-3 bg-indigo-50/50 dark:bg-indigo-950/20 p-4 rounded-xl border border-indigo-100 dark:border-indigo-900/30">
-                      <div className="bg-indigo-100 dark:bg-indigo-900/50 p-2 rounded-full"><Bike className="w-4 h-4 text-indigo-600 dark:text-indigo-400" /></div>
+                    <div className="flex items-center gap-3 bg-indigo-50/50 dark:bg-indigo-950/20 p-4 border border-indigo-100 dark:border-indigo-900/30">
+                      <div className="bg-indigo-100 dark:bg-indigo-900/50 p-2"><Bike className="w-4 h-4 text-indigo-600 dark:text-indigo-400" /></div>
                       <div>
                         <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider mb-0.5">Rider Assignment</div>
                         <div className="font-semibold text-sm">{order.riderId ? "Rider Assigned" : "No Rider Assigned"}</div>

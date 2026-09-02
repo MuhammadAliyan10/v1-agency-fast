@@ -58,7 +58,7 @@ export function DealAddToCart({ deal }: { deal: Deal }) {
   };
 
   return (
-    <Button onClick={handleAdd} size="sm" className="rounded-sm h-10 px-4 font-bold text-xs uppercase tracking-wide gap-1.5">
+    <Button onClick={handleAdd} size="sm" className="h-10 px-4 font-bold text-xs uppercase tracking-wide gap-1.5">
       <ShoppingBag className="w-3.5 h-3.5" />
       Add Deal
     </Button>

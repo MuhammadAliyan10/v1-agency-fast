@@ -36,19 +36,19 @@ export default async function DashboardPage() {
         </div>
       </div>
       
-      <Suspense fallback={<Skeleton className="h-[120px] w-full rounded-xl" />}>
+      <Suspense fallback={<Skeleton className="h-[120px] w-full" />}>
         <KPIsWrapper />
       </Suspense>
 
       {/* Row 2: Charts */}
       <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-xl" />}>
+          <Suspense fallback={<Skeleton className="h-[400px] w-full" />}>
             <RevenueChartWrapper />
           </Suspense>
         </div>
         <div className="lg:col-span-1">
-          <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-xl" />}>
+          <Suspense fallback={<Skeleton className="h-[400px] w-full" />}>
             <OrderSourceWrapper />
           </Suspense>
         </div>
@@ -57,12 +57,12 @@ export default async function DashboardPage() {
       {/* Row 3: Operational Widgets */}
       <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
         <div>
-          <Suspense fallback={<Skeleton className="h-[300px] w-full rounded-xl" />}>
+          <Suspense fallback={<Skeleton className="h-[300px] w-full" />}>
             <TopSellingWrapper />
           </Suspense>
         </div>
         <div>
-          <Suspense fallback={<Skeleton className="h-[300px] w-full rounded-xl" />}>
+          <Suspense fallback={<Skeleton className="h-[300px] w-full" />}>
             <LowStockWrapper />
           </Suspense>
         </div>
@@ -70,7 +70,7 @@ export default async function DashboardPage() {
 
       {/* Row 4: Recent Orders */}
       <div className="grid gap-6 grid-cols-1">
-        <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-xl" />}>
+        <Suspense fallback={<Skeleton className="h-[400px] w-full" />}>
           <RecentOrdersWrapper />
         </Suspense>
       </div>

@@ -73,7 +73,7 @@ export function MenuClient({ categories }: MenuClientProps) {
             placeholder="Search our menu..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 h-11 bg-muted/40 border-muted rounded-xl text-sm md:text-base shadow-sm focus-visible:ring-1 focus-visible:ring-primary focus-visible:border-primary transition-all placeholder:text-muted-foreground"
+            className="pl-9 h-11 bg-muted/40 border-muted text-sm md:text-base shadow-sm focus-visible:ring-1 focus-visible:ring-primary focus-visible:border-primary transition-all placeholder:text-muted-foreground"
           />
         </div>
 
@@ -82,7 +82,7 @@ export function MenuClient({ categories }: MenuClientProps) {
           <button
             onClick={() => setActiveCategory("all")}
             className={cn(
-              "px-4 py-2 rounded-full text-xs font-bold transition-all border",
+              "px-4 py-2  text-xs font-bold transition-all border",
               activeCategory === "all"
                 ? "bg-zinc-900 border-zinc-900 text-white shadow-md"
                 : "bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50"
@@ -95,7 +95,7 @@ export function MenuClient({ categories }: MenuClientProps) {
               key={category.id}
               onClick={() => setActiveCategory(category.slug)}
               className={cn(
-                "px-4 py-2 rounded-full text-xs font-bold transition-all border",
+                "px-4 py-2  text-xs font-bold transition-all border",
                 activeCategory === category.slug
                   ? "bg-zinc-900 border-zinc-900 text-white shadow-md"
                   : "bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50"

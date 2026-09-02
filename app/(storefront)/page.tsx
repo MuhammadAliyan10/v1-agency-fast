@@ -25,7 +25,7 @@ export default async function StorefrontPage() {
               Premium fast food, crafted for the extraordinary craving.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 md:gap-4 px-4 w-full sm:w-auto">
-              <a href="/menu" className="w-full sm:w-auto inline-flex items-center justify-center h-12 md:h-14 px-8 md:px-10 rounded-full bg-primary text-primary-foreground font-bold hover:bg-primary/90 transition-transform active:scale-95 shadow-xl font-sans tracking-wide uppercase text-xs md:text-sm">
+              <a href="/menu" className="w-full sm:w-auto inline-flex items-center justify-center h-12 md:h-14 px-8 md:px-10 bg-primary text-primary-foreground font-bold hover:bg-primary/90 transition-transform active:scale-95 shadow-xl font-sans tracking-wide uppercase text-xs md:text-sm">
                 Order Now
               </a>
             </div>
@@ -50,7 +50,7 @@ export default async function StorefrontPage() {
 
       {/* Empty State */}
       {categories.length === 0 && (
-        <div className="py-20 text-center flex flex-col items-center justify-center border rounded-2xl bg-muted/20 m-4">
+        <div className="py-20 text-center flex flex-col items-center justify-center border bg-muted/20 m-4">
           <h3 className="text-2xl font-bold mb-2">Menu is updating</h3>
           <p className="text-muted-foreground max-w-md mx-auto">
             We are preparing our delicious offerings. Please check back shortly!

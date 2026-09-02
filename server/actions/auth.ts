@@ -5,30 +5,11 @@ import { db } from "@/database/db";
 import { eq } from "drizzle-orm";
 import { users, staffPermissions } from "@/database/schema";
 import { verifyPassword } from "@/lib/auth/password";
-import { createSession, deleteSession, PORTAL_ROUTES, type UserRole, type SessionPayload } from "@/lib/auth/session";
+import { createSession, deleteSession, getSession, PORTAL_ROUTES, type UserRole, type SessionPayload } from "@/lib/auth/session";
+import { RBACMatrixSchema, DEFAULT_RBAC_MATRIX } from "@/lib/auth/rbac";
 import { loginSchema, type LoginInput } from "@/lib/validations/auth";
 
 const STAFF_ROLES: UserRole[] = ["admin", "manager", "kitchen", "waiter", "rider"];
-
-const DEFAULT_PERMISSIONS: SessionPayload["permissions"] = {
-  canManageMenu:        false,
-  canViewFinance:       false,
-  canManageCoupons:     false,
-  canViewInventory:     false,
-  canBroadcastWhatsapp: false,
-  canManageStaff:       false,
-  maxDiscountPercentage: 0,
-};
-
-const ADMIN_PERMISSIONS: SessionPayload["permissions"] = {
-  canManageMenu:        true,
-  canViewFinance:       true,
-  canManageCoupons:     true,
-  canViewInventory:     true,
-  canBroadcastWhatsapp: true,
-  canManageStaff:       true,
-  maxDiscountPercentage: 100,
-};
 
 export async function loginStaff(
   data: LoginInput
@@ -54,32 +35,35 @@ export async function loginStaff(
     const isValid = await verifyPassword(password, user.passwordHash);
     if (!isValid) return { error: "Invalid credentials or account is inactive." };
 
+    const ALL_TRUE = { read: true, create: true, update: true, delete: true };
+    const ADMIN_PERMS = {
+      menu: ALL_TRUE, finance: ALL_TRUE, coupons: ALL_TRUE, 
+      inventory: ALL_TRUE, staff: ALL_TRUE, orders: ALL_TRUE, whatsapp: ALL_TRUE,
+      maxDiscountPercentage: 100,
+    };
+    
     // Build permissions — admin gets all, manager loads from DB, others get none
-    let permissions: SessionPayload["permissions"] = DEFAULT_PERMISSIONS;
+    let permissions = { ...DEFAULT_RBAC_MATRIX, maxDiscountPercentage: 0 };
     if (user.role === "admin") {
-      permissions = ADMIN_PERMISSIONS;
+      permissions = ADMIN_PERMS;
     } else if (user.role === "manager") {
       const perms = await db.query.staffPermissions.findFirst({
         where: eq(staffPermissions.userId, user.id),
       });
       if (perms) {
+        const parsedMatrix = RBACMatrixSchema.catch(DEFAULT_RBAC_MATRIX).parse(perms.permissions || {});
         permissions = {
-          canManageMenu:        perms.canManageMenu,
-          canViewFinance:       perms.canViewFinance,
-          canManageCoupons:     perms.canManageCoupons,
-          canViewInventory:     perms.canViewInventory,
-          canBroadcastWhatsapp: perms.canBroadcastWhatsapp,
-          canManageStaff:       perms.canManageStaff,
+          ...parsedMatrix,
           maxDiscountPercentage: perms.maxDiscountPercentage,
         };
       } else {
-        // No record yet — manager gets full access by default
-        permissions = ADMIN_PERMISSIONS;
+        permissions = ADMIN_PERMS;
       }
     }
 
     const payload: SessionPayload = {
       id:             user.id,
+      email:          user.email!,
       role:           user.role as UserRole,
       name:           user.name,
       sessionVersion: user.sessionVersion,
@@ -96,6 +80,10 @@ export async function loginStaff(
     console.error("[LOGIN_ERROR]", error);
     return { error: "An unexpected error occurred. Please try again later." };
   }
+}
+
+export async function getCurrentSession() {
+  return await getSession();
 }
 
 // Kept for backward compat — delegates to loginStaff

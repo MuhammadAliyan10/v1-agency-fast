@@ -96,12 +96,12 @@ export function ProductDialog({ isOpen, onClose, item }: ProductDialogProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="w-full max-w-full sm:max-w-4xl h-[100dvh] sm:h-auto sm:max-h-[90vh] p-0 m-0 overflow-hidden bg-background border-none sm:border-solid sm:border-border rounded-none sm:rounded-xl shadow-2xl flex flex-col gap-0 duration-200">
+      <DialogContent className="w-full max-w-full sm:max-w-4xl h-[100dvh] sm:h-auto sm:max-h-[90vh] p-0 m-0 overflow-hidden bg-background border-none sm:border-solid sm:border-border rounded-none sm: shadow-2xl flex flex-col gap-0 duration-200">
         <DialogHeader className="sr-only">
           <DialogTitle>{item.name}</DialogTitle>
         </DialogHeader>
         
-        <DialogClose className="absolute right-4 top-4 z-50 rounded-full bg-white/80 backdrop-blur-md p-2 hover:bg-white transition-colors shadow-md focus:outline-none focus:ring-2 focus:ring-primary">
+        <DialogClose className="absolute right-4 top-4 z-50 bg-white/80 backdrop-blur-md p-2 hover:bg-white transition-colors shadow-md focus:outline-none focus:ring-2 focus:ring-primary">
           <X className="h-5 w-5 text-foreground" />
           <span className="sr-only">Close</span>
         </DialogClose>
@@ -135,12 +135,12 @@ export function ProductDialog({ isOpen, onClose, item }: ProductDialogProps) {
                   {(item.tags?.isSpicy || item.tags?.isVeg) && (
                     <div className="flex gap-1 shrink-0">
                       {item.tags?.isSpicy && (
-                        <div className="bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-500 p-1.5 rounded-lg" title="Spicy">
+                        <div className="bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-500 p-1.5" title="Spicy">
                           <Flame className="w-4 h-4" />
                         </div>
                       )}
                       {item.tags?.isVeg && (
-                        <div className="bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-500 p-1.5 rounded-lg" title="Vegetarian">
+                        <div className="bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-500 p-1.5" title="Vegetarian">
                           <Leaf className="w-4 h-4" />
                         </div>
                       )}
@@ -157,7 +157,7 @@ export function ProductDialog({ isOpen, onClose, item }: ProductDialogProps) {
                 <div className="mb-8">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="font-semibold text-foreground tracking-tight">Size & Options</h3>
-                    <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-sm tracking-widest uppercase">Required</span>
+                    <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 tracking-widest uppercase">Required</span>
                   </div>
                   <RadioGroup 
                     value={selectedVariant?.id?.toString()} 
@@ -169,7 +169,7 @@ export function ProductDialog({ isOpen, onClose, item }: ProductDialogProps) {
                         key={variant.id}
                         htmlFor={`variant-${variant.id}`}
                         className={cn(
-                          "flex items-center justify-between p-3 md:p-4 border rounded-lg md:rounded-xl cursor-pointer transition-all hover:bg-muted/50",
+                          "flex items-center justify-between p-3 md:p-4 border  md: cursor-pointer transition-all hover:bg-muted/50",
                           selectedVariant?.id === variant.id ? "border-primary bg-primary/5 ring-1 ring-primary/20 shadow-sm" : "border-border/50 bg-white"
                         )}
                       >
@@ -199,7 +199,7 @@ export function ProductDialog({ isOpen, onClose, item }: ProductDialogProps) {
                         key={addon.id}
                         htmlFor={`addon-${addon.id}`}
                         className={cn(
-                          "flex items-center justify-between p-3 md:p-4 border rounded-lg md:rounded-xl cursor-pointer transition-all hover:bg-muted/50",
+                          "flex items-center justify-between p-3 md:p-4 border  md: cursor-pointer transition-all hover:bg-muted/50",
                           selectedAddOns.includes(addon.id) ? "border-primary/50 bg-primary/5 shadow-sm" : "border-border/50 bg-white"
                         )}
                       >
@@ -225,11 +225,11 @@ export function ProductDialog({ isOpen, onClose, item }: ProductDialogProps) {
             <div className="absolute bottom-0 left-0 right-0 p-3 md:p-6 bg-background/95 backdrop-blur-md border-t border-border/50 z-20">
               <div className="flex items-center gap-3 md:gap-4 max-w-full">
                 {/* Quantity Controls */}
-                <div className="flex items-center bg-white rounded-lg md:rounded-xl p-1 border border-border/50 shadow-sm shrink-0">
+                <div className="flex items-center bg-white md: p-1 border border-border/50 shadow-sm shrink-0">
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-10 w-10 md:h-12 md:w-12 rounded-md md:rounded-lg shrink-0 hover:bg-muted"
+                    className="h-10 w-10 md:h-12 md:w-12 md: shrink-0 hover:bg-muted"
                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
                     disabled={quantity <= 1}
                   >
@@ -239,7 +239,7 @@ export function ProductDialog({ isOpen, onClose, item }: ProductDialogProps) {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-10 w-10 md:h-12 md:w-12 rounded-md md:rounded-lg shrink-0 hover:bg-muted"
+                    className="h-10 w-10 md:h-12 md:w-12 md: shrink-0 hover:bg-muted"
                     onClick={() => setQuantity(quantity + 1)}
                   >
                     <Plus className="h-3 w-3 md:h-4 md:w-4" />
@@ -249,7 +249,7 @@ export function ProductDialog({ isOpen, onClose, item }: ProductDialogProps) {
                 {/* Add to Cart Button */}
                 <Button 
                   onClick={handleAddToCart} 
-                  className="flex-1 h-12 md:h-14 rounded-xl md:rounded-2xl font-bold shadow-lg hover:shadow-xl transition-all text-sm md:text-base px-2 sm:px-6 tracking-wide active:scale-[0.98]"
+                  className="flex-1 h-12 md:h-14 md: font-bold shadow-lg hover:shadow-xl transition-all text-sm md:text-base px-2 sm:px-6 tracking-wide active:scale-[0.98]"
                 >
                   <span className="hidden sm:inline">Add to Cart • </span>
                   <span className="sm:hidden">Add • </span>

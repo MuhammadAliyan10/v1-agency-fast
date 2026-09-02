@@ -66,7 +66,7 @@ export default function AdminLoginPage() {
       </div>
       <Card className="w-full max-w-md shadow-2xl">
         <CardHeader className="space-y-2 text-center">
-          <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4 border border-primary/20">
+          <div className="mx-auto w-16 h-16 bg-primary/10 flex items-center justify-center mb-4 border border-primary/20">
             <span className="text-2xl font-black text-primary tracking-tighter">CC</span>
           </div>
           <CardTitle className="text-2xl font-bold tracking-tight">Classy Crave Staff Portal</CardTitle>

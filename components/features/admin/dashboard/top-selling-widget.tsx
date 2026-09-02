@@ -21,7 +21,7 @@ export function TopSellingWidget({ data }: TopSellingWidgetProps) {
             data.map((item, index) => (
               <div key={item.id} className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-xs border border-primary/20">
+                  <div className="flex h-8 w-8 items-center justify-center bg-primary/10 text-primary font-bold text-xs border border-primary/20">
                     #{index + 1}
                   </div>
                   <div>

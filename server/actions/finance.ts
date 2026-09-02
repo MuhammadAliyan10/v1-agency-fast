@@ -4,7 +4,7 @@
 import { db } from "@/database/db";
 import { orders, orderItems } from "@/database/schema";
 import { and, gte, lte, eq, sql, desc, inArray, notInArray } from "drizzle-orm";
-import { requireAdmin } from "@/lib/auth/session";
+import { requireManagerPermission } from "@/lib/auth/session";
 import { startOfDay, endOfDay, startOfWeek, endOfWeek, subWeeks, format } from "date-fns";
 
 export interface FinancialStats {
@@ -89,7 +89,7 @@ export async function getFinancialSummary(params: {
   from?: string;
   to?: string;
 } = {}): Promise<{ success: true; data: FinancialSummaryResult } | { success: false; error: string }> {
-  await requireAdmin();
+  await requireManagerPermission("finance", "read");
 
   try {
     const now = new Date();
@@ -289,7 +289,7 @@ export async function getFinancialSummary(params: {
 }
 
 export async function markOrderPaid(orderId: string): Promise<{ success: boolean; error?: string }> {
-  await requireAdmin();
+  await requireManagerPermission("finance", "read");
   try {
     await db.update(orders).set({ paymentStatus: "paid" }).where(eq(orders.id, orderId));
     return { success: true };

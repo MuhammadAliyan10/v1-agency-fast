@@ -15,7 +15,7 @@ export default async function CustomersPage() {
         heading="Customers" 
         description="Manage your registered customers, view lifetime spend, and handle account access."
       >
-        <div className="flex items-center gap-2 bg-primary/10 text-primary px-3 py-1.5 rounded-md font-medium text-sm">
+        <div className="flex items-center gap-2 bg-primary/10 text-primary px-3 py-1.5 font-medium text-sm">
           <Users className="w-4 h-4" />
           <span>Total Customers: {customers.length}</span>
         </div>

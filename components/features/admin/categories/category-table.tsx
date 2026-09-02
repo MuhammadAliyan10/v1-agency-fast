@@ -121,7 +121,7 @@ export function CategoryTable({ data }: CategoryTableProps) {
         </Button>
       </div>
 
-      <div className="border rounded-md bg-card overflow-hidden">
+      <div className="border bg-card overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow>

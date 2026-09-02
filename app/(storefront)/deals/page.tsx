@@ -26,7 +26,7 @@ export default async function DealsPage() {
           <Tag className="w-16 h-16 text-muted-foreground opacity-20 mb-4" />
           <h2 className="text-xl font-bold text-zinc-950">No active deals right now</h2>
           <p className="text-muted-foreground text-sm mt-2">Check back soon — we run specials on events and weekends!</p>
-          <Button asChild variant="outline" className="mt-6 rounded-sm">
+          <Button asChild variant="outline" className="mt-6">
             <Link href="/menu">Browse Menu</Link>
           </Button>
         </div>
@@ -46,11 +46,11 @@ export default async function DealsPage() {
                   <div className="relative aspect-[16/9] bg-muted">
                     <img src={deal.imageUrl} alt={deal.name} className="w-full h-full object-cover" />
                     <div className="absolute top-3 left-3 flex gap-1.5">
-                      <Badge className="bg-primary text-white text-xs font-black px-2 py-0.5 rounded-sm">
+                      <Badge className="bg-primary text-white text-xs font-black px-2 py-0.5">
                         {savingsPct}% OFF
                       </Badge>
                       {deal.dealType === "event" && deal.eventLabel && (
-                        <Badge variant="secondary" className="text-xs font-bold rounded-sm">{deal.eventLabel}</Badge>
+                        <Badge variant="secondary" className="text-xs font-bold">{deal.eventLabel}</Badge>
                       )}
                     </div>
                   </div>
@@ -58,9 +58,9 @@ export default async function DealsPage() {
                   <div className="relative aspect-[16/9] bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center">
                     <Tag className="w-12 h-12 text-primary/30" />
                     <div className="absolute top-3 left-3 flex gap-1.5">
-                      <Badge className="bg-primary text-white text-xs font-black px-2 py-0.5 rounded-sm">{savingsPct}% OFF</Badge>
+                      <Badge className="bg-primary text-white text-xs font-black px-2 py-0.5">{savingsPct}% OFF</Badge>
                       {deal.dealType === "event" && deal.eventLabel && (
-                        <Badge variant="secondary" className="text-xs font-bold rounded-sm">{deal.eventLabel}</Badge>
+                        <Badge variant="secondary" className="text-xs font-bold">{deal.eventLabel}</Badge>
                       )}
                     </div>
                   </div>

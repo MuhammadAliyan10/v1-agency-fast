@@ -16,8 +16,8 @@ export default function AdminError({
   }, [error]);
 
   return (
-    <div className="h-[calc(100vh-140px)] flex flex-col items-center justify-center p-8 text-center bg-card rounded-2xl border border-border shadow-sm">
-      <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mb-6 border border-red-200 dark:border-red-800">
+    <div className="h-[calc(100vh-140px)] flex flex-col items-center justify-center p-8 text-center bg-card border border-border shadow-sm">
+      <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 flex items-center justify-center mb-6 border border-red-200 dark:border-red-800">
         <AlertCircle className="w-8 h-8 text-red-600 dark:text-red-500" />
       </div>
       
@@ -46,7 +46,7 @@ export default function AdminError({
         </Button>
       </div>
 
-      <div className="mt-12 p-4 bg-muted/30 border rounded-lg max-w-[600px] w-full text-left overflow-auto">
+      <div className="mt-12 p-4 bg-muted/30 border max-w-[600px] w-full text-left overflow-auto">
         <p className="text-xs font-mono text-muted-foreground break-words whitespace-pre-wrap">
           {error.message || "An unknown error occurred."}
         </p>

@@ -217,7 +217,7 @@ export function LiveOrdersBoard({ role }: LiveOrdersBoardProps) {
                 {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
                 <span>{isMuted ? "Alerts Muted" : "Alerts On"}</span>
               </Button>
-              <ClockComponent className="text-sm font-semibold tabular-nums text-muted-foreground bg-muted px-3 py-1.5 rounded-md border" />
+              <ClockComponent className="text-sm font-semibold tabular-nums text-muted-foreground bg-muted px-3 py-1.5 border" />
             </div>
           </div>
         ) : (
@@ -252,16 +252,16 @@ export function LiveOrdersBoard({ role }: LiveOrdersBoardProps) {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search by ID, name, or phone..."
-                className="pl-9 h-10 bg-card border shadow-sm rounded-lg focus-visible:ring-1 focus-visible:ring-primary text-sm"
+                className="pl-9 h-10 bg-card border shadow-sm focus-visible:ring-1 focus-visible:ring-primary text-sm"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
-            <ToggleGroup type="single" value={typeFilter} onValueChange={(v) => v && setTypeFilter(v)} className="bg-card border p-1 rounded-lg shadow-sm w-full sm:w-auto justify-start sm:justify-end overflow-x-auto scrollbar-none">
-              <ToggleGroupItem value="all" className="h-8 px-4 text-xs font-bold rounded-md">All Orders</ToggleGroupItem>
-              <ToggleGroupItem value="dine_in" className="h-8 px-4 text-xs font-bold rounded-md whitespace-nowrap">Dine-In</ToggleGroupItem>
-              <ToggleGroupItem value="delivery" className="h-8 px-4 text-xs font-bold rounded-md whitespace-nowrap">Delivery</ToggleGroupItem>
-              <ToggleGroupItem value="pickup" className="h-8 px-4 text-xs font-bold rounded-md whitespace-nowrap">Pickup</ToggleGroupItem>
+            <ToggleGroup type="single" value={typeFilter} onValueChange={(v) => v && setTypeFilter(v)} className="bg-card border p-1 shadow-sm w-full sm:w-auto justify-start sm:justify-end overflow-x-auto scrollbar-none">
+              <ToggleGroupItem value="all" className="h-8 px-4 text-xs font-bold">All Orders</ToggleGroupItem>
+              <ToggleGroupItem value="dine_in" className="h-8 px-4 text-xs font-bold whitespace-nowrap">Dine-In</ToggleGroupItem>
+              <ToggleGroupItem value="delivery" className="h-8 px-4 text-xs font-bold whitespace-nowrap">Delivery</ToggleGroupItem>
+              <ToggleGroupItem value="pickup" className="h-8 px-4 text-xs font-bold whitespace-nowrap">Pickup</ToggleGroupItem>
             </ToggleGroup>
           </div>
         )}

@@ -162,12 +162,12 @@ export function ProductOrderForm({ item, globalAddons = [] }: ProductOrderFormPr
       {(item.tags?.isSpicy || item.tags?.isVeg) && (
         <div className="flex gap-2 mb-2">
           {item.tags?.isSpicy && (
-            <div className="bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-500 px-2 py-1 rounded-md text-[10px] font-bold flex items-center gap-1 uppercase tracking-wider">
+            <div className="bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-500 px-2 py-1 text-[10px] font-bold flex items-center gap-1 uppercase tracking-wider">
               <Flame className="w-3 h-3" /> Spicy
             </div>
           )}
           {item.tags?.isVeg && (
-            <div className="bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-500 px-2 py-1 rounded-md text-[10px] font-bold flex items-center gap-1 uppercase tracking-wider">
+            <div className="bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-500 px-2 py-1 text-[10px] font-bold flex items-center gap-1 uppercase tracking-wider">
               <Leaf className="w-3 h-3" /> Vegetarian
             </div>
           )}
@@ -191,7 +191,7 @@ export function ProductOrderForm({ item, globalAddons = [] }: ProductOrderFormPr
                   onChange={() => setSelectedVariant(variant)}
                   className="peer sr-only"
                 />
-                <div className="border border-muted bg-transparent p-3 rounded-lg transition-all peer-checked:border-primary peer-checked:bg-primary/5 flex flex-col justify-center items-center text-center">
+                <div className="border border-muted bg-transparent p-3 transition-all peer-checked:border-primary peer-checked:bg-primary/5 flex flex-col justify-center items-center text-center">
                   <span className="font-medium text-sm text-foreground">{variant.name}</span>
                   <span className="text-xs text-muted-foreground mt-0.5">Rs. {variant.price}</span>
                 </div>
@@ -217,7 +217,7 @@ export function ProductOrderForm({ item, globalAddons = [] }: ProductOrderFormPr
                   onChange={() => handleAddOnToggle(addon.id)}
                   className="peer sr-only"
                 />
-                <div className="border border-muted bg-transparent p-3 rounded-lg transition-all peer-checked:border-primary peer-checked:bg-primary/5 flex flex-col justify-center items-center text-center">
+                <div className="border border-muted bg-transparent p-3 transition-all peer-checked:border-primary peer-checked:bg-primary/5 flex flex-col justify-center items-center text-center">
                   <span className="font-medium text-sm text-foreground leading-tight">{addon.name}</span>
                   <span className="text-xs text-muted-foreground mt-0.5">+ Rs. {addon.price}</span>
                 </div>
@@ -234,7 +234,7 @@ export function ProductOrderForm({ item, globalAddons = [] }: ProductOrderFormPr
           value={specialInstructions}
           onChange={(e) => setSpecialInstructions(e.target.value)}
           placeholder="e.g. No mayo, extra spicy..."
-          className="w-full bg-transparent border border-muted rounded-lg p-3 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary min-h-[80px] resize-none"
+          className="w-full bg-transparent border border-muted p-3 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary min-h-[80px] resize-none"
         />
       </div>
       
@@ -259,7 +259,7 @@ export function ProductOrderForm({ item, globalAddons = [] }: ProductOrderFormPr
                   }
 
                   return (
-                    <div key={crossItem.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 border rounded-xl bg-card">
+                    <div key={crossItem.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 border bg-card">
                       <div className="flex-1">
                         <p className="font-semibold text-sm">{crossItem.name}</p>
                         <p className="text-xs text-muted-foreground mt-0.5">Rs. {displayPrice}</p>
@@ -284,12 +284,12 @@ export function ProductOrderForm({ item, globalAddons = [] }: ProductOrderFormPr
                           </Select>
                         )}
                         
-                        <div className="flex items-center gap-2 bg-muted/50 rounded-lg p-0.5 border border-border/50">
+                        <div className="flex items-center gap-2 bg-muted/50 p-0.5 border border-border/50">
                           <Button
                             type="button"
                             variant="ghost"
                             size="icon"
-                            className="h-7 w-7 rounded-md text-foreground hover:bg-background"
+                            className="h-7 w-7 text-foreground hover:bg-background"
                             onClick={() => updateCrossSellQuantity(crossItem.id, -1)}
                             disabled={qty === 0}
                           >
@@ -300,7 +300,7 @@ export function ProductOrderForm({ item, globalAddons = [] }: ProductOrderFormPr
                             type="button"
                             variant="ghost"
                             size="icon"
-                            className="h-7 w-7 rounded-md text-foreground hover:bg-background"
+                            className="h-7 w-7 text-foreground hover:bg-background"
                             onClick={() => updateCrossSellQuantity(crossItem.id, 1)}
                           >
                             <Plus className="h-3 w-3" />
@@ -322,12 +322,12 @@ export function ProductOrderForm({ item, globalAddons = [] }: ProductOrderFormPr
       {/* Quantity & Action Bar */}
       <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-zinc-100 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] z-[100] shadow-[0_-8px_30px_rgba(0,0,0,0.08)]">
         <div className="flex flex-row items-center gap-4 max-w-7xl mx-auto w-full">
-          <div className="flex items-center bg-zinc-100/80 rounded-2xl p-1 w-auto justify-between border border-zinc-200/50">
+          <div className="flex items-center bg-zinc-100/80 p-1 w-auto justify-between border border-zinc-200/50">
             <Button
               type="button"
               variant="ghost"
               size="icon"
-              className="h-12 w-12 rounded-xl shrink-0 text-zinc-950 hover:bg-white active:scale-95 transition-all"
+              className="h-12 w-12 shrink-0 text-zinc-950 hover:bg-white active:scale-95 transition-all"
               onClick={() => setQuantity(Math.max(1, quantity - 1))}
               disabled={quantity <= 1}
             >
@@ -338,7 +338,7 @@ export function ProductOrderForm({ item, globalAddons = [] }: ProductOrderFormPr
               type="button"
               variant="ghost"
               size="icon"
-              className="h-12 w-12 rounded-xl shrink-0 text-zinc-950 hover:bg-white active:scale-95 transition-all"
+              className="h-12 w-12 shrink-0 text-zinc-950 hover:bg-white active:scale-95 transition-all"
               onClick={() => setQuantity(quantity + 1)}
             >
               <Plus className="h-5 w-5" />
@@ -347,7 +347,7 @@ export function ProductOrderForm({ item, globalAddons = [] }: ProductOrderFormPr
 
           <Button 
             onClick={handleAddToCart} 
-            className="flex-1 h-[56px] rounded-2xl font-bold shadow-xl shadow-primary/20 text-base active:scale-[0.98] transition-transform flex items-center justify-between px-6"
+            className="flex-1 h-[56px] font-bold shadow-xl shadow-primary/20 text-base active:scale-[0.98] transition-transform flex items-center justify-between px-6"
           >
             <span>Add To Cart</span>
             <span className="font-black opacity-90">{STORE_CONSTANTS.CURRENCY} {grandTotal}</span>

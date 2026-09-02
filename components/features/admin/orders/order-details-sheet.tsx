@@ -177,7 +177,7 @@ export function OrderDetailsSheet({
           <span class="bold">${item.itemName}</span>
           ${item.variantName ? `<br><small>Size: ${item.variantName}</small>` : ""}
           ${item.selectedAddOns && Array.isArray(item.selectedAddOns) && item.selectedAddOns.length > 0 ? `<br><small>+ ${(item.selectedAddOns as any[]).map(a => a.name).join(", ")}</small>` : ""}
-          ${item.specialInstructions ? `<br><small class="bold">** ${item.specialInstructions} **</small>` : ""}
+          ${item.specialInstructions && !(item.specialInstructions.startsWith("[DEAL:") && item.specialInstructions.endsWith("]")) ? `<br><small class="bold">** ${item.specialInstructions} **</small>` : ""}
         </td>
         <td class="price">Rs. ${item.subtotal}</td>
       </tr>
@@ -312,7 +312,7 @@ export function OrderDetailsSheet({
                   <SheetTitle className="text-xl font-bold">Order #{order.id}</SheetTitle>
                   <div className="flex items-center gap-2 mt-1 flex-wrap">
                     <span
-                      className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 border rounded-sm ${
+                      className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 border  ${
                         isPickup
                           ? "border-purple-300 bg-purple-50 text-purple-700"
                           : "border-blue-300 bg-blue-50 text-blue-700"
@@ -321,11 +321,11 @@ export function OrderDetailsSheet({
                       {isPickup ? <><Store className="w-3 h-3" /> Pickup</> : <><Home className="w-3 h-3" /> Delivery</>}
                     </span>
                     {order.paymentStatus === "paid" ? (
-                      <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 border border-green-300 bg-green-50 text-green-700 rounded-sm">
+                      <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 border border-green-300 bg-green-50 text-green-700">
                         <CreditCard className="w-3 h-3" /> Paid
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 border border-orange-300 bg-orange-50 text-orange-700 rounded-sm">
+                      <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 border border-orange-300 bg-orange-50 text-orange-700">
                         <CreditCard className="w-3 h-3" /> Unpaid
                       </span>
                     )}
@@ -348,11 +348,11 @@ export function OrderDetailsSheet({
               </div>
             </SheetHeader>
 
-            <div className="flex-1 overflow-y-auto p-6 space-y-6 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-indigo-500/80 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-indigo-600">
+            <div className="flex-1 overflow-y-auto p-6 space-y-6 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-indigo-500/80 [&::-webkit-scrollbar-thumb]: hover:[&::-webkit-scrollbar-thumb]:bg-indigo-600">
                 {/* Customer Info */}
                 <section>
                   <h3 className="font-semibold mb-2 text-sm uppercase text-muted-foreground tracking-wider">Customer</h3>
-                  <div className="bg-muted/40 p-4 rounded-lg space-y-2 text-sm">
+                  <div className="bg-muted/40 p-4 space-y-2 text-sm">
                     <div className="flex justify-between items-center">
                       <span className="font-semibold">{order.customerName}</span>
                       <a
@@ -396,7 +396,7 @@ export function OrderDetailsSheet({
                 {(order.status === "preparing" || order.status === "out_for_delivery" || order.status === "approved") && !isPickup && (
                   <section>
                     <h3 className="font-semibold mb-2 text-sm uppercase text-muted-foreground tracking-wider">Rider</h3>
-                    <div className="bg-muted/40 p-4 rounded-lg">
+                    <div className="bg-muted/40 p-4">
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <div>
                           {order.rider ? (
@@ -481,7 +481,7 @@ export function OrderDetailsSheet({
                               + {(item.selectedAddOns as any[]).map((a: any) => a.name).join(", ")}
                             </span>
                           )}
-                        {item.specialInstructions && (
+                        {item.specialInstructions && !(item.specialInstructions.startsWith("[DEAL:") && item.specialInstructions.endsWith("]")) && (
                           <div className="mt-1 ml-4 text-xs p-1.5 bg-amber-500/10 text-amber-700 rounded border border-amber-500/20 inline-block font-semibold">
                             ⚠️ {item.specialInstructions}
                           </div>
@@ -522,7 +522,7 @@ export function OrderDetailsSheet({
                       <Button
                         size="sm"
                         variant="outline"
-                        className="h-6 text-xs rounded-sm px-2 border-green-400 text-green-700 hover:bg-green-50"
+                        className="h-6 text-xs px-2 border-green-400 text-green-700 hover:bg-green-50"
                         onClick={() => onMarkPaid(order.id)}
                         disabled={isUpdating}
                       >

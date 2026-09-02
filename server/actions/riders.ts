@@ -2,13 +2,13 @@
 
 import { db } from "@/database/db";
 import { users, riderProfiles } from "@/database/schema";
-import { requireAdmin, requireManagerPermission } from "@/lib/auth/session";
+import { requireManagerPermission } from "@/lib/auth/session";
 import { eq, sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 
 export async function getRiders() {
-  await requireAdmin();
+  await requireManagerPermission("staff", "update");
   try {
     // We need to fetch riders and left join their orders to sum pending cash
     // For simplicity, we can fetch riders and then fetch their pending cash in a separate query,
@@ -56,7 +56,7 @@ export async function getRiders() {
 }
 
 export async function settleRiderCash(riderUserId: string) {
-  await requireManagerPermission("canViewFinance");
+  await requireManagerPermission("finance", "read");
   try {
     await db.execute(sql`
       UPDATE orders 
@@ -73,7 +73,7 @@ export async function settleRiderCash(riderUserId: string) {
 }
 
 export async function updateRiderStatus(riderId: string, status: "available" | "busy" | "offline") {
-  await requireAdmin();
+  await requireManagerPermission("staff", "update");
   try {
     await db
       .update(riderProfiles)
@@ -88,7 +88,7 @@ export async function updateRiderStatus(riderId: string, status: "available" | "
 }
 
 export async function toggleRiderActive(userId: string, isActive: boolean) {
-  await requireAdmin();
+  await requireManagerPermission("staff", "update");
   try {
     await db.update(users).set({ isActive }).where(eq(users.id, userId));
     revalidatePath("/admin/riders");
@@ -107,7 +107,7 @@ export async function createRider(data: {
   vehiclePlate: string;
   password?: string;
 }) {
-  await requireAdmin();
+  await requireManagerPermission("staff", "update");
   try {
     const existing = await db.query.users.findFirst({
       where: eq(users.phone, data.phone),

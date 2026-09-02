@@ -33,7 +33,7 @@ export function ActivityTable({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-md border bg-card text-card-foreground shadow-sm overflow-hidden">
+      <div className="border bg-card text-card-foreground shadow-sm overflow-hidden">
         <Table>
           <TableHeader className="bg-muted/50">
             <TableRow>

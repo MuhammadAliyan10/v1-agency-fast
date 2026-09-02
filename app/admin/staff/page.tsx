@@ -1,5 +1,6 @@
 import { getStaff } from "@/server/actions/staff";
 import { verifySessionOrRedirect } from "@/lib/auth/verify-session";
+import { hasPermission } from "@/lib/auth/rbac";
 import { StaffTable } from "@/components/features/admin/staff/staff-table";
 import { StaffDialog } from "@/components/features/admin/staff/staff-dialog";
 import { Button } from "@/components/ui/button";
@@ -12,7 +13,7 @@ export default async function AdminStaffPage() {
   const session = await verifySessionOrRedirect(["admin", "manager"]);
 
   // Only root admin and managers with explicitly granted `canManageStaff` permission can view this page.
-  if (session.role === "manager" && !session.permissions?.canManageStaff) {
+  if (session.role === "manager" && !hasPermission(session, "staff", "read")) {
     redirect("/admin/dashboard");
   }
 
@@ -43,7 +44,7 @@ export default async function AdminStaffPage() {
             </Button>
           </StaffDialog>
         ) : (
-          <div className="flex items-center text-xs text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-full border">
+          <div className="flex items-center text-xs text-muted-foreground bg-muted/50 px-3 py-1.5 border">
             <ShieldAlert className="w-3.5 h-3.5 mr-1.5 text-amber-500" />
             Only root Admin can invite new staff.
           </div>

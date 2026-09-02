@@ -52,9 +52,9 @@ export function CartSheet({ open, onOpenChange }: CartSheetProps) {
           ) : (
             <div className="flex flex-col gap-4">
               {items.map((item) => (
-                <div key={item.cartItemId} className="flex gap-3 md:gap-4 p-3 md:p-4 rounded-xl border border-border/50 bg-card shadow-sm relative group overflow-hidden">
+                <div key={item.cartItemId} className="flex gap-3 md:gap-4 p-3 md:p-4 border border-border/50 bg-card shadow-sm relative group overflow-hidden">
                   {/* Item Image */}
-                  <div className="relative w-16 h-16 md:w-20 md:h-20 rounded-lg overflow-hidden shrink-0 bg-muted border border-border/50">
+                  <div className="relative w-16 h-16 md:w-20 md:h-20 overflow-hidden shrink-0 bg-muted border border-border/50">
                     <Image 
                       src={item.imageUrl || "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=600&h=600&fit=crop&q=80"}
                       alt={item.name}
@@ -83,16 +83,16 @@ export function CartSheet({ open, onOpenChange }: CartSheetProps) {
                       </div>
                       
                       {/* Quantity Controls */}
-                      <div className="flex items-center gap-1.5 bg-muted/50 border border-border/50 rounded-full p-1">
+                      <div className="flex items-center gap-1.5 bg-muted/50 border border-border/50 p-1">
                         <button 
-                          className="w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center bg-background hover:bg-foreground/5 text-foreground transition-colors shadow-sm disabled:opacity-50" 
+                          className="w-7 h-7 md:w-8 md:h-8 flex items-center justify-center bg-background hover:bg-foreground/5 text-foreground transition-colors shadow-sm disabled:opacity-50" 
                           onClick={() => updateQuantity(item.cartItemId, item.quantity - 1)}
                         >
                           <Minus className="w-3 h-3 md:w-4 md:h-4" />
                         </button>
                         <span className="text-xs md:text-sm font-bold w-5 md:w-6 text-center">{item.quantity}</span>
                         <button 
-                          className="w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center bg-background hover:bg-foreground/5 text-foreground transition-colors shadow-sm" 
+                          className="w-7 h-7 md:w-8 md:h-8 flex items-center justify-center bg-background hover:bg-foreground/5 text-foreground transition-colors shadow-sm" 
                           onClick={() => updateQuantity(item.cartItemId, item.quantity + 1)}
                         >
                           <Plus className="w-3 h-3 md:w-4 md:h-4" />
@@ -105,7 +105,7 @@ export function CartSheet({ open, onOpenChange }: CartSheetProps) {
                   <Button 
                     variant="ghost" 
                     size="icon" 
-                    className="absolute top-2 right-2 h-7 w-7 text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors rounded-full" 
+                    className="absolute top-2 right-2 h-7 w-7 text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors" 
                     onClick={() => removeItem(item.cartItemId)}
                     title="Remove Item"
                   >
@@ -136,7 +136,7 @@ export function CartSheet({ open, onOpenChange }: CartSheetProps) {
             </div>
             
             <Button 
-              className="w-full h-12 md:h-14 text-sm md:text-md font-bold bg-primary hover:bg-primary/90 text-primary-foreground rounded-full shadow-lg hover:shadow-xl transition-all active:scale-[0.98]"
+              className="w-full h-12 md:h-14 text-sm md:text-md font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-xl transition-all active:scale-[0.98]"
               onClick={() => {
                 onOpenChange(false);
                 router.push("/checkout");

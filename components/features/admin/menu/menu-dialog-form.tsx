@@ -233,7 +233,7 @@ export function MenuDialogForm({ open, onOpenChange, initialData, categories }: 
                       )} />
 
                       {form.watch("imageUrl") && (
-                        <div className="rounded-xl border border-border overflow-hidden w-full aspect-video bg-muted">
+                        <div className="border border-border overflow-hidden w-full aspect-video bg-muted">
                           <img
                             src={form.watch("imageUrl") ?? ""}
                             alt="Preview"
@@ -245,7 +245,7 @@ export function MenuDialogForm({ open, onOpenChange, initialData, categories }: 
 
                       <div className="flex gap-3">
                         <FormField control={form.control} name="isAvailable" render={({ field }) => (
-                          <FormItem className="flex items-center justify-between rounded-xl border p-4 flex-1">
+                          <FormItem className="flex items-center justify-between border p-4 flex-1">
                             <div>
                               <FormLabel className="text-sm font-semibold">Available</FormLabel>
                               <FormDescription className="text-xs">Visible on menu</FormDescription>
@@ -256,7 +256,7 @@ export function MenuDialogForm({ open, onOpenChange, initialData, categories }: 
                           </FormItem>
                         )} />
                         <FormField control={form.control} name="isFeatured" render={({ field }) => (
-                          <FormItem className="flex items-center justify-between rounded-xl border p-4 flex-1">
+                          <FormItem className="flex items-center justify-between border p-4 flex-1">
                             <div>
                               <FormLabel className="text-sm font-semibold">Featured</FormLabel>
                               <FormDescription className="text-xs">Highlighted</FormDescription>
@@ -288,13 +288,13 @@ export function MenuDialogForm({ open, onOpenChange, initialData, categories }: 
                         </Button>
                       </div>
                       {variantFields.length === 0 ? (
-                        <p className="text-xs text-muted-foreground italic p-3 border border-dashed rounded-lg text-center">
+                        <p className="text-xs text-muted-foreground italic p-3 border border-dashed text-center">
                           No variants yet — e.g. Small, Medium, Large
                         </p>
                       ) : (
                         <div className="space-y-2">
                           {variantFields.map((field, index) => (
-                            <div key={field.id} className="flex gap-2 items-center p-2 rounded-lg border border-border/60 bg-muted/20">
+                            <div key={field.id} className="flex gap-2 items-center p-2 border border-border/60 bg-muted/20">
                               <FormField control={form.control} name={`variants.${index}.name`} render={({ field }) => (
                                 <FormItem className="flex-1 space-y-0">
                                   <FormControl><Input placeholder="Size/Type" {...field} className="h-8 text-xs" /></FormControl>
@@ -335,13 +335,13 @@ export function MenuDialogForm({ open, onOpenChange, initialData, categories }: 
                         </Button>
                       </div>
                       {addOnFields.length === 0 ? (
-                        <p className="text-xs text-muted-foreground italic p-3 border border-dashed rounded-lg text-center">
+                        <p className="text-xs text-muted-foreground italic p-3 border border-dashed text-center">
                           No add-ons yet — e.g. Extra Cheese, Mayo
                         </p>
                       ) : (
                         <div className="space-y-2">
                           {addOnFields.map((field, index) => (
-                            <div key={field.id} className="flex gap-2 items-center p-2 rounded-lg border border-border/60 bg-muted/20">
+                            <div key={field.id} className="flex gap-2 items-center p-2 border border-border/60 bg-muted/20">
                               <FormField control={form.control} name={`addOns.${index}.name`} render={({ field }) => (
                                 <FormItem className="flex-1 space-y-0">
                                   <FormControl><Input placeholder="Add-on Name" {...field} className="h-8 text-xs" /></FormControl>
@@ -384,9 +384,9 @@ export function MenuDialogForm({ open, onOpenChange, initialData, categories }: 
                       const Icon = tag.icon;
                       return (
                         <FormField key={tag.key} control={form.control} name={`tags.${tag.key}`} render={({ field }) => (
-                          <FormItem className={`flex items-center justify-between rounded-xl border p-4 transition-colors ${field.value ? `${tag.bg} ${tag.border}` : "border-border/60"}`}>
+                          <FormItem className={`flex items-center justify-between  border p-4 transition-colors ${field.value ? `${tag.bg} ${tag.border}` : "border-border/60"}`}>
                             <div className="flex items-center gap-3">
-                              <div className={`p-2 rounded-lg ${field.value ? tag.bg : "bg-muted"}`}>
+                              <div className={`p-2  ${field.value ? tag.bg : "bg-muted"}`}>
                                 <Icon className={`w-4 h-4 ${field.value ? tag.color : "text-muted-foreground"}`} />
                               </div>
                               <div>

@@ -391,7 +391,7 @@ export function KanbanCard({ order, role, isOverlay, borderColor = "border-borde
                         )}
                         onClick={() => !isKitchen && setIsTableEditing(true)}
                       >
-                        Table {order.tableNumber || "N/A"}
+                        {order.tableNumber || "N/A"}
                       </div>
                     )}
                     <div className="text-xs font-medium text-muted-foreground">Waiter: {order.waiterName || "Unassigned"}</div>
@@ -488,7 +488,7 @@ export function KanbanCard({ order, role, isOverlay, borderColor = "border-borde
                                   + {(item.selectedAddOns as any[]).map((a: any) => String(a.name || "")).join(", ")}
                                 </span>
                               )}
-                              {item.specialInstructions && (
+                              {item.specialInstructions && !(item.specialInstructions.startsWith("[DEAL:") && item.specialInstructions.endsWith("]")) && (
                                 <div className="flex items-start gap-1 mt-1 text-rose-500">
                                   <AlertCircle className="w-3 h-3 shrink-0 mt-0.5" />
                                   <span className="text-[11px] font-bold leading-tight">
@@ -651,12 +651,12 @@ export function KanbanCard({ order, role, isOverlay, borderColor = "border-borde
 
         {/* Details Card */}
         {!isKitchen && (
-          <div className="my-3 bg-muted/30 border border-black/5 dark:border-white/5 rounded-md p-2.5 space-y-2">
+          <div className="my-3 bg-muted/30 border border-black/5 dark:border-white/5 p-2.5 space-y-2">
             {isDineIn ? (
               <div className="flex flex-col gap-1.5">
                 <div className="text-[13px] font-bold text-purple-600 dark:text-purple-400 flex items-center gap-1.5">
                   <UtensilsCrossed className="h-3.5 w-3.5" />
-                  Table {order.tableNumber || "N/A"} 
+                  {order.tableNumber || "N/A"} 
                   <span className="text-muted-foreground font-normal mx-1">•</span> 
                   <span className="text-foreground">{order.waiterName || "Unassigned"}</span>
                 </div>
@@ -720,7 +720,7 @@ export function KanbanCard({ order, role, isOverlay, borderColor = "border-borde
         {isKitchen && isDineIn && (
           <div className="text-sm font-semibold text-purple-600 dark:text-purple-400 mt-2 mb-3 flex items-center gap-1">
             <UtensilsCrossed className="h-3.5 w-3.5" />
-            Table {order.tableNumber || "N/A"} • {order.waiterName || "Unassigned"}
+            {order.tableNumber || "N/A"} • {order.waiterName || "Unassigned"}
           </div>
         )}
 
@@ -754,7 +754,7 @@ export function KanbanCard({ order, role, isOverlay, borderColor = "border-borde
                           + {(item.selectedAddOns as any[]).map((a: any) => String(a.name || "")).join(", ")}
                         </span>
                       )}
-                      {item.specialInstructions && (
+                      {item.specialInstructions && !(item.specialInstructions.startsWith("[DEAL:") && item.specialInstructions.endsWith("]")) && (
                         <span className={cn("text-red-500 font-semibold", isKitchen ? "text-base mt-0.5" : "text-[11px] leading-tight")}>
                           *** {item.specialInstructions}
                         </span>

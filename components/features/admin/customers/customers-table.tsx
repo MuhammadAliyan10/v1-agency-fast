@@ -75,7 +75,7 @@ export function CustomersTable({ data }: { data: CustomerData[] }) {
         </div>
       </div>
 
-      <div className="rounded-xl border border-border/50 bg-card overflow-hidden shadow-sm">
+      <div className="border border-border/50 bg-card overflow-hidden shadow-sm">
         <Table>
           <TableHeader className="bg-muted/30">
             <TableRow className="border-border/50">

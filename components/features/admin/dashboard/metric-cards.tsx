@@ -24,7 +24,7 @@ export function MetricCards({ data }: MetricCardsProps) {
       <Card className="bg-primary text-primary-foreground border-none shadow-md">
         <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
           <CardTitle className="text-sm font-semibold text-primary-foreground/80">Today's Sales</CardTitle>
-          <div className="w-8 h-8 bg-primary-foreground/15 rounded-lg flex items-center justify-center">
+          <div className="w-8 h-8 bg-primary-foreground/15 flex items-center justify-center">
             <TrendingUp className="h-4 w-4" />
           </div>
         </CardHeader>
@@ -61,7 +61,7 @@ export function MetricCards({ data }: MetricCardsProps) {
             Active Orders
           </CardTitle>
           <div className={cn(
-            "w-8 h-8 rounded-lg flex items-center justify-center",
+            "w-8 h-8  flex items-center justify-center",
             data.pendingOrdersCount > 0 ? "bg-amber-200/60 dark:bg-amber-900/60" : "bg-muted"
           )}>
             <AlertCircle className={cn(
@@ -86,7 +86,7 @@ export function MetricCards({ data }: MetricCardsProps) {
       <Card className="shadow-sm">
         <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
           <CardTitle className="text-sm font-semibold text-muted-foreground">Orders Today</CardTitle>
-          <div className="w-8 h-8 bg-muted rounded-lg flex items-center justify-center">
+          <div className="w-8 h-8 bg-muted flex items-center justify-center">
             <ShoppingBag className="h-4 w-4 text-muted-foreground" />
           </div>
         </CardHeader>
@@ -100,7 +100,7 @@ export function MetricCards({ data }: MetricCardsProps) {
       <Card className="shadow-sm">
         <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
           <CardTitle className="text-sm font-semibold text-muted-foreground">Avg. Ticket Size</CardTitle>
-          <div className="w-8 h-8 bg-muted rounded-lg flex items-center justify-center">
+          <div className="w-8 h-8 bg-muted flex items-center justify-center">
             <Receipt className="h-4 w-4 text-muted-foreground" />
           </div>
         </CardHeader>

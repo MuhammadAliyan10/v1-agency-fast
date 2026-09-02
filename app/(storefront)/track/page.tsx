@@ -33,7 +33,7 @@ export default function TrackSearchPage() {
         </p>
       </div>
 
-      <div className="bg-white p-6 md:p-8 rounded-3xl shadow-[0_8px_30px_rgba(0,0,0,0.04)] border border-zinc-100 relative overflow-hidden">
+      <div className="bg-white p-6 md:p-8 shadow-[0_8px_30px_rgba(0,0,0,0.04)] border border-zinc-100 relative overflow-hidden">
         {/* Decorative background element */}
         <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-bl-[100px] -z-10" />
 
@@ -44,14 +44,14 @@ export default function TrackSearchPage() {
               placeholder="e.g. CC-12345 or 12345" 
               value={orderId}
               onChange={(e) => setOrderId(e.target.value)}
-              className="pl-12 h-14 md:h-16 text-base md:text-lg bg-zinc-50 border-transparent rounded-sm focus-visible:ring-2 focus-visible:ring-primary focus-visible:bg-white transition-all font-mono tracking-wide"
+              className="pl-12 h-14 md:h-16 text-base md:text-lg bg-zinc-50 border-transparent focus-visible:ring-2 focus-visible:ring-primary focus-visible:bg-white transition-all font-mono tracking-wide"
               autoFocus
             />
           </div>
           <Button 
             type="submit" 
             disabled={!orderId.trim() || isSearching}
-            className="h-14 md:h-16 text-base md:text-lg font-bold rounded-sm shadow-xl shadow-primary/20 hover:shadow-primary/30 transition-all active:scale-[0.98]"
+            className="h-14 md:h-16 text-base md:text-lg font-bold shadow-xl shadow-primary/20 hover:shadow-primary/30 transition-all active:scale-[0.98]"
           >
             {isSearching ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : null}
             {isSearching ? "Searching..." : "Track Now"}

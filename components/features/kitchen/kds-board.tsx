@@ -71,7 +71,7 @@ function OrderCard({ order, updateItemMutation, bumpMutation }: { order: Kitchen
   const timeElapsedFormatted = formatDistanceToNowStrict(orderTime, { addSuffix: false });
 
   return (
-    <div className={cn("border-2 rounded-xl overflow-hidden flex flex-col transition-colors duration-500", slaClass)}>
+    <div className={cn("border-2  overflow-hidden flex flex-col transition-colors duration-500", slaClass)}>
       {/* Hidden print component */}
       <div className="hidden">
         <KotPrinter ref={printRef} data={printData} />
@@ -97,7 +97,7 @@ function OrderCard({ order, updateItemMutation, bumpMutation }: { order: Kitchen
       <div className="p-4 flex-1 flex flex-col gap-4">
         {order.items.map((item) => (
           <div key={item.id} className={cn(
-            "p-3 rounded-lg flex flex-col gap-2 transition-colors",
+            "p-3  flex flex-col gap-2 transition-colors",
             item.status === "served" ? "opacity-30 line-through" : "bg-black/5"
           )}>
             <div className="flex justify-between items-start">
@@ -132,11 +132,11 @@ function OrderCard({ order, updateItemMutation, bumpMutation }: { order: Kitchen
             {item.specialInstructions && (
               <div className="mt-1 pl-8">
                 {item.specialInstructions.startsWith("[DEAL:") ? (
-                  <p className="text-lg font-black text-purple-100 bg-purple-700 p-2 rounded-md inline-block uppercase border-2 border-purple-900 shadow-sm">
+                  <p className="text-lg font-black text-purple-100 bg-purple-700 p-2 inline-block uppercase border-2 border-purple-900 shadow-sm">
                     {item.specialInstructions}
                   </p>
                 ) : (
-                  <p className="text-lg font-black text-red-600 bg-red-100 p-2 rounded-md inline-block uppercase border-2 border-red-600">
+                  <p className="text-lg font-black text-red-600 bg-red-100 p-2 inline-block uppercase border-2 border-red-600">
                     {item.specialInstructions}
                   </p>
                 )}

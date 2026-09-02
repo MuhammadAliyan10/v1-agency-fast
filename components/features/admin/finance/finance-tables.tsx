@@ -38,7 +38,7 @@ function UnpaidTable({ initialOrders }: { initialOrders: UnpaidOrder[] }) {
   const totalUnpaid = orders.reduce((s, o) => s + o.totalAmount, 0);
 
   return (
-    <div className="rounded-2xl border border-rose-200 dark:border-rose-900/40 bg-card overflow-hidden">
+    <div className="border border-rose-200 dark:border-rose-900/40 bg-card overflow-hidden">
       <div className="flex items-center justify-between px-6 py-4 border-b border-border/60 bg-rose-50/50 dark:bg-rose-950/10">
         <div>
           <h3 className="font-bold text-base flex items-center gap-2">
@@ -115,7 +115,7 @@ function LostTable({ orders }: { orders: LostOrder[] }) {
   const totalLost = orders.reduce((s, o) => s + o.totalAmount, 0);
 
   return (
-    <div className="rounded-2xl border border-amber-200 dark:border-amber-900/40 bg-card overflow-hidden">
+    <div className="border border-amber-200 dark:border-amber-900/40 bg-card overflow-hidden">
       <div className="flex items-center justify-between px-6 py-4 border-b border-border/60 bg-amber-50/50 dark:bg-amber-950/10">
         <div>
           <h3 className="font-bold text-base flex items-center gap-2">

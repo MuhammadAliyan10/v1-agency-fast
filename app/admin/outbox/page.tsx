@@ -1,5 +1,6 @@
 import { getOutboxMessages } from "@/server/actions/outbox";
 import { verifySessionOrRedirect } from "@/lib/auth/verify-session";
+import { hasPermission } from "@/lib/auth/rbac";
 import { OutboxTable } from "@/components/features/admin/outbox/outbox-table";
 import { BroadcastDialog } from "@/components/features/admin/outbox/broadcast-dialog";
 import { Button } from "@/components/ui/button";
@@ -16,7 +17,7 @@ export default async function AdminOutboxPage({
   const session = await verifySessionOrRedirect(["admin", "manager"]);
 
   // Managers need explicit broadcast permission
-  if (session.role === "manager" && !session.permissions?.canBroadcastWhatsapp) {
+  if (session.role === "manager" && !hasPermission(session, "whatsapp", "create")) {
     redirect("/admin/dashboard");
   }
 

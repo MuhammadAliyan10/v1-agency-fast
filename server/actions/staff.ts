@@ -2,7 +2,7 @@
 
 import { db } from "@/database/db";
 import { users, staffPermissions } from "@/database/schema";
-import { requireAdmin, requireSuperAdmin } from "@/lib/auth/session";
+import { requireAdmin, requireManagerPermission } from "@/lib/auth/session";
 import { eq, inArray, sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
@@ -12,6 +12,7 @@ export type StaffMember = {
   name: string;
   phone: string;
   email: string | null;
+  age: number | null;
   role: "admin" | "manager" | "kitchen" | "waiter" | "rider";
   isActive: boolean | null;
   createdAt: Date | null;
@@ -33,6 +34,7 @@ export async function getStaff() {
       name: u.name,
       phone: u.phone,
       email: u.email,
+      age: u.age,
       role: u.role as StaffMember["role"],
       isActive: u.isActive,
       createdAt: u.createdAt,
@@ -47,7 +49,7 @@ export async function getStaff() {
 }
 
 export async function toggleStaffStatus(userId: string, isActive: boolean) {
-  await requireSuperAdmin();
+  await requireManagerPermission("staff", "update");
   try {
     // Increment sessionVersion to instantly revoke access if they are deactivated
     await db.update(users)
@@ -69,21 +71,14 @@ export type CreateStaffInput = {
   name: string;
   phone: string;
   email?: string;
+  age?: number;
   role: "admin" | "manager" | "kitchen" | "waiter" | "rider";
   password?: string;
-  permissions?: {
-    canManageMenu: boolean;
-    canViewFinance: boolean;
-    canManageCoupons: boolean;
-    canViewInventory: boolean;
-    canBroadcastWhatsapp: boolean;
-    canManageStaff: boolean;
-    maxDiscountPercentage: number;
-  };
+  permissions?: Record<string, any> & { maxDiscountPercentage?: number };
 };
 
 export async function createStaff(data: CreateStaffInput) {
-  await requireSuperAdmin();
+  const session = await requireManagerPermission("staff", "create");
   try {
     const existing = await db.query.users.findFirst({
       where: eq(users.phone, data.phone),
@@ -103,35 +98,42 @@ export async function createStaff(data: CreateStaffInput) {
         name: data.name,
         phone: data.phone,
         email: data.email || null,
+        age: data.age || null,
         role: data.role,
         passwordHash,
         isActive: true,
       }).returning();
 
-      if (data.role === "manager" && data.permissions) {
+      if (data.role === "manager" && data.permissions && session.role === "admin") {
+        const { maxDiscountPercentage, ...matrix } = data.permissions;
         await tx.insert(staffPermissions).values({
           userId: newUser.id,
-          ...data.permissions,
+          permissions: matrix,
+          maxDiscountPercentage: maxDiscountPercentage || 0,
         });
       }
     });
 
     revalidatePath("/admin/staff");
     return { success: true };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Failed to create staff:", error);
+    if (error.code === '23505') {
+      return { success: false, error: "A user with this phone or email already exists." };
+    }
     return { success: false, error: "Failed to create staff member." };
   }
 }
 
 export async function updateStaffPermissions(userId: string, data: CreateStaffInput) {
-  await requireSuperAdmin();
+  const session = await requireManagerPermission("staff", "update");
   try {
     await db.transaction(async (tx) => {
       const updatePayload: any = {
         name: data.name,
         phone: data.phone,
         email: data.email || null,
+        age: data.age || null,
         role: data.role,
         // Any role or permission change increments the sessionVersion for instant revocation
         sessionVersion: sql`${users.sessionVersion} + 1`,
@@ -143,20 +145,23 @@ export async function updateStaffPermissions(userId: string, data: CreateStaffIn
 
       await tx.update(users).set(updatePayload).where(eq(users.id, userId));
 
-      if (data.role === "manager" && data.permissions) {
+      if (data.role === "manager" && data.permissions && session.role === "admin") {
+        const { maxDiscountPercentage, ...matrix } = data.permissions;
         const existingPerms = await tx.query.staffPermissions.findFirst({
           where: eq(staffPermissions.userId, userId),
         });
 
         if (existingPerms) {
           await tx.update(staffPermissions).set({
-            ...data.permissions,
+            permissions: matrix,
+            maxDiscountPercentage: maxDiscountPercentage || 0,
             updatedAt: new Date(),
           }).where(eq(staffPermissions.userId, userId));
         } else {
           await tx.insert(staffPermissions).values({
             userId,
-            ...data.permissions,
+            permissions: matrix,
+            maxDiscountPercentage: maxDiscountPercentage || 0,
           });
         }
       }
@@ -164,8 +169,11 @@ export async function updateStaffPermissions(userId: string, data: CreateStaffIn
 
     revalidatePath("/admin/staff");
     return { success: true };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Failed to update staff:", error);
+    if (error.code === '23505') {
+      return { success: false, error: "A user with this phone or email already exists." };
+    }
     return { success: false, error: "Failed to update staff member." };
   }
 }

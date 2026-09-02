@@ -68,7 +68,7 @@ export function ProductCard({
           >
             <div className="flex flex-col flex-1">
               {/* Image Header */}
-              <div className="relative aspect-square w-full overflow-hidden bg-zinc-50 rounded-[14px] md:rounded-2xl">
+              <div className="relative aspect-square w-full overflow-hidden bg-zinc-50 rounded-[14px] md:">
                 <Image
                   src={imageUrl || fallbackImage}
                   alt={name}
@@ -82,7 +82,7 @@ export function ProductCard({
               <div className="flex flex-col pt-3 md:pt-4 px-1 md:px-2">
                 <div className="flex items-center gap-1.5 md:gap-2">
                   {rating ? (
-                    <div className="flex items-center gap-0.5 md:gap-1 shrink-0 bg-amber-50 px-1.5 md:px-2 py-0.5 rounded-full border border-amber-100">
+                    <div className="flex items-center gap-0.5 md:gap-1 shrink-0 bg-amber-50 px-1.5 md:px-2 py-0.5 border border-amber-100">
                       <Star className="w-2 h-2 md:w-2.5 md:h-2.5 fill-amber-500 text-amber-500" />
                       <span className="text-[9px] md:text-xs font-bold text-amber-900">{rating}</span>
                     </div>
@@ -106,7 +106,7 @@ export function ProductCard({
               </div>
               
               {outOfStock && (
-                <span className="text-[10px] font-bold uppercase tracking-wider text-red-500 bg-red-50 px-2 py-1 rounded-md">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-red-500 bg-red-50 px-2 py-1">
                   Sold Out
                 </span>
               )}

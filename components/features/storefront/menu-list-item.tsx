@@ -26,7 +26,7 @@ export function MenuListItem({
   return (
     <Link 
       href={`/product/${id}`}
-      className="group flex flex-col w-[160px] md:w-[220px] flex-shrink-0 bg-card rounded-2xl overflow-hidden hover:bg-muted/30 transition-all duration-300 border border-border/50 hover:border-primary/50 shadow-sm snap-start"
+      className="group flex flex-col w-[160px] md:w-[220px] flex-shrink-0 bg-card overflow-hidden hover:bg-muted/30 transition-all duration-300 border border-border/50 hover:border-primary/50 shadow-sm snap-start"
     >
       {/* Top (Image) */}
       <div className="relative w-full aspect-[4/3] bg-muted overflow-hidden border-b border-border/50">
@@ -62,7 +62,7 @@ export function MenuListItem({
             {STORE_CONSTANTS.CURRENCY} {basePrice}
           </span>
           {hasVariants && (
-            <span className="text-[9px] uppercase tracking-wider font-bold text-muted-foreground bg-muted px-1.5 py-0.5 rounded-sm">
+            <span className="text-[9px] uppercase tracking-wider font-bold text-muted-foreground bg-muted px-1.5 py-0.5">
               Custom
             </span>
           )}

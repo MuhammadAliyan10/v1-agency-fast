@@ -59,3 +59,19 @@ export async function getActivityLogs(page: number = 1, limit: number = 20) {
     return { success: false, error: "Failed to fetch activity logs." };
   }
 }
+
+export async function logActivity(userId: string | undefined, action: string, targetType?: string, targetId?: string, metadata?: any) {
+  try {
+    if (!userId) return; // Don't log if system or unauthenticated
+    await db.insert(activityLog).values({
+      userId,
+      action,
+      targetType: targetType || null,
+      targetId: targetId || null,
+      metadata: metadata || null,
+    });
+  } catch (error) {
+    console.error("Failed to log activity:", error);
+    // Non-blocking error
+  }
+}

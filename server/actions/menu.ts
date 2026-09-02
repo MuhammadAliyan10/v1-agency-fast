@@ -6,7 +6,7 @@ import { menuItems, itemVariants, itemAddOns, categories } from "@/database/sche
 import { eq, ilike, and, desc, sql, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import type { MenuItemValues } from "@/lib/validations/menu";
-import { requireAdmin } from "@/lib/auth/session";
+import { requireManagerPermission } from "@/lib/auth/session";
 
 const slugify = (text: string) =>
   text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)+/g, "");
@@ -46,7 +46,7 @@ export interface PaginatedMenuItem {
 
 // ── Queries ───────────────────────────────────────────────────────────────────
 export async function getMenuStats(): Promise<{ success: true; data: MenuStats } | { success: false; error: string }> {
-  await requireAdmin();
+  await requireManagerPermission("menu", "read");
   try {
     const [row] = await db
       .select({
@@ -74,7 +74,7 @@ export async function getMenuStats(): Promise<{ success: true; data: MenuStats }
 }
 
 export async function getPaginatedMenu(page = 1, limit = 10, search = "", categoryId = "") {
-  await requireAdmin();
+  await requireManagerPermission("menu", "read");
   try {
     const offset = (page - 1) * limit;
 
@@ -128,7 +128,7 @@ export async function getPaginatedMenu(page = 1, limit = 10, search = "", catego
 }
 
 export async function upsertMenuItem(data: MenuItemValues, itemId?: string) {
-  await requireAdmin();
+  await requireManagerPermission("menu", "update");
   try {
     const slug = slugify(data.name);
     let targetItemId = itemId;
@@ -191,7 +191,7 @@ export async function upsertMenuItem(data: MenuItemValues, itemId?: string) {
 }
 
 export async function toggleItemAvailability(itemId: string, isAvailable: boolean) {
-  await requireAdmin();
+  await requireManagerPermission("menu", "update");
   try {
     await db.update(menuItems).set({ isAvailable, updatedAt: new Date() }).where(eq(menuItems.id, itemId));
     revalidatePath("/admin/menu");
@@ -202,7 +202,7 @@ export async function toggleItemAvailability(itemId: string, isAvailable: boolea
 }
 
 export async function bulkToggleCategoryAvailability(categoryId: string, isAvailable: boolean) {
-  await requireAdmin();
+  await requireManagerPermission("menu", "update");
   try {
     await db
       .update(menuItems)
@@ -217,7 +217,7 @@ export async function bulkToggleCategoryAvailability(categoryId: string, isAvail
 }
 
 export async function deleteMenuItem(itemId: string) {
-  await requireAdmin();
+  await requireManagerPermission("menu", "delete");
   try {
     await db.delete(menuItems).where(eq(menuItems.id, itemId));
     revalidatePath("/admin/menu");
@@ -237,7 +237,7 @@ export async function deleteMenuItem(itemId: string) {
 }
 
 export async function updateMenuItemPrice(itemId: string, newPrice: number) {
-  await requireAdmin();
+  await requireManagerPermission("menu", "update");
   if (isNaN(newPrice) || newPrice < 0) return { success: false, error: "Invalid price value." };
   try {
     await db.update(menuItems).set({ basePrice: newPrice, updatedAt: new Date() }).where(eq(menuItems.id, itemId));
@@ -249,7 +249,7 @@ export async function updateMenuItemPrice(itemId: string, newPrice: number) {
 }
 
 export async function getCategories() {
-  await requireAdmin();
+  await requireManagerPermission("menu", "read");
   try {
     const data = await db.select().from(categories).orderBy(categories.name);
     return { success: true, data };
@@ -260,7 +260,7 @@ export async function getCategories() {
 
 // ── POS Specialized ───────────────────────────────────────────────────────────
 export async function getPOSMenuData() {
-  await requireAdmin();
+  await requireManagerPermission("menu", "read");
   try {
     const allCategories = await db.select().from(categories).where(eq(categories.isActive, true)).orderBy(categories.sortOrder);
     const allItems      = await db.select().from(menuItems).where(eq(menuItems.isAvailable, true));

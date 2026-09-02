@@ -1,0 +1,2 @@
+ALTER TABLE "staff_permissions" ADD COLUMN "can_update_orders" boolean DEFAULT true NOT NULL;--> statement-breakpoint
+ALTER TABLE "staff_permissions" ADD COLUMN "can_cancel_orders" boolean DEFAULT false NOT NULL;

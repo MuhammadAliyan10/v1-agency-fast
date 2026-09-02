@@ -122,7 +122,7 @@ export function RidersTable({ data }: RidersTableProps) {
         </div>
       </div>
 
-      <div className="border border-border/80 rounded-xl bg-card overflow-hidden shadow-sm">
+      <div className="border border-border/80 bg-card overflow-hidden shadow-sm">
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent bg-muted/20 border-b border-border/60">

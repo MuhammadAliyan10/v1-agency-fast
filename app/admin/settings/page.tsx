@@ -34,7 +34,7 @@ export default async function SettingsPage() {
 
         <TabsContent value="operations" className="space-y-6">
           {/* Store Open/Close */}
-          <Card className="border-border/60 shadow-sm rounded-2xl">
+          <Card className="border-border/60 shadow-sm">
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <Store className="w-5 h-5 text-muted-foreground" />
@@ -49,7 +49,7 @@ export default async function SettingsPage() {
             </CardContent>
           </Card>
 
-          <Card className="border-border/60 shadow-sm rounded-2xl">
+          <Card className="border-border/60 shadow-sm">
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <Info className="w-5 h-5 text-muted-foreground" />
@@ -59,12 +59,12 @@ export default async function SettingsPage() {
             <CardContent className="space-y-4 text-sm text-muted-foreground">
               <div className="space-y-3">
                 <div className="flex items-start gap-3">
-                  <div className="w-2 h-2 rounded-full bg-green-500 mt-1.5 shrink-0" />
+                  <div className="w-2 h-2 bg-green-500 mt-1.5 shrink-0" />
                   <p><strong className="text-foreground">Store Open:</strong> Customers can browse the menu and complete checkout. All orders are accepted normally.</p>
                 </div>
                 <Separator />
                 <div className="flex items-start gap-3">
-                  <div className="w-2 h-2 rounded-full bg-destructive mt-1.5 shrink-0" />
+                  <div className="w-2 h-2 bg-destructive mt-1.5 shrink-0" />
                   <p><strong className="text-foreground">Store Closed:</strong> The checkout button is disabled on the storefront and a clear banner is shown to customers. The server also rejects any order submissions made directly.</p>
                 </div>
               </div>
@@ -73,7 +73,7 @@ export default async function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="system" className="space-y-6">
-          <Card className="border-border/60 shadow-sm rounded-2xl">
+          <Card className="border-border/60 shadow-sm">
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <ShieldCheck className="w-5 h-5 text-muted-foreground" />

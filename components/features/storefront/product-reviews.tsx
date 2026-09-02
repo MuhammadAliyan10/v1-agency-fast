@@ -77,7 +77,7 @@ export function ProductReviews({ menuItemId, reviews, averageRating, reviewCount
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant="outline" className="w-full h-12 font-bold flex items-center justify-center gap-2 border-border/50 hover:bg-muted/50 rounded-xl mt-8">
+        <Button variant="outline" className="w-full h-12 font-bold flex items-center justify-center gap-2 border-border/50 hover:bg-muted/50 mt-8">
           <MessageSquare className="w-4 h-4" />
           View {reviewCount} Reviews
         </Button>
@@ -89,7 +89,7 @@ export function ProductReviews({ menuItemId, reviews, averageRating, reviewCount
         </DialogHeader>
 
       <Accordion type="single" collapsible className="w-full mb-6">
-        <AccordionItem value="write-review" className="border border-border/50 rounded-xl bg-muted/10 px-4 data-[state=open]:bg-muted/30 transition-colors">
+        <AccordionItem value="write-review" className="border border-border/50 bg-muted/10 px-4 data-[state=open]:bg-muted/30 transition-colors">
           <AccordionTrigger className="hover:no-underline font-semibold text-sm py-4">
             <div className="flex items-center gap-2">
               <MessageSquare className="w-4 h-4" />
@@ -158,7 +158,7 @@ export function ProductReviews({ menuItemId, reviews, averageRating, reviewCount
                       </FormItem>
                     )}
                   />
-                  <Button type="submit" size="sm" disabled={isSubmitting} className="w-full font-bold h-10 rounded-lg text-sm">
+                  <Button type="submit" size="sm" disabled={isSubmitting} className="w-full font-bold h-10 text-sm">
                     {isSubmitting ? "Submitting..." : "Submit Review"}
                   </Button>
                 </form>
@@ -170,12 +170,12 @@ export function ProductReviews({ menuItemId, reviews, averageRating, reviewCount
 
       <div className="space-y-3">
         {reviews.length === 0 ? (
-          <div className="text-center py-8 bg-muted/30 border border-border/50 rounded-xl shadow-sm">
+          <div className="text-center py-8 bg-muted/30 border border-border/50 shadow-sm">
             <p className="text-sm text-muted-foreground font-light">No reviews yet.</p>
           </div>
         ) : (
           reviews.map((review) => (
-            <div key={review.id} className="bg-muted/30 border border-border/50 p-3 rounded-xl transition-all shadow-sm">
+            <div key={review.id} className="bg-muted/30 border border-border/50 p-3 transition-all shadow-sm">
               <div className="flex items-center justify-between gap-2 mb-2">
                 <h4 className="font-bold text-sm text-foreground">{review.customerName}</h4>
                 <div className="flex flex-col items-end">

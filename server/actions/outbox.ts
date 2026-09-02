@@ -17,7 +17,7 @@ export type OutboxMessage = {
 };
 
 export async function getOutboxMessages(page: number = 1, limit: number = 20) {
-  await requireManagerPermission("canBroadcastWhatsapp");
+  await requireManagerPermission("whatsapp", "create");
 
   try {
     const offset = (page - 1) * limit;
@@ -59,7 +59,7 @@ export async function getOutboxMessages(page: number = 1, limit: number = 20) {
 }
 
 export async function retryMessage(messageId: string) {
-  await requireManagerPermission("canBroadcastWhatsapp");
+  await requireManagerPermission("whatsapp", "create");
   try {
     await db.update(outboundMessages)
       .set({ status: "pending", attempts: 0, lastError: null, nextRetryAt: null, updatedAt: new Date() })
@@ -78,7 +78,7 @@ export async function queueBroadcast(payload: {
   mediaUrl?: string;
   channel?: "whatsapp" | "sms";
 }) {
-  await requireManagerPermission("canBroadcastWhatsapp");
+  await requireManagerPermission("whatsapp", "create");
 
   try {
     // 1. Fetch Customers from Users table

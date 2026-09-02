@@ -49,7 +49,7 @@ export function CategoryNav({ categories }: { categories: Category[] }) {
         <button
           onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
           className={cn(
-            "px-4 py-1.5 rounded-full text-sm font-medium transition-colors border",
+            "px-4 py-1.5  text-sm font-medium transition-colors border",
             !activeSlug
               ? "bg-primary text-primary-foreground border-primary"
               : "bg-background hover:bg-muted text-foreground border-border"
@@ -62,7 +62,7 @@ export function CategoryNav({ categories }: { categories: Category[] }) {
             key={category.id}
             onClick={() => scrollToCategory(category.slug)}
             className={cn(
-              "px-4 py-1.5 rounded-full text-sm font-medium transition-colors border",
+              "px-4 py-1.5  text-sm font-medium transition-colors border",
               activeSlug === category.slug
                 ? "bg-primary text-primary-foreground border-primary"
                 : "bg-background hover:bg-muted text-foreground border-border"

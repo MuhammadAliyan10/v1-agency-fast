@@ -31,14 +31,14 @@ export function KanbanColumn({ status, orders, role, onStatusChange }: KanbanCol
 
   return (
     <div className={cn(
-      "flex flex-col shrink-0 h-full min-h-[calc(100vh-220px)] max-h-[300vh] bg-muted/20 rounded-xl overflow-hidden border border-border/50",
+      "flex flex-col shrink-0 h-full min-h-[calc(100vh-220px)] max-h-[300vh] bg-muted/20  overflow-hidden border border-border/50",
       isKitchen ? "w-full flex-1" : "w-[380px]"
     )}>
       <div className={cn("p-3.5 border-b font-semibold flex items-center justify-between shadow-sm", config.color)}>
         <span className={cn(isKitchen ? "text-xl uppercase tracking-wider font-bold" : "text-sm")}>
           {config.label}
         </span>
-        <span className="bg-background/50 px-2 py-0.5 rounded-full text-xs font-bold">
+        <span className="bg-background/50 px-2 py-0.5 text-xs font-bold">
           {orders.length}
         </span>
       </div>
@@ -57,7 +57,7 @@ export function KanbanColumn({ status, orders, role, onStatusChange }: KanbanCol
         </SortableContext>
         
         {orders.length === 0 && (
-          <div className="h-full min-h-[100px] flex items-center justify-center text-muted-foreground text-sm font-medium border-2 border-dashed border-border/50 rounded-lg">
+          <div className="h-full min-h-[100px] flex items-center justify-center text-muted-foreground text-sm font-medium border-2 border-dashed border-border/50">
             No orders
           </div>
         )}

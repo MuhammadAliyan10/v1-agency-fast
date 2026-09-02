@@ -43,7 +43,7 @@ export function OutboxTable({
     if (row) {
       const badge = row.querySelector('.status-badge');
       if (badge) {
-        badge.className = `inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 status-badge ${STATUS_COLORS.pending}`;
+        badge.className = `inline-flex items-center  border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 status-badge ${STATUS_COLORS.pending}`;
         badge.textContent = "pending";
       }
       const btn = row.querySelector('.retry-btn') as HTMLButtonElement;
@@ -63,7 +63,7 @@ export function OutboxTable({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-md border bg-card text-card-foreground shadow-sm overflow-hidden">
+      <div className="border bg-card text-card-foreground shadow-sm overflow-hidden">
         <Table>
           <TableHeader className="bg-muted/50">
             <TableRow>

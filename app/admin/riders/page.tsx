@@ -20,7 +20,7 @@ export default async function RidersPage() {
       {result.success ? (
         <RidersTable data={result.data ?? []} />
       ) : (
-        <div className="flex flex-col items-center justify-center min-h-[400px] border border-dashed border-border rounded-xl bg-muted/20 gap-3 text-muted-foreground">
+        <div className="flex flex-col items-center justify-center min-h-[400px] border border-dashed border-border bg-muted/20 gap-3 text-muted-foreground">
           <Bike className="w-10 h-10 opacity-30" />
           <p className="font-semibold">Failed to load riders</p>
           <p className="text-sm opacity-70">Please try refreshing the page.</p>

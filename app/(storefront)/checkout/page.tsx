@@ -169,7 +169,7 @@ export default function CheckoutPage() {
           <div className="absolute -top-[10px] left-0 w-full h-[10px] z-10"
             style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='10'%3E%3Cpolygon points='0,10 10,0 20,10' fill='white'/%3E%3C/svg%3E")`, backgroundRepeat: "repeat-x" }}
           />
-          <div className="mx-auto w-16 h-16 bg-green-50 rounded-full text-green-500 flex items-center justify-center mb-6">
+          <div className="mx-auto w-16 h-16 bg-green-50 text-green-500 flex items-center justify-center mb-6">
             <CheckCircle2 className="w-8 h-8" />
           </div>
           <h1 className="text-2xl font-heading font-black tracking-tight mb-2 text-foreground">ORDER CONFIRMED</h1>
@@ -177,8 +177,8 @@ export default function CheckoutPage() {
             {orderType === "pickup" ? "Your order is being prepared. Come pick it up soon!" : "We've received your order and are sending it to the kitchen."}
           </p>
           <div className="border-y-2 border-dashed border-border/50 py-6 mb-8 relative">
-            <div className="absolute -left-11 top-1/2 -translate-y-1/2 w-6 h-6 bg-background rounded-full" />
-            <div className="absolute -right-11 top-1/2 -translate-y-1/2 w-6 h-6 bg-background rounded-full" />
+            <div className="absolute -left-11 top-1/2 -translate-y-1/2 w-6 h-6 bg-background" />
+            <div className="absolute -right-11 top-1/2 -translate-y-1/2 w-6 h-6 bg-background" />
             <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-2">Order Tracking ID</p>
             <div className="flex items-center justify-center gap-2">
               <p className="text-lg md:text-xl font-bold font-mono tracking-wider text-foreground">{successOrderId}</p>
@@ -189,8 +189,8 @@ export default function CheckoutPage() {
             </div>
           </div>
           <div className="flex flex-col gap-3 w-full">
-            <Button onClick={() => router.push(`/track/${successOrderId}`)} className="w-full h-12 text-base font-bold rounded-sm shadow-none">Track Order Status</Button>
-            <Button onClick={() => router.push("/")} variant="outline" className="w-full h-12 text-base font-bold rounded-sm shadow-none border-border">Back to Menu</Button>
+            <Button onClick={() => router.push(`/track/${successOrderId}`)} className="w-full h-12 text-base font-bold shadow-none">Track Order Status</Button>
+            <Button onClick={() => router.push("/")} variant="outline" className="w-full h-12 text-base font-bold shadow-none border-border">Back to Menu</Button>
           </div>
           <div className="absolute -bottom-[10px] left-0 w-full h-[10px] z-10"
             style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='10'%3E%3Cpolygon points='0,0 10,10 20,0' fill='white'/%3E%3C/svg%3E")`, backgroundRepeat: "repeat-x" }}
@@ -217,12 +217,12 @@ export default function CheckoutPage() {
       )}
 
       {/* Order Type Toggle (Segmented Control) */}
-      <div className="mb-6 bg-white p-1 rounded-2xl border border-zinc-100 shadow-sm flex items-center">
+      <div className="mb-6 bg-white p-1 border border-zinc-100 shadow-sm flex items-center">
         {(["delivery", "pickup"] as const).map((type) => (
           <button key={type} type="button"
             onClick={() => form.setValue("orderType", type, { shouldValidate: true })}
             className={cn(
-              "flex-1 flex items-center justify-center gap-2 py-3 px-2 rounded-xl transition-all duration-300",
+              "flex-1 flex items-center justify-center gap-2 py-3 px-2  transition-all duration-300",
               orderType === type ? "bg-zinc-950 text-white shadow-md" : "bg-transparent text-zinc-500 hover:text-zinc-800"
             )}>
             {type === "delivery" ? <Home className="w-4 h-4" /> : <Store className="w-4 h-4" />}
@@ -233,7 +233,7 @@ export default function CheckoutPage() {
         ))}
       </div>
       {!isDelivery && (
-        <div className="mb-6 p-3 rounded-xl bg-blue-50/50 border border-blue-100 text-blue-800 text-xs flex flex-col gap-1">
+        <div className="mb-6 p-3 bg-blue-50/50 border border-blue-100 text-blue-800 text-xs flex flex-col gap-1">
           <span className="font-black tracking-wider uppercase text-[10px]">Pickup Address</span>
           <span>Classy Crave, Sillanwali, Pakistan</span>
           <span className="font-semibold mt-1 opacity-80">Call: 03441588883</span>
@@ -244,7 +244,7 @@ export default function CheckoutPage() {
         <div className="lg:col-span-7 order-1">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <div className="bg-white p-4 md:p-6 rounded-2xl border border-zinc-100 shadow-sm">
+              <div className="bg-white p-4 md:p-6 border border-zinc-100 shadow-sm">
                 <h2 className="text-sm font-black uppercase tracking-wider mb-4 text-zinc-950">
                   {isDelivery ? "Delivery Details" : "Contact Details"}
                 </h2>
@@ -253,14 +253,14 @@ export default function CheckoutPage() {
                     <FormField control={form.control} name="customerName" render={({ field }) => (
                       <FormItem>
                         <FormLabel className="font-bold text-xs text-zinc-500 uppercase">Full Name</FormLabel>
-                        <FormControl><Input placeholder="Ali Khan" {...field} className="rounded-xl bg-zinc-50 border-transparent h-12 px-4 focus-visible:ring-1 focus-visible:ring-primary focus-visible:bg-white font-medium" /></FormControl>
+                        <FormControl><Input placeholder="Ali Khan" {...field} className="bg-zinc-50 border-transparent h-12 px-4 focus-visible:ring-1 focus-visible:ring-primary focus-visible:bg-white font-medium" /></FormControl>
                         <FormMessage className="text-[10px]" />
                       </FormItem>
                     )} />
                     <FormField control={form.control} name="customerPhone" render={({ field }) => (
                       <FormItem>
                         <FormLabel className="font-bold text-xs text-zinc-500 uppercase">Phone Number</FormLabel>
-                        <FormControl><Input placeholder="03XXXXXXXXX" {...field} className="rounded-xl bg-zinc-50 border-transparent h-12 px-4 focus-visible:ring-1 focus-visible:ring-primary focus-visible:bg-white font-medium" /></FormControl>
+                        <FormControl><Input placeholder="03XXXXXXXXX" {...field} className="bg-zinc-50 border-transparent h-12 px-4 focus-visible:ring-1 focus-visible:ring-primary focus-visible:bg-white font-medium" /></FormControl>
                         <FormMessage className="text-[10px]" />
                       </FormItem>
                     )} />
@@ -272,13 +272,13 @@ export default function CheckoutPage() {
                         <div className="flex items-center justify-between">
                           <FormLabel className="font-bold text-xs text-zinc-500 uppercase">Delivery Address</FormLabel>
                           <Button type="button" variant="ghost" size="sm"
-                            className="h-6 text-primary hover:bg-primary/10 px-2 rounded-lg"
+                            className="h-6 text-primary hover:bg-primary/10 px-2"
                             onClick={handleGetLocation} disabled={isLocating}>
                             {isLocating ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Navigation className="w-3 h-3 mr-1" />}
                             <span className="text-[9px] font-bold uppercase tracking-wider">Auto-fill</span>
                           </Button>
                         </div>
-                        <FormControl><Input placeholder="Street, Mohallah, House No." {...field} className="rounded-xl bg-zinc-50 border-transparent h-12 px-4 focus-visible:ring-1 focus-visible:ring-primary focus-visible:bg-white font-medium text-xs md:text-sm" /></FormControl>
+                        <FormControl><Input placeholder="Street, Mohallah, House No." {...field} className="bg-zinc-50 border-transparent h-12 px-4 focus-visible:ring-1 focus-visible:ring-primary focus-visible:bg-white font-medium text-xs md:text-sm" /></FormControl>
                         <FormMessage className="text-[10px]" />
                       </FormItem>
                     )} />
@@ -292,7 +292,7 @@ export default function CheckoutPage() {
                       </FormLabel>
                       <FormControl>
                         <Textarea placeholder={isDelivery ? "e.g. Ring the bell" : "e.g. Arriving at 7pm"} {...field}
-                          className="resize-none min-h-[60px] rounded-xl bg-zinc-50 border-transparent p-4 focus-visible:ring-1 focus-visible:ring-primary focus-visible:bg-white text-xs md:text-sm" />
+                          className="resize-none min-h-[60px] bg-zinc-50 border-transparent p-4 focus-visible:ring-1 focus-visible:ring-primary focus-visible:bg-white text-xs md:text-sm" />
                       </FormControl>
                       <FormMessage className="text-[10px]" />
                     </FormItem>
@@ -300,7 +300,7 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
-              <div className="bg-white p-4 md:p-6 rounded-2xl border border-zinc-100 shadow-sm">
+              <div className="bg-white p-4 md:p-6 border border-zinc-100 shadow-sm">
                 <h2 className="text-sm font-black uppercase tracking-wider mb-4 text-zinc-950">Payment Method</h2>
                 <FormField control={form.control} name="paymentMethod" render={({ field }) => (
                   <FormItem className="space-y-3">
@@ -311,7 +311,7 @@ export default function CheckoutPage() {
                           { value: "JazzCash", label: "JazzCash", desc: "Manual verification" },
                           { value: "EasyPaisa", label: "EasyPaisa", desc: "Manual verification" },
                         ].map(opt => (
-                          <FormItem key={opt.value} className="relative flex items-center gap-3 p-3 border border-zinc-100 rounded-xl cursor-pointer transition-all hover:bg-zinc-50 [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/5">
+                          <FormItem key={opt.value} className="relative flex items-center gap-3 p-3 border border-zinc-100 cursor-pointer transition-all hover:bg-zinc-50 [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/5">
                             <FormControl><RadioGroupItem value={opt.value} className="h-4 w-4" /></FormControl>
                             <div className="flex flex-col cursor-pointer">
                               <FormLabel className="font-bold text-zinc-950 cursor-pointer text-xs">{opt.label}</FormLabel>
@@ -328,7 +328,7 @@ export default function CheckoutPage() {
 
               <div className="hidden lg:block pt-4">
                 <Button type="submit" disabled={isSubmitting || !isStoreOpen || !isValid}
-                  className="w-full h-12 rounded-sm text-base font-bold disabled:opacity-50">
+                  className="w-full h-12 text-base font-bold disabled:opacity-50">
                   {isSubmitting ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Processing...</>
                     : !isStoreOpen ? "Store is Closed" : "Place Order"}
                 </Button>
@@ -339,10 +339,10 @@ export default function CheckoutPage() {
 
         {/* Order Summary */}
         <div className="lg:col-span-5 order-2">
-          <div className="bg-white p-4 md:p-6 rounded-2xl border border-zinc-100 shadow-sm sticky top-28 mb-4">
+          <div className="bg-white p-4 md:p-6 border border-zinc-100 shadow-sm sticky top-28 mb-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-black text-sm uppercase tracking-wider">Summary</h3>
-              <Badge variant={isDelivery ? "default" : "secondary"} className="text-[10px] uppercase tracking-wider rounded-md font-bold px-2 py-0.5">
+              <Badge variant={isDelivery ? "default" : "secondary"} className="text-[10px] uppercase tracking-wider font-bold px-2 py-0.5">
                 {isDelivery ? "Delivery" : "Pickup"}
               </Badge>
             </div>
@@ -351,7 +351,7 @@ export default function CheckoutPage() {
               {items.map((item) => (
                 <div key={item.cartItemId} className="flex justify-between items-start gap-3">
                   <div className="flex gap-2">
-                    <span className="font-bold text-xs shrink-0 text-zinc-950 bg-zinc-100 px-1.5 py-0.5 rounded-md">{item.quantity}x</span>
+                    <span className="font-bold text-xs shrink-0 text-zinc-950 bg-zinc-100 px-1.5 py-0.5">{item.quantity}x</span>
                     <div>
                       <p className="font-bold text-xs text-zinc-950 leading-snug">{item.name}</p>
                       {item.variantName && <p className="text-[10px] text-zinc-500 font-medium mt-0.5">{item.variantName}</p>}
@@ -378,25 +378,25 @@ export default function CheckoutPage() {
                       onChange={e => setCouponInput(e.target.value.toUpperCase())}
                       onKeyDown={e => e.key === "Enter" && (e.preventDefault(), handleApplyCoupon())}
                       placeholder="COUPON CODE"
-                      className="w-full pl-8 pr-3 h-10 border border-zinc-200 rounded-xl bg-zinc-50 text-xs font-mono focus:outline-none focus:border-zinc-950 transition-colors"
+                      className="w-full pl-8 pr-3 h-10 border border-zinc-200 bg-zinc-50 text-xs font-mono focus:outline-none focus:border-zinc-950 transition-colors"
                     />
                   </div>
                   <Button type="button" onClick={handleApplyCoupon}
-                    disabled={isValidatingCoupon || !couponInput.trim()} className="h-10 rounded-xl text-[10px] font-bold px-4 uppercase tracking-wider">
+                    disabled={isValidatingCoupon || !couponInput.trim()} className="h-10 text-[10px] font-bold px-4 uppercase tracking-wider">
                     {isValidatingCoupon ? <Loader2 className="w-3 h-3 animate-spin" /> : "Apply"}
                   </Button>
                 </div>
               </div>
             ) : (
-              <div className="mb-4 flex items-center justify-between bg-green-50/50 border border-green-200 p-3 rounded-xl">
+              <div className="mb-4 flex items-center justify-between bg-green-50/50 border border-green-200 p-3">
                 <div className="flex items-center gap-2">
                   <CheckCheck className="w-4 h-4 text-green-600" />
                   <span className="text-xs font-bold text-green-700 font-mono tracking-widest">{appliedCoupon.code}</span>
-                  <span className="text-[10px] text-green-600 font-bold bg-green-100 px-1.5 rounded-sm">
+                  <span className="text-[10px] text-green-600 font-bold bg-green-100 px-1.5">
                     {appliedCoupon.discountType === "flat" ? `-Rs. ${appliedCoupon.discountValue}` : `-${appliedCoupon.discountValue}%`}
                   </span>
                 </div>
-                <button onClick={removeCoupon} className="text-green-600 hover:text-green-800 bg-green-100 p-1 rounded-full">
+                <button onClick={removeCoupon} className="text-green-600 hover:text-green-800 bg-green-100 p-1">
                   <X className="w-3 h-3" />
                 </button>
               </div>
@@ -429,7 +429,7 @@ export default function CheckoutPage() {
       <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-zinc-100 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] z-[100] shadow-[0_-8px_30px_rgba(0,0,0,0.08)] lg:hidden">
         <Button onClick={() => form.handleSubmit(onSubmit)()}
           disabled={isSubmitting || !isValid || !isStoreOpen}
-          className="w-full h-[56px] rounded-2xl font-bold shadow-xl shadow-primary/20 text-base active:scale-[0.98] transition-transform flex items-center justify-between px-6"
+          className="w-full h-[56px] font-bold shadow-xl shadow-primary/20 text-base active:scale-[0.98] transition-transform flex items-center justify-between px-6"
         >
           {isSubmitting ? (
             <span className="flex items-center mx-auto"><Loader2 className="w-5 h-5 animate-spin mr-2" />Processing...</span>

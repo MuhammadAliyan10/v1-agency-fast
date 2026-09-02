@@ -31,14 +31,14 @@ export function StoreStatusToggle({ initialStatus }: StoreStatusToggleProps) {
 
   return (
     <div className={cn(
-      "flex items-center justify-between p-4 rounded-xl border shadow-sm transition-colors",
+      "flex items-center justify-between p-4  border shadow-sm transition-colors",
       isOpen 
         ? "bg-primary/5 border-primary/20" 
         : "bg-destructive/5 border-destructive/20"
     )}>
       <div className="flex items-center gap-3">
         <div className={cn(
-          "p-2 rounded-lg flex items-center justify-center",
+          "p-2  flex items-center justify-center",
           isOpen ? "bg-primary/20 text-primary" : "bg-destructive/20 text-destructive"
         )}>
           <Store className="h-5 w-5" />

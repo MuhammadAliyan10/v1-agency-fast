@@ -7,8 +7,9 @@ import { usePathname } from "next/navigation";
 import { LogOut, Settings, Sun, Moon, Monitor } from "lucide-react";
 import { useTheme } from "next-themes";
 import { adminNavConfig } from "@/config/admin-nav";
-import { logoutAdmin } from "@/server/actions/auth";
+import { logoutAdmin, getCurrentSession } from "@/server/actions/auth";
 import { getLiveOrders } from "@/server/actions/live-orders";
+import type { SessionPayload } from "@/lib/auth/session";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -36,13 +37,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-export function AppSidebar() {
+export function AppSidebar({ session }: { session: SessionPayload | null }) {
   const pathname = usePathname();
   const { setTheme } = useTheme();
   const { state } = useSidebar();
   
   const [pendingOrdersCount, setPendingOrdersCount] = React.useState(0);
-
   React.useEffect(() => {
     const fetchPendingOrders = async () => {
       try {
@@ -100,7 +100,14 @@ export function AppSidebar() {
             </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu className="gap-0.5">
-                {items.map((item) => {
+                {items.filter(item => {
+                  if (!session) return false;
+                  if (session.role === "admin") return true;
+                  if ((item as any).permission) {
+                    return session.permissions[(item as any).permission as keyof SessionPayload["permissions"]];
+                  }
+                  return true;
+                }).map((item) => {
                   // Exact match for leaf routes to prevent parent/child bleeding
                   // e.g. /admin/orders should NOT activate when on /admin/orders/history
                   const hasChildren = items.some(
@@ -112,7 +119,7 @@ export function AppSidebar() {
                       <SidebarMenuButton 
                         asChild 
                         isActive={isActive}
-                        className={`font-medium transition-colors rounded-lg ${
+                        className={`font-medium transition-colors  ${
                           isActive 
                             ? "bg-primary/10 text-primary hover:bg-primary/15" 
                             : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
@@ -126,12 +133,12 @@ export function AppSidebar() {
                       </SidebarMenuButton>
                       {item.url === "/admin/orders" ? (
                         pendingOrdersCount > 0 && (
-                          <SidebarMenuBadge className="bg-primary text-white rounded-full px-1.5 py-0 text-[9px] font-bold">
+                          <SidebarMenuBadge className="bg-primary text-white px-1.5 py-0 text-[9px] font-bold">
                             {pendingOrdersCount}
                           </SidebarMenuBadge>
                         )
                       ) : (item as any).badge ? (
-                        <SidebarMenuBadge className="bg-primary text-white rounded-full px-1.5 py-0 text-[9px] font-bold">
+                        <SidebarMenuBadge className="bg-primary text-white px-1.5 py-0 text-[9px] font-bold">
                           {(item as any).badge}
                         </SidebarMenuBadge>
                       ) : null}
@@ -151,13 +158,15 @@ export function AppSidebar() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton size="lg" className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground hover:bg-muted/50 transition-colors">
-                  <Avatar className="h-8 w-8 rounded-full border shadow-sm">
-                    <AvatarImage src="" alt="Admin" />
-                    <AvatarFallback className="rounded-full bg-slate-900 text-white font-bold text-xs">MA</AvatarFallback>
+                  <Avatar className="h-8 w-8 border shadow-sm">
+                    <AvatarImage src="" alt={session?.name || "User"} />
+                    <AvatarFallback className="bg-slate-900 text-white font-bold text-xs">
+                      {session?.name ? session.name.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase() : "U"}
+                    </AvatarFallback>
                   </Avatar>
                   <div className="grid flex-1 text-left text-sm leading-tight ml-1">
-                    <span className="truncate font-semibold text-sm">Muhammad Aliyan</span>
-                    <span className="truncate text-xs text-muted-foreground">aliyannadeem10@gmail.com</span>
+                    <span className="truncate font-semibold text-sm">{session?.name || "Unknown User"}</span>
+                    <span className="truncate text-xs text-muted-foreground">{session?.email || "No email provided"}</span>
                   </div>
                   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-chevron-up w-4 h-4 text-muted-foreground"><path d="m18 15-6-6-6 6"/></svg>
                 </SidebarMenuButton>
@@ -191,8 +200,8 @@ export function AppSidebar() {
                 <DropdownMenuSeparator />
                 
                 <div className="px-2 py-1.5">
-                  <div className="flex items-center gap-2 rounded-md border bg-muted/50 px-2 py-1.5">
-                    <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+                  <div className="flex items-center gap-2 border bg-muted/50 px-2 py-1.5">
+                    <div className="h-2 w-2 bg-green-500 animate-pulse" />
                     <span className="text-xs font-medium text-muted-foreground">Store Online</span>
                   </div>
                 </div>

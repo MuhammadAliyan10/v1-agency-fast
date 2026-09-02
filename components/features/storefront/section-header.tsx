@@ -41,7 +41,7 @@ export function SectionHeader({
             href={actionHref}
             className={cn(
               buttonVariants({ variant: "ghost", size: "sm" }),
-              "hidden sm:flex text-primary hover:text-primary/80 hover:bg-primary/10 gap-1 pl-4 rounded-full transition-colors font-semibold"
+              "hidden sm:flex text-primary hover:text-primary/80 hover:bg-primary/10 gap-1 pl-4  transition-colors font-semibold"
             )}
           >
             {actionLabel}

@@ -8,6 +8,10 @@ import { FinanceCharts } from "@/components/features/admin/finance/finance-chart
 import { FinanceTables } from "@/components/features/admin/finance/finance-tables";
 import { PrintableLedger } from "@/components/features/admin/finance/printable-ledger";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getSession } from "@/lib/auth/session";
+import { hasPermission } from "@/lib/auth/rbac";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +19,7 @@ function KPISkeleton() {
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
       {Array.from({ length: 6 }).map((_, i) => (
-        <Skeleton key={i} className="h-28 rounded-2xl" />
+        <Skeleton key={i} className="h-28" />
       ))}
     </div>
   );
@@ -24,8 +28,8 @@ function KPISkeleton() {
 function ChartSkeleton() {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <Skeleton className="h-80 rounded-2xl" />
-      <Skeleton className="h-80 rounded-2xl" />
+      <Skeleton className="h-80" />
+      <Skeleton className="h-80" />
     </div>
   );
 }
@@ -33,8 +37,8 @@ function ChartSkeleton() {
 function TableSkeleton() {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <Skeleton className="h-96 rounded-2xl" />
-      <Skeleton className="h-96 rounded-2xl" />
+      <Skeleton className="h-96" />
+      <Skeleton className="h-96" />
     </div>
   );
 }
@@ -47,6 +51,21 @@ export default async function FinancePage({
   const params = await searchParams;
   const from = params.from;
   const to = params.to;
+
+  const session = await getSession();
+  if (!hasPermission(session, "finance", "read")) {
+    return (
+      <div className="p-8">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Access Restricted</AlertTitle>
+          <AlertDescription>
+            You do not have permission to view the Finance dashboard.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
 
   const result = await getFinancialSummary({ from, to });
 

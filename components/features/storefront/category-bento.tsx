@@ -45,7 +45,7 @@ export function CategoryBento({ categories }: CategoryBentoProps) {
               key={category.id || index}
               href={`/menu?category=${category.slug || "all"}`}
               className={cn(
-                "group relative overflow-hidden rounded-xl flex flex-col justify-end min-h-[160px] md:min-h-0",
+                "group relative overflow-hidden  flex flex-col justify-end min-h-[160px] md:min-h-0",
                 isFeatured ? "col-span-2 md:col-span-2 md:row-span-2" : "col-span-1 md:col-span-1 md:row-span-1"
               )}
             >

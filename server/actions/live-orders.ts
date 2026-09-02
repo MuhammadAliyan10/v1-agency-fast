@@ -5,7 +5,8 @@ import { orders, orderItems, users, menuItems, itemVariants, itemAddOns } from "
 import { inArray, notInArray, eq, asc, desc, and } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { revalidatePath, unstable_noStore as noStore } from "next/cache";
-import { requireAdmin } from "@/lib/auth/session";
+import { requireAdmin, requireManagerPermission } from "@/lib/auth/session";
+import { logActivity } from "@/server/actions/activity";
 import { STORE_CONSTANTS } from "@/lib/constants";
 import { z } from "zod";
 import { randomBytes } from "crypto";
@@ -94,7 +95,7 @@ export async function updateLiveOrderStatus(
   newStatus: OrderStatus,
   etaMinutes?: number
 ) {
-  await requireAdmin();
+  const session = await requireManagerPermission("orders", "update");
   try {
     const updatePayload: Partial<typeof orders.$inferInsert> = {
       status: newStatus,
@@ -108,6 +109,8 @@ export async function updateLiveOrderStatus(
     }
 
     await db.update(orders).set(updatePayload).where(eq(orders.id, orderId));
+    
+    await logActivity(session.id, "Order Status Updated", "order", orderId, { newStatus, etaMinutes });
 
     revalidatePath("/admin/orders");
     return { success: true };
@@ -121,11 +124,13 @@ export async function updateOrderItemStatus(
   itemId: string,
   newStatus: OrderItemStatus
 ) {
-  await requireAdmin();
+  const session = await requireManagerPermission("orders", "update");
   try {
     await db.update(orderItems)
       .set({ status: newStatus })
       .where(eq(orderItems.id, itemId));
+      
+    await logActivity(session.id, "Order Item Status Updated", "order_item", itemId, { newStatus });
       
     revalidatePath("/admin/orders");
     return { success: true };
@@ -149,7 +154,7 @@ export async function appendItemsToOrder(
     specialInstructions?: string | null;
   }[]
 ) {
-  await requireAdmin();
+  await requireManagerPermission("orders", "update");
   try {
     // Get current order and items to determine round number and totals
     const currentOrder = await db.query.orders.findFirst({
@@ -206,7 +211,7 @@ export async function appendItemsToOrder(
 }
 
 export async function markOrderPaid(orderId: string) {
-  await requireAdmin();
+  await requireManagerPermission("orders", "update");
   try {
     await db.update(orders).set({ paymentStatus: "paid", updatedAt: new Date() }).where(eq(orders.id, orderId));
     revalidatePath("/admin/orders");
@@ -237,7 +242,7 @@ export async function getAvailableRiders() {
 }
 
 export async function assignRiderToOrder(orderId: string, riderId: string) {
-  await requireAdmin();
+  await requireManagerPermission("orders", "update");
   try {
     // Fetch rider phone for WhatsApp link generation
     const rider = await db.query.users.findFirst({
@@ -290,7 +295,7 @@ export async function getStaffWaiters() {
     const staff = await db
       .select({ id: users.id, name: users.name })
       .from(users)
-      .where(inArray(users.role, ["admin", "manager", "kitchen"]))
+      .where(eq(users.role, "waiter"))
       .orderBy(asc(users.name));
     return { success: true, data: staff };
   } catch (error) {
@@ -353,7 +358,7 @@ const manualOrderSchema = z.object({
 });
 
 export async function createManualOrder(payload: z.infer<typeof manualOrderSchema>) {
-  const session = await requireAdmin();
+  const session = await requireManagerPermission("orders", "create");
   try {
     const validated = manualOrderSchema.parse(payload);
     
@@ -458,6 +463,7 @@ export async function createManualOrder(payload: z.infer<typeof manualOrderSchem
       tableNumber: validated.tableNumber || null,
       waiterId: finalWaiterId,
       waiterName: null, // Legacy, can be left null
+      createdById: session.id,
       deliveryAddress: validated.deliveryAddress || null,
       deliveryNotes: validated.deliveryNotes || null,
       status: "pending",
@@ -591,9 +597,10 @@ export async function addItemsToExistingOrder(data: z.infer<typeof addItemsSchem
 }
 
 export async function cancelLiveOrder(orderId: string) {
-  await requireAdmin();
+  const session = await requireManagerPermission("orders", "delete");
   try {
     await db.update(orders).set({ status: "cancelled", updatedAt: new Date() }).where(eq(orders.id, orderId));
+    await logActivity(session.id, "Order Cancelled", "order", orderId);
     revalidatePath("/admin/orders");
     return { success: true };
   } catch (error) {
@@ -603,9 +610,10 @@ export async function cancelLiveOrder(orderId: string) {
 }
 
 export async function updateTableNumber(orderId: string, tableNumber: string) {
-  await requireAdmin();
+  const session = await requireManagerPermission("orders", "update");
   try {
     await db.update(orders).set({ tableNumber, updatedAt: new Date() }).where(eq(orders.id, orderId));
+    await logActivity(session.id, "Order Table Updated", "order", orderId, { tableNumber });
     revalidatePath("/admin/orders");
     return { success: true };
   } catch (error) {
@@ -615,7 +623,7 @@ export async function updateTableNumber(orderId: string, tableNumber: string) {
 }
 
 export async function removeOrderItem(orderId: string, itemId: string) {
-  const session = await requireAdmin();
+  const session = await requireManagerPermission("orders", "update");
   try {
     const existingOrderArr = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
     if (existingOrderArr.length === 0) throw new Error("Order not found");
@@ -648,6 +656,8 @@ export async function removeOrderItem(orderId: string, itemId: string) {
         })
         .where(eq(orders.id, orderId));
     });
+    
+    await logActivity(session.id, "Order Item Removed", "order", orderId, { itemId });
 
     revalidatePath("/admin/orders");
     return { success: true };

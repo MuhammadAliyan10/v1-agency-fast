@@ -58,7 +58,7 @@ export function FinanceCharts({ dailyRevenue, weekComparison, topItems, paymentB
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
         {/* 30-Day Revenue Trend */}
-        <div className="rounded-2xl border border-border/60 bg-card p-6">
+        <div className="border border-border/60 bg-card p-6">
           <div className="mb-4">
             <h3 className="font-bold text-base">Revenue Trend</h3>
             <p className="text-xs text-muted-foreground">Daily revenue for the selected period</p>
@@ -109,7 +109,7 @@ export function FinanceCharts({ dailyRevenue, weekComparison, topItems, paymentB
         </div>
 
         {/* This Week vs Last Week */}
-        <div className="rounded-2xl border border-border/60 bg-card p-6">
+        <div className="border border-border/60 bg-card p-6">
           <div className="mb-4">
             <h3 className="font-bold text-base">Week-over-Week</h3>
             <p className="text-xs text-muted-foreground">This week vs last week daily revenue</p>
@@ -139,7 +139,7 @@ export function FinanceCharts({ dailyRevenue, weekComparison, topItems, paymentB
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
         {/* Top Selling Items */}
-        <div className="lg:col-span-1 rounded-2xl border border-border/60 bg-card p-6">
+        <div className="lg:col-span-1 border border-border/60 bg-card p-6">
           <div className="mb-4">
             <h3 className="font-bold text-base">Top Items</h3>
             <p className="text-xs text-muted-foreground">By units sold in period</p>
@@ -167,7 +167,7 @@ export function FinanceCharts({ dailyRevenue, weekComparison, topItems, paymentB
         </div>
 
         {/* Payment Method Breakdown */}
-        <div className="lg:col-span-1 rounded-2xl border border-border/60 bg-card p-6">
+        <div className="lg:col-span-1 border border-border/60 bg-card p-6">
           <div className="mb-5">
             <h3 className="font-bold text-base">Payment Methods</h3>
             <p className="text-xs text-muted-foreground">Revenue per payment channel</p>
@@ -181,7 +181,7 @@ export function FinanceCharts({ dailyRevenue, weekComparison, topItems, paymentB
                 <div key={p.method}>
                   <div className="flex justify-between text-sm mb-1.5">
                     <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
+                      <div className="w-2 h-2 shrink-0" style={{ background: color }} />
                       <span className="font-semibold">{p.method}</span>
                     </div>
                     <div className="text-right">
@@ -189,8 +189,8 @@ export function FinanceCharts({ dailyRevenue, weekComparison, topItems, paymentB
                       <span className="text-muted-foreground text-xs ml-2">({p.count} orders)</span>
                     </div>
                   </div>
-                  <div className="h-2 bg-muted rounded-full overflow-hidden">
-                    <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: color }} />
+                  <div className="h-2 bg-muted overflow-hidden">
+                    <div className="h-full transition-all duration-500" style={{ width: `${pct}%`, background: color }} />
                   </div>
                 </div>
               );
@@ -199,7 +199,7 @@ export function FinanceCharts({ dailyRevenue, weekComparison, topItems, paymentB
         </div>
 
         {/* Order Type Revenue Split */}
-        <div className="lg:col-span-1 rounded-2xl border border-border/60 bg-card p-6">
+        <div className="lg:col-span-1 border border-border/60 bg-card p-6">
           <div className="mb-5">
             <h3 className="font-bold text-base">Revenue by Type</h3>
             <p className="text-xs text-muted-foreground">Channel performance breakdown</p>
@@ -215,7 +215,7 @@ export function FinanceCharts({ dailyRevenue, weekComparison, topItems, paymentB
                 <div key={t.label}>
                   <div className="flex justify-between text-sm mb-1.5">
                     <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full" style={{ background: t.color }} />
+                      <div className="w-2 h-2" style={{ background: t.color }} />
                       <span className="font-semibold">{t.label}</span>
                       <span className="text-muted-foreground text-xs">({t.orders} orders)</span>
                     </div>
@@ -224,8 +224,8 @@ export function FinanceCharts({ dailyRevenue, weekComparison, topItems, paymentB
                       <span className="text-xs text-muted-foreground font-bold">{pct}%</span>
                     </div>
                   </div>
-                  <div className="h-2.5 bg-muted rounded-full overflow-hidden">
-                    <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: t.color }} />
+                  <div className="h-2.5 bg-muted overflow-hidden">
+                    <div className="h-full transition-all duration-500" style={{ width: `${pct}%`, background: t.color }} />
                   </div>
                 </div>
               );

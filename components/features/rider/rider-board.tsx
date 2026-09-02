@@ -45,7 +45,7 @@ export function RiderBoard() {
   return (
     <div className="flex flex-col gap-4 p-4">
       {orders.length === 0 && (
-        <div className="flex flex-col items-center justify-center min-h-[50vh] text-zinc-500 opacity-50 border-2 border-dashed border-zinc-800 rounded-xl p-8">
+        <div className="flex flex-col items-center justify-center min-h-[50vh] text-zinc-500 opacity-50 border-2 border-dashed border-zinc-800 p-8">
           <Bike className="w-16 h-16 mb-4" />
           <h3 className="text-lg font-bold">No Active Deliveries</h3>
           <p className="text-sm text-center mt-2 max-w-[250px]">You have no assigned deliveries right now. Take a break!</p>
@@ -59,7 +59,7 @@ export function RiderBoard() {
         const mapsLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.deliveryAddress || "")}`;
 
         return (
-          <div key={order.id} className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden shadow-md flex flex-col">
+          <div key={order.id} className="bg-zinc-900 border border-zinc-800 overflow-hidden shadow-md flex flex-col">
             
             <div className="p-4 border-b border-zinc-800 bg-zinc-950 flex flex-col gap-2">
               <div className="flex justify-between items-start">
@@ -85,7 +85,7 @@ export function RiderBoard() {
             
             <div className="p-4 flex flex-col gap-4">
               <div className="grid grid-cols-1 gap-3 text-sm">
-                <div className="flex items-start gap-3 bg-zinc-950/50 p-3 rounded-lg border border-zinc-800/50">
+                <div className="flex items-start gap-3 bg-zinc-950/50 p-3 border border-zinc-800/50">
                   <User className="w-5 h-5 text-zinc-500 shrink-0 mt-0.5" />
                   <div>
                     <p className="font-semibold text-zinc-200">{order.customerName}</p>
@@ -97,7 +97,7 @@ export function RiderBoard() {
                   </div>
                 </div>
 
-                <div className="flex items-start gap-3 bg-zinc-950/50 p-3 rounded-lg border border-zinc-800/50">
+                <div className="flex items-start gap-3 bg-zinc-950/50 p-3 border border-zinc-800/50">
                   <MapPin className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
                   <div className="flex-1">
                     <p className="text-zinc-300 font-medium leading-tight">

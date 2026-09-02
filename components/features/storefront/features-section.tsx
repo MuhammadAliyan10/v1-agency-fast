@@ -29,7 +29,7 @@ export function FeaturesSection() {
             const Icon = feature.icon;
             return (
               <div key={index} className="flex flex-col items-center group">
-                <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mb-6 group-hover:bg-primary/20 transition-colors duration-300 shadow-[0_0_30px_-5px_rgba(249,115,22,0.3)]">
+                <div className="w-20 h-20 bg-primary/10 flex items-center justify-center mb-6 group-hover:bg-primary/20 transition-colors duration-300 shadow-[0_0_30px_-5px_rgba(249,115,22,0.3)]">
                   <Icon className="w-10 h-10 text-primary" strokeWidth={1.5} />
                 </div>
                 <h3 className="text-xl font-bold mb-3">{feature.title}</h3>

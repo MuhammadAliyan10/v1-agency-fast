@@ -3,10 +3,10 @@
 import { db } from "@/database/db";
 import { users, orders } from "@/database/schema";
 import { eq, desc, sql } from "drizzle-orm";
-import { requireAdmin } from "@/lib/auth/session";
+import { requireManagerPermission } from "@/lib/auth/session";
 
 export async function getCustomers() {
-  await requireAdmin();
+  await requireManagerPermission("staff", "update");
   try {
     const customersData = await db
       .select({
@@ -33,7 +33,7 @@ export async function getCustomers() {
 }
 
 export async function toggleCustomerStatus(userId: string, isActive: boolean) {
-  await requireAdmin();
+  await requireManagerPermission("staff", "update");
   try {
     await db.update(users).set({ isActive }).where(eq(users.id, userId));
     return { success: true };

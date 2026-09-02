@@ -29,7 +29,7 @@ export default async function RiderLayout({ children }: { children: React.ReactN
     <div className="min-h-screen bg-background">
       <header className="flex h-14 items-center justify-between border-b px-6 bg-card">
         <div className="flex items-center gap-3">
-          <div className="h-7 w-7 rounded-full bg-blue-600 flex items-center justify-center">
+          <div className="h-7 w-7 bg-blue-600 flex items-center justify-center">
             <Bike className="w-4 h-4 text-white" />
           </div>
           <div>
