@@ -258,10 +258,10 @@ export function LiveOrdersBoard({ role }: LiveOrdersBoardProps) {
               />
             </div>
             <ToggleGroup type="single" value={typeFilter} onValueChange={(v) => v && setTypeFilter(v)} className="bg-card border p-1 shadow-sm w-full sm:w-auto justify-start sm:justify-end overflow-x-auto scrollbar-none">
-              <ToggleGroupItem value="all" className="h-8 px-4 text-xs font-bold">All Orders</ToggleGroupItem>
-              <ToggleGroupItem value="dine_in" className="h-8 px-4 text-xs font-bold whitespace-nowrap">Dine-In</ToggleGroupItem>
-              <ToggleGroupItem value="delivery" className="h-8 px-4 text-xs font-bold whitespace-nowrap">Delivery</ToggleGroupItem>
-              <ToggleGroupItem value="pickup" className="h-8 px-4 text-xs font-bold whitespace-nowrap">Pickup</ToggleGroupItem>
+              <ToggleGroupItem value="all" className="h-8 px-4 text-xs font-bold data-[state=on]:bg-primary/10 data-[state=on]:text-primary">All Orders</ToggleGroupItem>
+              <ToggleGroupItem value="dine_in" className="h-8 px-4 text-xs font-bold whitespace-nowrap data-[state=on]:bg-purple-500/10 data-[state=on]:text-purple-700 dark:data-[state=on]:text-purple-400">Dine-In</ToggleGroupItem>
+              <ToggleGroupItem value="delivery" className="h-8 px-4 text-xs font-bold whitespace-nowrap data-[state=on]:bg-orange-500/10 data-[state=on]:text-orange-700 dark:data-[state=on]:text-orange-400">Delivery</ToggleGroupItem>
+              <ToggleGroupItem value="pickup" className="h-8 px-4 text-xs font-bold whitespace-nowrap data-[state=on]:bg-emerald-500/10 data-[state=on]:text-emerald-700 dark:data-[state=on]:text-emerald-400">Pickup</ToggleGroupItem>
             </ToggleGroup>
           </div>
         )}

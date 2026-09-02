@@ -17,6 +17,7 @@ import {
   ChefHat,
   Coffee,
   ExternalLink,
+  Package,
 } from "lucide-react";
 
 export const adminNavConfig = {
@@ -31,6 +32,7 @@ export const adminNavConfig = {
     { title: "Categories", url: "/admin/categories", icon: FolderTree, permission: "canManageMenu" },
     { title: "Deals", url: "/admin/deals", icon: Tag, permission: "canManageMenu" },
     { title: "Coupons", url: "/admin/coupons", icon: Ticket, permission: "canManageCoupons" },
+    { title: "Inventory", url: "/admin/inventory", icon: Package, permission: "canViewInventory" },
   ],
   people: [
     { title: "Customers", url: "/admin/customers", icon: Contact },

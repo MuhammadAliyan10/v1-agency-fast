@@ -257,9 +257,32 @@ export const itemAddOns = pgTable("item_add_ons", {
 export const inventoryItems = pgTable("inventory_items", {
   id:                uuid("id").defaultRandom().primaryKey(),
   itemName:          varchar("item_name", { length: 255 }).notNull(),
+  sku:               varchar("sku", { length: 100 }).unique(),
   stockQuantity:     integer("stock_quantity").notNull().default(0),
   unit:              varchar("unit", { length: 50 }).notNull(),
   lowStockThreshold: integer("low_stock_threshold").notNull().default(10),
+  costPerUnit:       integer("cost_per_unit").default(0).notNull(), // in cents/pennies
+  supplierName:      varchar("supplier_name", { length: 150 }),
+  lastRestockedAt:   timestamp("last_restocked_at"),
+});
+
+export const inventoryTransactionTypeEnum = pgEnum("inventory_transaction_type", [
+  "restock",
+  "consumption",
+  "adjustment",
+  "waste"
+]);
+
+export const inventoryTransactions = pgTable("inventory_transactions", {
+  id:              uuid("id").defaultRandom().primaryKey(),
+  inventoryItemId: uuid("inventory_item_id")
+    .references(() => inventoryItems.id, { onDelete: "cascade" })
+    .notNull(),
+  type:            inventoryTransactionTypeEnum("type").notNull(),
+  quantityDelta:   integer("quantity_delta").notNull(),
+  unitCost:        integer("unit_cost").default(0).notNull(),
+  referenceId:     varchar("reference_id", { length: 255 }), // OCR Invoice # or Order ID
+  createdAt:       timestamp("created_at").defaultNow().notNull(),
 });
 
 // -----------------------------------------------------------------------------
@@ -605,4 +628,12 @@ export const orderItemsRelations = relations(orderItems, ({ one }) => ({
 
 export const reviewsRelations = relations(reviews, ({ one }) => ({
   menuItem: one(menuItems, { fields: [reviews.menuItemId], references: [menuItems.id] }),
+}));
+
+export const inventoryItemsRelations = relations(inventoryItems, ({ many }) => ({
+  transactions: many(inventoryTransactions),
+}));
+
+export const inventoryTransactionsRelations = relations(inventoryTransactions, ({ one }) => ({
+  inventoryItem: one(inventoryItems, { fields: [inventoryTransactions.inventoryItemId], references: [inventoryItems.id] }),
 }));

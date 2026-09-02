@@ -192,6 +192,71 @@ export function KanbanCard({ order, role, isOverlay, borderColor = "border-borde
     onError: (err: any) => toast.error(err.message || "Failed to transfer table"),
   });
 
+  const printReceipt = () => {
+    const receiptHtml = document.getElementById(`receipt-${order.id}`)?.innerHTML;
+    if (!receiptHtml) return;
+    
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+    
+    iframe.contentWindow?.document.write(`
+      <html>
+        <head>
+          <title>Print Receipt - ${order.id}</title>
+          <style>
+            @page { margin: 0; size: 80mm 297mm; }
+            body { 
+              font-family: monospace, sans-serif; 
+              font-size: 12px; 
+              width: 80mm; 
+              margin: 0; 
+              padding: 4mm;
+              color: black;
+              background: white;
+            }
+            .text-center { text-align: center; }
+            .font-bold { font-weight: bold; }
+            .text-lg { font-size: 1.125rem; }
+            .text-xl { font-size: 1.25rem; }
+            .text-2xl { font-size: 1.5rem; }
+            .flex { display: flex; }
+            .justify-between { justify-content: space-between; }
+            .items-center { align-items: center; }
+            .w-full { width: 100%; }
+            .my-1 { margin-top: 4px; margin-bottom: 4px; }
+            .my-2 { margin-top: 8px; margin-bottom: 8px; }
+            .mt-2 { margin-top: 8px; }
+            .mb-2 { margin-bottom: 8px; }
+            .border-b { border-bottom: 1px dashed black; }
+            .border-t { border-top: 1px dashed black; }
+            .py-2 { padding-top: 8px; padding-bottom: 8px; }
+            .pt-2 { padding-top: 8px; }
+            .pb-2 { padding-bottom: 8px; }
+            .text-right { text-align: right; }
+            .uppercase { text-transform: uppercase; }
+            .logo { width: 48px; height: 48px; display: block; margin: 0 auto; margin-bottom: 4px; }
+            .item-row { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; }
+            .item-qty { width: 24px; font-weight: bold; }
+            .item-name { flex: 1; padding-right: 8px; }
+            .item-price { font-weight: bold; }
+            * { box-sizing: border-box; }
+          </style>
+        </head>
+        <body>
+          ${receiptHtml}
+        </body>
+      </html>
+    `);
+    
+    iframe.contentWindow?.document.close();
+    iframe.contentWindow?.focus();
+    setTimeout(() => {
+      iframe.contentWindow?.print();
+      setTimeout(() => document.body.removeChild(iframe), 500);
+    }, 250);
+  };
+
 
   
   // Status advancement logic
@@ -573,7 +638,7 @@ export function KanbanCard({ order, role, isOverlay, borderColor = "border-borde
                         </Button>
                       </ManualOrderDialog>
                     </div>
-                    <Button variant="default" className="w-full h-10 font-bold text-sm shadow-sm hover:shadow-md" onClick={(e) => { e.stopPropagation(); window.print(); }}>
+                    <Button variant="default" className="w-full h-10 font-bold text-sm shadow-sm hover:shadow-md" onClick={(e) => { e.stopPropagation(); printReceipt(); }}>
                       <Printer className="w-4 h-4 mr-2" /> Print Bill
                     </Button>
                   </div>
@@ -604,7 +669,7 @@ export function KanbanCard({ order, role, isOverlay, borderColor = "border-borde
                   (order.orderType === "pickup" && (order.status === "ready_for_pickup" || order.status === "delivered")) ||
                   (order.orderType === "delivery" && order.status === "delivered")
                 ) && (
-                  <Button variant="outline" className="w-full h-10 font-semibold text-sm shadow-sm" onClick={() => window.print()}>
+                  <Button variant="outline" className="w-full h-10 font-semibold text-sm shadow-sm" onClick={(e) => { e.stopPropagation(); printReceipt(); }}>
                     <Printer className="w-4 h-4 mr-2" />
                     Print Receipt
                   </Button>
@@ -796,7 +861,7 @@ export function KanbanCard({ order, role, isOverlay, borderColor = "border-borde
                     </Button>
                   </ManualOrderDialog>
                 </div>
-                <Button variant="default" size="sm" className="w-full text-xs h-8" onClick={(e) => e.stopPropagation()}>
+                <Button variant="default" size="sm" className="w-full text-xs h-8" onClick={(e) => { e.stopPropagation(); printReceipt(); }}>
                   <Printer className="h-3 w-3 mr-1" /> Bill
                 </Button>
               </div>
@@ -842,6 +907,73 @@ export function KanbanCard({ order, role, isOverlay, borderColor = "border-borde
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    {/* Hidden Printable Receipt Template */}
+    <div id={`receipt-${order.id}`} style={{ display: "none" }}>
+      <div className="text-center mb-2">
+        <img src="/logo.png" className="logo" alt="Classy Crave Logo" />
+        <div className="text-xl font-bold uppercase">Classy Crave</div>
+        <div className="uppercase my-1 text-lg font-bold border-b pb-2">
+          {order.orderType.replace("_", " ")}
+        </div>
+      </div>
+      
+      <div className="mb-2 pb-2 border-b">
+        <div className="font-bold text-lg mb-1">Order #{order.id}</div>
+        <div>Date: {format(order.createdAt || new Date(), "dd/MM/yyyy hh:mm a")}</div>
+        
+        <div className="mt-2">
+          {isDineIn ? (
+            <>
+              <div className="font-bold text-lg">Table: {order.tableNumber || "N/A"}</div>
+              <div>Waiter: {order.waiterName || "Unassigned"}</div>
+            </>
+          ) : (
+            <>
+              {order.customerName && <div>Customer: {order.customerName}</div>}
+              {order.customerPhone && <div>Phone: {formatPhone(order.customerPhone)}</div>}
+              {order.orderType === "delivery" && order.deliveryAddress && <div>Address: {order.deliveryAddress}</div>}
+            </>
+          )}
+        </div>
+      </div>
+      
+      <div className="mb-2 pb-2 border-b">
+        <div className="font-bold mb-2 uppercase text-center">--- ITEMS ---</div>
+        {order.items.map((item, idx) => (
+          <div key={idx} className="item-row">
+            <div className="item-qty">{item.quantity}x</div>
+            <div className="item-name">
+              {item.itemName} {item.variantName ? `(${item.variantName})` : ""}
+              {Array.isArray(item.selectedAddOns) && item.selectedAddOns.length > 0 && (
+                <div style={{ fontSize: "10px", marginTop: "2px" }}>
+                  + {(item.selectedAddOns as any[]).map((a: any) => String(a.name || "")).join(", ")}
+                </div>
+              )}
+            </div>
+            <div className="item-price">Rs.{item.subtotal}</div>
+          </div>
+        ))}
+      </div>
+      
+      <div className="pt-2">
+        {(order.deliveryFee ?? 0) > 0 && (
+          <div className="flex justify-between my-1">
+            <span>Delivery Fee</span>
+            <span>Rs.{order.deliveryFee}</span>
+          </div>
+        )}
+        <div className="flex justify-between items-center my-2 border-t pt-2">
+          <span className="font-bold text-xl uppercase">Total</span>
+          <span className="font-bold text-xl">Rs.{order.totalAmount.toLocaleString()}</span>
+        </div>
+      </div>
+      
+      <div className="text-center mt-4 pt-2 border-t font-bold">
+        <div>Thank you for dining with us!</div>
+        <div style={{ fontSize: "10px", marginTop: "4px" }}>Powered by AgencyFast</div>
+      </div>
+    </div>
     </>
   );
 }

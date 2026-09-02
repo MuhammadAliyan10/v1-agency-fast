@@ -31,6 +31,9 @@ export async function upsertInventoryItem(data: InventoryItemFormValues, itemId?
           itemName: data.itemName,
           unit: data.unit,
           lowStockThreshold: data.lowStockThreshold,
+          sku: data.sku || null,
+          costPerUnit: data.costPerUnit || 0,
+          supplierName: data.supplierName || null,
         })
         .where(eq(inventoryItems.id, itemId));
     } else {
@@ -39,7 +42,10 @@ export async function upsertInventoryItem(data: InventoryItemFormValues, itemId?
           itemName: data.itemName,
           unit: data.unit,
           lowStockThreshold: data.lowStockThreshold,
-          stockQuantity: 0, // default to 0 on create
+          stockQuantity: data.stockQuantity || 0,
+          sku: data.sku || null,
+          costPerUnit: data.costPerUnit || 0,
+          supplierName: data.supplierName || null,
         });
     }
 

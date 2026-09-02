@@ -59,12 +59,20 @@ export function InventoryDialogForm({ open, onOpenChange, initialData }: Invento
         itemName: initialData.itemName || "",
         unit: initialData.unit || "pcs",
         lowStockThreshold: initialData.lowStockThreshold || 0,
+        sku: initialData.sku || "",
+        supplierName: initialData.supplierName || "",
+        costPerUnit: initialData.costPerUnit || 0,
+        stockQuantity: initialData.stockQuantity || 0,
       });
     } else if (open && !initialData) {
       form.reset({
         itemName: "",
         unit: "pcs",
         lowStockThreshold: 10,
+        sku: "",
+        supplierName: "",
+        costPerUnit: 0,
+        stockQuantity: 0,
       });
     }
   }, [open, initialData, form]);
@@ -83,7 +91,7 @@ export function InventoryDialogForm({ open, onOpenChange, initialData }: Invento
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[425px] rounded-none">
         <DialogHeader>
           <DialogTitle>{isEditMode ? "Edit Inventory Item" : "Add New Item"}</DialogTitle>
           <DialogDescription>
@@ -100,7 +108,7 @@ export function InventoryDialogForm({ open, onOpenChange, initialData }: Invento
                 <FormItem>
                   <FormLabel>Item Name</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g., Tomato Paste" {...field} />
+                    <Input placeholder="e.g., Tomato Paste" className="rounded-none" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -142,7 +150,65 @@ export function InventoryDialogForm({ open, onOpenChange, initialData }: Invento
                   <FormItem>
                     <FormLabel>Low Stock Alert At</FormLabel>
                     <FormControl>
-                      <Input type="number" {...field} />
+                      <Input type="number" className="rounded-none" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="stockQuantity"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Initial Quantity</FormLabel>
+                    <FormControl>
+                      <Input type="number" className="rounded-none" disabled={isEditMode} {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            
+            <FormField
+              control={form.control}
+              name="sku"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>SKU / Barcode (Optional)</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g., 89012345" className="rounded-none" {...field} value={field.value || ""} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="supplierName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Default Supplier (Optional)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g., Metro Cash & Carry" className="rounded-none" {...field} value={field.value || ""} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="costPerUnit"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Default Cost per Unit (Rs)</FormLabel>
+                    <FormControl>
+                      <Input type="number" className="rounded-none" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -151,10 +217,10 @@ export function InventoryDialogForm({ open, onOpenChange, initialData }: Invento
             </div>
 
             <div className="flex justify-end pt-4 space-x-2">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              <Button type="button" variant="outline" className="rounded-none" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={isPending}>
+              <Button type="submit" disabled={isPending} className="rounded-none">
                 {isPending ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />

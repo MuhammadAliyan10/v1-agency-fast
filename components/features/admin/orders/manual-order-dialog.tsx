@@ -188,7 +188,9 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
       if (!res.success) throw new Error(res.error);
       return res.data;
     },
-    enabled: isOpen
+    enabled: isOpen,
+    staleTime: 1000 * 60 * 60, // 1 hour
+    gcTime: 1000 * 60 * 60 * 24, // 24 hours
   });
 
   const { data: staffWaiters, isLoading: isStaffLoading } = useQuery({

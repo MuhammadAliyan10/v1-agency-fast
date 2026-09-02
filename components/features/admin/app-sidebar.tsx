@@ -133,12 +133,12 @@ export function AppSidebar({ session }: { session: SessionPayload | null }) {
                       </SidebarMenuButton>
                       {item.url === "/admin/orders" ? (
                         pendingOrdersCount > 0 && (
-                          <SidebarMenuBadge className="bg-primary text-white px-1.5 py-0 text-[9px] font-bold">
+                          <SidebarMenuBadge className="bg-primary !text-white px-1.5 py-0 text-[9px] font-bold">
                             {pendingOrdersCount}
                           </SidebarMenuBadge>
                         )
                       ) : (item as any).badge ? (
-                        <SidebarMenuBadge className="bg-primary text-white px-1.5 py-0 text-[9px] font-bold">
+                        <SidebarMenuBadge className="bg-primary !text-white px-1.5 py-0 text-[9px] font-bold">
                           {(item as any).badge}
                         </SidebarMenuBadge>
                       ) : null}

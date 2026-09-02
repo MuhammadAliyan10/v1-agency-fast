@@ -37,6 +37,8 @@ import { Badge } from "@/components/ui/badge";
 import { deleteInventoryItem } from "@/server/actions/inventory";
 import { InventoryDialogForm } from "./inventory-dialog-form";
 import { StockAdjustDialog } from "./stock-adjust-dialog";
+import { OcrReceiptDialog } from "./ocr-receipt-dialog";
+import { ScanText } from "lucide-react";
 
 interface InventoryTableProps {
   data: any[];
@@ -49,6 +51,7 @@ export function InventoryTable({ data }: InventoryTableProps) {
   
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
   const [isAdjustDialogOpen, setIsAdjustDialogOpen] = useState(false);
+  const [isOcrDialogOpen, setIsOcrDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
 
   const [isAlertOpen, setIsAlertOpen] = useState(false);
@@ -112,10 +115,16 @@ export function InventoryTable({ data }: InventoryTableProps) {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <Button onClick={openCreateDialog} className="w-full sm:w-auto">
-          <Plus className="w-4 h-4 mr-2" />
-          Add Item
-        </Button>
+        <div className="flex w-full sm:w-auto gap-2">
+          <Button variant="outline" onClick={() => setIsOcrDialogOpen(true)} className="flex-1 sm:flex-none">
+            <ScanText className="w-4 h-4 mr-2 text-primary" />
+            AI Scan Receipt
+          </Button>
+          <Button onClick={openCreateDialog} className="flex-1 sm:flex-none">
+            <Plus className="w-4 h-4 mr-2" />
+            Add Item
+          </Button>
+        </div>
       </div>
 
       <div className="border bg-card overflow-hidden">
@@ -197,6 +206,12 @@ export function InventoryTable({ data }: InventoryTableProps) {
         open={isAdjustDialogOpen}
         onOpenChange={setIsAdjustDialogOpen}
         item={selectedItem}
+      />
+
+      <OcrReceiptDialog
+        open={isOcrDialogOpen}
+        onOpenChange={setIsOcrDialogOpen}
+        inventoryItems={data}
       />
 
       <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
