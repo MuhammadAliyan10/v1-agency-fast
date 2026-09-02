@@ -3,13 +3,7 @@
 import { db } from "@/database/db";
 import { inventoryItems, inventoryTransactions } from "@/database/schema";
 import { eq, ilike } from "drizzle-orm";
-import OpenAI from "openai";
 import { z } from "zod";
-
-const nvidiaOpenAI = new OpenAI({
-  apiKey: process.env.NVIDIA_API_KEY || "dummy",
-  baseURL: "https://integrate.api.nvidia.com/v1",
-});
 
 const ocrItemSchema = z.object({
   name: z.string(),
@@ -32,29 +26,34 @@ export async function processOCRReceipt(imageBase64: string) {
       return { success: false, error: "NVIDIA_API_KEY is not configured" };
     }
 
-    const response = await nvidiaOpenAI.chat.completions.create({
-      model: "meta/llama-3.2-90b-vision-instruct",
+    const payload = {
+      model: "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
       messages: [
+        {
+          role: "system",
+          content: "You are a highly precise OCR extraction system. You must extract data from the provided image exactly as it appears. DO NOT hallucinate, guess, or add fake data. If a value is missing, leave it empty or null. Output your response strictly as a JSON object, without any conversational text or markdown blocks."
+        },
         {
           role: "user",
           content: [
             {
               type: "text",
               text: `Analyze this receipt. Extract the vendor name, invoice number, and all purchased items. 
-Return ONLY a valid JSON string (no markdown formatting, no comments) in this exact schema:
+You must wrap your final JSON output strictly in <json> and </json> tags.
+Return ONLY a valid JSON string inside those tags (no markdown formatting, no comments) in this exact schema:
 {
   "vendorName": "string",
   "invoiceNumber": "string",
   "items": [
     {
-      "name": "string (the product name)",
+      "name": "string (the product name exactly as on receipt)",
       "quantity": 10,
       "totalCost": 1000,
-      "unit": "kg" // or "pcs", "ltr", etc.
+      "unit": "kg" // Must be one of: kg, g, L, ml, pcs, packs, boxes. If unknown, use "pcs".
     }
   ]
 }
-Note: totalCost should be in cents/pennies (e.g., $10.00 -> 1000).`
+Note: totalCost should be in cents/pennies (e.g., $10.00 -> 1000). Do NOT add fake items.`
             },
             {
               type: "image_url",
@@ -65,28 +64,68 @@ Note: totalCost should be in cents/pennies (e.g., $10.00 -> 1000).`
           ]
         }
       ],
-      temperature: 0.1,
-      max_tokens: 1024,
+      max_tokens: 65536,
+      reasoning_budget: 16384,
+      stream: false,
+      temperature: 0.6,
+      top_p: 0.95
+    };
+
+    const response = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${process.env.NVIDIA_API_KEY}`,
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload)
     });
 
-    const rawContent = response.choices[0]?.message?.content || "";
-    const jsonString = rawContent.replace(/```json/g, "").replace(/```/g, "").trim();
+    if (!response.ok) {
+      throw new Error(`NVIDIA API error: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    let rawContent = data.choices?.[0]?.message?.content || "";
+    
+    // Clean up potential markdown formatting before extracting JSON
+    rawContent = rawContent.replace(/```json/gi, "").replace(/```/g, "").trim();
+
+    let jsonString = "";
+    // Try to extract from <json> tags first
+    const tagMatch = rawContent.match(/<json>([\s\S]*?)<\/json>/i);
+    if (tagMatch) {
+      jsonString = tagMatch[1].trim();
+    } else {
+      // Fallback: extract from first { to last }
+      const startIndex = rawContent.indexOf("{");
+      const endIndex = rawContent.lastIndexOf("}");
+      if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
+        jsonString = rawContent.substring(startIndex, endIndex + 1).trim();
+      } else {
+        console.error("No JSON object found in response.");
+        return { success: false, error: "Failed to extract JSON from AI response" };
+      }
+    }
     
     let parsedData;
     try {
       parsedData = JSON.parse(jsonString);
-    } catch (err) {
+    } catch (err: any) {
+      console.error("JSON Parse Error:", err.message, "Extracted String:", jsonString.substring(0, 100));
       return { success: false, error: "Failed to parse OCR response as JSON" };
     }
 
     const validatedData = ocrResponseSchema.safeParse(parsedData);
 
     if (!validatedData.success) {
+      console.error("Zod Validation Error:", validatedData.error);
       return { success: false, error: "Invalid OCR format returned from AI" };
     }
 
     return { success: true, data: validatedData.data };
   } catch (error: any) {
+    console.error("OCR Processing Exception:", error);
     return { success: false, error: error.message || "An unexpected error occurred" };
   }
 }

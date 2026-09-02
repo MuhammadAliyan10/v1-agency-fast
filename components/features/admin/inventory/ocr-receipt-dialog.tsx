@@ -58,6 +58,7 @@ export function OcrReceiptDialog({ open, onOpenChange, inventoryItems = [] }: Oc
   const [isPending, startTransition] = useTransition();
   const [isCommitting, startCommitTransition] = useTransition();
   const [imageBase64, setImageBase64] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   
   // Staging State
   const [stagedData, setStagedData] = useState<OCRReceiptData | null>(null);
@@ -70,6 +71,31 @@ export function OcrReceiptDialog({ open, onOpenChange, inventoryItems = [] }: Oc
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const compressedBase64 = await compressImage(file);
+      setImageBase64(compressedBase64);
+    } catch (err) {
+      toast.error("Failed to compress image client-side.");
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+    
+    const file = e.dataTransfer.files?.[0];
     if (!file) return;
 
     try {
@@ -163,8 +189,11 @@ export function OcrReceiptDialog({ open, onOpenChange, inventoryItems = [] }: Oc
 
             {!imageBase64 ? (
               <div 
-                className="border-2 border-dashed rounded-none p-10 text-center cursor-pointer hover:bg-muted/50 transition-colors"
+                className={`border-2 border-dashed rounded-none p-10 text-center cursor-pointer transition-colors ${isDragging ? "border-primary bg-primary/10" : "hover:bg-muted/50"}`}
                 onClick={() => fileInputRef.current?.click()}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
               >
                 <UploadCloud className="w-10 h-10 text-muted-foreground mx-auto mb-4" />
                 <div className="font-semibold text-sm">Select receipt image</div>
