@@ -2,7 +2,7 @@
 
 import { db } from "@/database/db";
 import { orders, orderItems, users, menuItems, itemVariants, itemAddOns } from "@/database/schema";
-import { inArray, notInArray, eq, asc, desc, and } from "drizzle-orm";
+import { inArray, notInArray, eq, asc, desc, and, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { revalidatePath, unstable_noStore as noStore } from "next/cache";
 import { requireAdmin, requireManagerPermission } from "@/lib/auth/session";
@@ -10,6 +10,7 @@ import { logActivity } from "@/server/actions/activity";
 import { STORE_CONSTANTS } from "@/lib/constants";
 import { z } from "zod";
 import { randomBytes } from "crypto";
+import { canTransition } from "@/lib/orders/fsm";
 
 export type OrderStatus =
   | "pending"
@@ -24,10 +25,48 @@ export type OrderStatus =
 
 export type OrderItemStatus = "pending" | "preparing" | "served";
 
-export type LiveOrder = typeof orders.$inferSelect & {
+export type LiveOrderProjection = {
+  id: string;
+  status: OrderStatus;
+  orderType: string;
+  totalAmount: number;
+  subtotal: number;
+  deliveryFee: number;
+  discountAmount: number;
+  tableId: string | null;
+  tableNumber: string | null;
+  waiterId: string | null;
+  deliveryAddress: string | null;
+  deliveryNotes: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  paymentMethod: string;
+  source: string;
+  orderVersion: number;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+  customerName: string;
+  customerPhone: string;
+  paymentStatus: string;
+  estimatedReadyAt: Date | null;
+  waiterName: string | null;
   rider: { name: string; phone: string } | null;
-  items: typeof orderItems.$inferSelect[];
+  items: {
+    id: string;
+    orderId: string;
+    itemName: string;
+    quantity: number;
+    status: OrderItemStatus;
+    variantName: string | null;
+    unitPrice: number;
+    subtotal: number;
+    selectedAddOns: any | null;
+    specialInstructions: string | null;
+    roundNumber: number;
+  }[];
 };
+
+export type LiveOrder = LiveOrderProjection;
 
 export async function getLiveOrders() {
   await requireAdmin();
@@ -38,7 +77,29 @@ export async function getLiveOrders() {
 
     const liveOrdersData = await db
       .select({
-        order: orders,
+        id: orders.id,
+        status: orders.status,
+        orderType: orders.orderType,
+        totalAmount: orders.totalAmount,
+        subtotal: orders.subtotal,
+        deliveryFee: orders.deliveryFee,
+        discountAmount: orders.discountAmount,
+        tableId: orders.tableId,
+        tableNumber: orders.tableNumber,
+        waiterId: orders.waiterId,
+        deliveryAddress: orders.deliveryAddress,
+        deliveryNotes: orders.deliveryNotes,
+        latitude: orders.latitude,
+        longitude: orders.longitude,
+        paymentMethod: orders.paymentMethod,
+        source: orders.source,
+        orderVersion: orders.orderVersion,
+        createdAt: orders.createdAt,
+        updatedAt: orders.updatedAt,
+        customerName: orders.customerName,
+        customerPhone: orders.customerPhone,
+        paymentStatus: orders.paymentStatus,
+        estimatedReadyAt: orders.estimatedReadyAt,
         customer: {
           id: users.id,
           name: users.name,
@@ -60,25 +121,57 @@ export async function getLiveOrders() {
       .where(notInArray(orders.status, ["delivered", "cancelled", "rejected"]))
       .orderBy(desc(orders.createdAt));
 
-    const liveOrderIds = liveOrdersData.map((o) => o.order.id);
+    const liveOrderIds = liveOrdersData.map((o) => o.id);
 
     if (liveOrderIds.length === 0) {
-      return { success: true, data: [] };
+      return { success: true, data: [] as LiveOrderProjection[] };
     }
 
     const itemsData = await db
-      .select()
+      .select({
+        id: orderItems.id,
+        orderId: orderItems.orderId,
+        itemName: orderItems.itemName,
+        quantity: orderItems.quantity,
+        status: orderItems.status,
+        variantName: orderItems.variantName,
+        unitPrice: orderItems.unitPrice,
+        subtotal: orderItems.subtotal,
+        selectedAddOns: orderItems.selectedAddOns,
+        specialInstructions: orderItems.specialInstructions,
+        roundNumber: orderItems.roundNumber,
+      })
       .from(orderItems)
       .where(inArray(orderItems.orderId, liveOrderIds));
 
-    const formattedOrders = liveOrdersData.map(({ order, customer, rider, waiter }) => {
-      const items = itemsData.filter((i) => i.orderId === order.id);
+    const formattedOrders: LiveOrderProjection[] = liveOrdersData.map((row) => {
+      const items = itemsData.filter((i) => i.orderId === row.id);
       return {
-        ...order,
-        customerName: order.customerName || customer?.name || "Guest",
-        customerPhone: order.customerPhone || customer?.phone || "N/A",
-        waiterName: waiter?.name || order.waiterName || null,
-        rider: rider?.id ? { name: rider.name, phone: rider.phone } : null,
+        id: row.id,
+        status: row.status,
+        orderType: row.orderType,
+        totalAmount: row.totalAmount,
+        subtotal: row.subtotal,
+        deliveryFee: row.deliveryFee,
+        discountAmount: row.discountAmount,
+        tableId: row.tableId,
+        tableNumber: row.tableNumber,
+        waiterId: row.waiterId,
+        deliveryAddress: row.deliveryAddress,
+        deliveryNotes: row.deliveryNotes,
+        latitude: row.latitude,
+        longitude: row.longitude,
+        paymentMethod: row.paymentMethod,
+        source: row.source,
+        orderVersion: row.orderVersion,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+        customerName: row.customerName || row.customer?.name || "Guest",
+        customerPhone: row.customerPhone || row.customer?.phone || "N/A",
+        paymentStatus: row.paymentStatus,
+        estimatedReadyAt: row.estimatedReadyAt,
+        waiterName: row.waiter?.name || null,
+        rider: row.rider?.id ? { name: row.rider.name, phone: row.rider.phone } : null,
         items,
       };
     });
@@ -92,11 +185,19 @@ export async function getLiveOrders() {
 
 export async function updateLiveOrderStatus(
   orderId: string,
+  currentVersion: number,
   newStatus: OrderStatus,
   etaMinutes?: number
 ) {
   const session = await requireManagerPermission("orders", "update");
   try {
+    const currentOrder = await db.query.orders.findFirst({ where: eq(orders.id, orderId) });
+    if (!currentOrder) throw new Error("Order not found");
+
+    if (!canTransition(currentOrder.status, newStatus)) {
+      throw new Error(`INVALID_STATE_TRANSITION: Cannot transition from ${currentOrder.status} to ${newStatus}`);
+    }
+
     const updatePayload: Partial<typeof orders.$inferInsert> = {
       status: newStatus,
       updatedAt: new Date(),
@@ -108,7 +209,14 @@ export async function updateLiveOrderStatus(
       updatePayload.estimatedReadyAt = eta;
     }
 
-    await db.update(orders).set(updatePayload).where(eq(orders.id, orderId));
+    const result = await db.update(orders)
+      .set({ ...updatePayload, orderVersion: sql`${orders.orderVersion} + 1` as any })
+      .where(and(eq(orders.id, orderId), eq(orders.orderVersion, currentVersion)))
+      .returning();
+      
+    if (result.length === 0) {
+      throw new Error("CONCURRENCY_CONFLICT: This order was modified by another user. Please refresh.");
+    }
     
     await logActivity(session.id, "Order Status Updated", "order", orderId, { newStatus, etaMinutes });
 
@@ -142,6 +250,7 @@ export async function updateOrderItemStatus(
 
 export async function appendItemsToOrder(
   orderId: string,
+  currentVersion: number,
   items: {
     menuItemId: string;
     variantId?: string | null;
@@ -193,13 +302,19 @@ export async function appendItemsToOrder(
       const newSubtotal = currentOrder.subtotal + additionalSubtotal;
       const newTotal = newSubtotal + currentOrder.deliveryFee - currentOrder.discountAmount;
 
-      await tx.update(orders)
+      const result = await tx.update(orders)
         .set({ 
           subtotal: newSubtotal, 
           totalAmount: newTotal,
-          updatedAt: new Date()
+          updatedAt: new Date(),
+          orderVersion: sql`${orders.orderVersion} + 1` as any
         })
-        .where(eq(orders.id, orderId));
+        .where(and(eq(orders.id, orderId), eq(orders.orderVersion, currentVersion)))
+        .returning();
+        
+      if (result.length === 0) {
+        throw new Error("CONCURRENCY_CONFLICT: This order was modified by another user. Please refresh.");
+      }
     });
 
     revalidatePath("/admin/orders");
@@ -210,10 +325,17 @@ export async function appendItemsToOrder(
   }
 }
 
-export async function markOrderPaid(orderId: string) {
+export async function markOrderPaid(orderId: string, currentVersion: number) {
   await requireManagerPermission("orders", "update");
   try {
-    await db.update(orders).set({ paymentStatus: "paid", updatedAt: new Date() }).where(eq(orders.id, orderId));
+    const result = await db.update(orders)
+      .set({ paymentStatus: "paid", updatedAt: new Date(), orderVersion: sql`${orders.orderVersion} + 1` as any })
+      .where(and(eq(orders.id, orderId), eq(orders.orderVersion, currentVersion)))
+      .returning();
+
+    if (result.length === 0) {
+      throw new Error("CONCURRENCY_CONFLICT: This order was modified by another user. Please refresh.");
+    }
     revalidatePath("/admin/orders");
     return { success: true };
   } catch (error) {
@@ -241,7 +363,7 @@ export async function getAvailableRiders() {
   }
 }
 
-export async function assignRiderToOrder(orderId: string, riderId: string) {
+export async function assignRiderToOrder(orderId: string, currentVersion: number, riderId: string) {
   await requireManagerPermission("orders", "update");
   try {
     // Fetch rider phone for WhatsApp link generation
@@ -249,10 +371,15 @@ export async function assignRiderToOrder(orderId: string, riderId: string) {
       where: eq(users.id, riderId),
     });
 
-    await db
+    const result = await db
       .update(orders)
-      .set({ riderId, updatedAt: new Date() })
-      .where(eq(orders.id, orderId));
+      .set({ riderId, updatedAt: new Date(), orderVersion: sql`${orders.orderVersion} + 1` as any })
+      .where(and(eq(orders.id, orderId), eq(orders.orderVersion, currentVersion)))
+      .returning();
+
+    if (result.length === 0) {
+      throw new Error("CONCURRENCY_CONFLICT: This order was modified by another user. Please refresh.");
+    }
 
     revalidatePath("/admin/orders");
 
@@ -494,6 +621,7 @@ export async function createManualOrder(payload: z.infer<typeof manualOrderSchem
 
 const addItemsSchema = z.object({
   orderId: z.string(),
+  currentVersion: z.number(),
   items: z.array(z.object({
     menuItemId: z.string(),
     variantId: z.string().optional().nullable(),
@@ -579,13 +707,19 @@ export async function addItemsToExistingOrder(data: z.infer<typeof addItemsSchem
       await db.insert(orderItems).values(oi);
     }
     
-    await db.update(orders)
+    const result = await db.update(orders)
       .set({ 
         subtotal: existingOrder.subtotal + newSubtotal,
         totalAmount: existingOrder.totalAmount + newSubtotal,
-        updatedAt: new Date()
+        updatedAt: new Date(),
+        orderVersion: sql`${orders.orderVersion} + 1` as any
       })
-      .where(eq(orders.id, validated.orderId));
+      .where(and(eq(orders.id, validated.orderId), eq(orders.orderVersion, validated.currentVersion)))
+      .returning();
+      
+    if (result.length === 0) {
+      throw new Error("CONCURRENCY_CONFLICT: This order was modified by another user. Please refresh.");
+    }
       
     revalidatePath("/admin/orders");
     return { success: true, orderId: validated.orderId };
@@ -596,10 +730,23 @@ export async function addItemsToExistingOrder(data: z.infer<typeof addItemsSchem
   }
 }
 
-export async function cancelLiveOrder(orderId: string) {
+export async function cancelLiveOrder(orderId: string, currentVersion: number) {
   const session = await requireManagerPermission("orders", "delete");
   try {
-    await db.update(orders).set({ status: "cancelled", updatedAt: new Date() }).where(eq(orders.id, orderId));
+    const currentOrder = await db.query.orders.findFirst({ where: eq(orders.id, orderId) });
+    if (!currentOrder) throw new Error("Order not found");
+    if (!canTransition(currentOrder.status, "cancelled")) {
+      throw new Error(`INVALID_STATE_TRANSITION: Cannot transition from ${currentOrder.status} to cancelled`);
+    }
+
+    const result = await db.update(orders)
+      .set({ status: "cancelled", updatedAt: new Date(), orderVersion: sql`${orders.orderVersion} + 1` as any })
+      .where(and(eq(orders.id, orderId), eq(orders.orderVersion, currentVersion)))
+      .returning();
+
+    if (result.length === 0) {
+      throw new Error("CONCURRENCY_CONFLICT: This order was modified by another user. Please refresh.");
+    }
     await logActivity(session.id, "Order Cancelled", "order", orderId);
     revalidatePath("/admin/orders");
     return { success: true };
@@ -609,10 +756,17 @@ export async function cancelLiveOrder(orderId: string) {
   }
 }
 
-export async function updateTableNumber(orderId: string, tableNumber: string) {
+export async function updateTableNumber(orderId: string, currentVersion: number, tableNumber: string) {
   const session = await requireManagerPermission("orders", "update");
   try {
-    await db.update(orders).set({ tableNumber, updatedAt: new Date() }).where(eq(orders.id, orderId));
+    const result = await db.update(orders)
+      .set({ tableNumber, updatedAt: new Date(), orderVersion: sql`${orders.orderVersion} + 1` as any })
+      .where(and(eq(orders.id, orderId), eq(orders.orderVersion, currentVersion)))
+      .returning();
+      
+    if (result.length === 0) {
+      throw new Error("CONCURRENCY_CONFLICT: This order was modified by another user. Please refresh.");
+    }
     await logActivity(session.id, "Order Table Updated", "order", orderId, { tableNumber });
     revalidatePath("/admin/orders");
     return { success: true };
@@ -622,7 +776,7 @@ export async function updateTableNumber(orderId: string, tableNumber: string) {
   }
 }
 
-export async function removeOrderItem(orderId: string, itemId: string) {
+export async function removeOrderItem(orderId: string, currentVersion: number, itemId: string) {
   const session = await requireManagerPermission("orders", "update");
   try {
     const existingOrderArr = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
@@ -648,13 +802,19 @@ export async function removeOrderItem(orderId: string, itemId: string) {
       const newSubtotal = Math.max(0, order.subtotal - item.subtotal);
       const newTotalAmount = Math.max(0, newSubtotal + (order.deliveryFee ?? 0) - (order.discountAmount ?? 0));
 
-      await tx.update(orders)
+      const result = await tx.update(orders)
         .set({ 
           subtotal: newSubtotal,
           totalAmount: newTotalAmount,
-          updatedAt: new Date()
+          updatedAt: new Date(),
+          orderVersion: sql`${orders.orderVersion} + 1` as any
         })
-        .where(eq(orders.id, orderId));
+        .where(and(eq(orders.id, orderId), eq(orders.orderVersion, currentVersion)))
+        .returning();
+        
+      if (result.length === 0) {
+        throw new Error("CONCURRENCY_CONFLICT: This order was modified by another user. Please refresh.");
+      }
     });
     
     await logActivity(session.id, "Order Item Removed", "order", orderId, { itemId });

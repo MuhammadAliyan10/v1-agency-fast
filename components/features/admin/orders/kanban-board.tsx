@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, focusManager } from "@tanstack/react-query";
 import {
   DndContext,
   DragOverlay,
@@ -14,8 +14,8 @@ import {
   DragEndEvent,
 } from "@dnd-kit/core";
 import { SortableContext, arrayMove, horizontalListSortingStrategy } from "@dnd-kit/sortable";
-import { useState, useMemo, useEffect, useRef } from "react";
-import { getLiveOrders, updateLiveOrderStatus, OrderStatus, LiveOrder } from "@/server/actions/live-orders";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { getLiveOrders, updateLiveOrderStatus, OrderStatus, LiveOrderProjection } from "@/server/actions/live-orders";
 import { KanbanColumn } from "./kanban-column";
 import { KanbanCard } from "./kanban-card";
 import { ManualOrderDialog } from "./manual-order-dialog";
@@ -49,7 +49,7 @@ export function LiveOrdersBoard({ role }: LiveOrdersBoardProps) {
   const columns = isKitchen ? KITCHEN_COLUMNS : ADMIN_COLUMNS;
   
   const queryClient = useQueryClient();
-  const [activeOrder, setActiveOrder] = useState<LiveOrder | null>(null);
+  const [activeOrder, setActiveOrder] = useState<LiveOrderProjection | null>(null);
   const [isMuted, setIsMuted] = useState(false);
   const [etaDialog, setEtaDialog] = useState<{ isOpen: boolean; orderId: string | null; newStatus: OrderStatus | null; minutes: string }>({
     isOpen: false,
@@ -61,11 +61,23 @@ export function LiveOrdersBoard({ role }: LiveOrdersBoardProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
 
-  // Fetch orders with polling (handled by query-provider defaults)
+  // Fetch orders with polling
   const { data: result, isLoading } = useQuery({
     queryKey: ["live-orders"],
     queryFn: () => getLiveOrders(),
+    refetchInterval: 5000, // Explicitly configure polling interval
   });
+
+  // Pause polling when tab is hidden to save DB connections
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      focusManager.setFocused(document.visibilityState === 'visible');
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, []);
 
   const orders = result?.data || [];
 
@@ -107,8 +119,8 @@ export function LiveOrdersBoard({ role }: LiveOrdersBoardProps) {
 
   // Optimistic UI mutation
   const updateStatusMutation = useMutation({
-    mutationFn: ({ id, status, etaMinutes }: { id: string; status: OrderStatus; etaMinutes?: number }) =>
-      updateLiveOrderStatus(id, status, etaMinutes),
+    mutationFn: ({ id, currentVersion, status, etaMinutes }: { id: string; currentVersion: number; status: OrderStatus; etaMinutes?: number }) =>
+      updateLiveOrderStatus(id, currentVersion, status, etaMinutes),
     onMutate: async (newOrder) => {
       await queryClient.cancelQueries({ queryKey: ["live-orders"] });
       const previous = queryClient.getQueryData(["live-orders"]);
@@ -117,16 +129,23 @@ export function LiveOrdersBoard({ role }: LiveOrdersBoardProps) {
         if (!old?.data) return old;
         return {
           ...old,
-          data: old.data.map((o: LiveOrder) =>
+          data: old.data.map((o: LiveOrderProjection) =>
             o.id === newOrder.id ? { ...o, status: newOrder.status } : o
           ),
         };
       });
       return { previous };
     },
-    onError: (err, newOrder, context) => {
+    onError: (err: any, newOrder, context) => {
       queryClient.setQueryData(["live-orders"], context?.previous);
-      toast.error("Failed to update status");
+      if (err.message && err.message.includes("CONCURRENCY_CONFLICT")) {
+        toast.error("Order was modified by someone else. Refreshing...");
+      } else if (err.message && err.message.includes("INVALID_STATE_TRANSITION")) {
+        toast.error(err.message);
+      } else {
+        toast.error("Failed to update status");
+      }
+      queryClient.invalidateQueries({ queryKey: ["live-orders"] });
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["live-orders"] });
@@ -139,7 +158,7 @@ export function LiveOrdersBoard({ role }: LiveOrdersBoardProps) {
     useSensor(KeyboardSensor)
   );
 
-  const handleStatusChange = (orderId: string, newStatus: OrderStatus) => {
+  const handleStatusChange = useCallback((orderId: string, newStatus: OrderStatus) => {
     const order = orders.find(o => o.id === orderId);
     if (!order) return;
 
@@ -149,15 +168,19 @@ export function LiveOrdersBoard({ role }: LiveOrdersBoardProps) {
       return;
     }
 
-    updateStatusMutation.mutate({ id: orderId, status: newStatus });
-  };
+    updateStatusMutation.mutate({ id: orderId, currentVersion: order.orderVersion, status: newStatus });
+  }, [orders, updateStatusMutation]);
 
   const submitEtaDialog = () => {
     if (!etaDialog.orderId || !etaDialog.newStatus) return;
     const mins = parseInt(etaDialog.minutes, 10);
     
+    const order = orders.find(o => o.id === etaDialog.orderId);
+    if (!order) return;
+
     updateStatusMutation.mutate({ 
       id: etaDialog.orderId, 
+      currentVersion: order.orderVersion,
       status: etaDialog.newStatus, 
       etaMinutes: isNaN(mins) ? undefined : mins 
     });

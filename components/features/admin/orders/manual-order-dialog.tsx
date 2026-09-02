@@ -354,6 +354,7 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
         if (existingOrder) {
           const payload = {
             orderId: existingOrder.id,
+            currentVersion: existingOrder.orderVersion,
             items: data.items.map(c => ({
               menuItemId: c.menuItemId,
               variantId: c.variantId,
@@ -764,7 +765,7 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
                     const hasVariants = menuData?.variants.some(v => v.menuItemId === item.id);
                     const hasAddOns = menuData?.addOns.some(a => a.menuItemId === item.id);
                     // Find quantity of this item in the cart to show a quick badge
-                    const cartQty = cart.filter(c => c.menuItemId === item.id).reduce((sum, c) => sum + (c.quantity || 0), 0);
+                    const cartQty = items.filter(c => c.menuItemId === item.id).reduce((sum, c) => sum + (c.quantity || 0), 0);
 
                     return (
                       <button 

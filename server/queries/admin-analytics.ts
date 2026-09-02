@@ -140,6 +140,7 @@ export async function getRecentOrders(limit = 5): Promise<RecentOrderSummary[]> 
       source: orders.source,
       orderType: orders.orderType,
       status: orders.status,
+      orderVersion: orders.orderVersion,
       createdAt: orders.createdAt,
     })
     .from(orders)

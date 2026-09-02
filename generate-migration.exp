@@ -1,0 +1,18 @@
+#!/usr/bin/expect -f
+set timeout -1
+spawn npx drizzle-kit generate
+expect {
+    -re ".*drop.*" {
+        send "y\r"
+        exp_continue
+    }
+    -re ".*column\\?.*" {
+        send "\r"
+        exp_continue
+    }
+    -re ".*want to.*" {
+        send "\r"
+        exp_continue
+    }
+    eof
+}

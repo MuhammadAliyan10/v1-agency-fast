@@ -29,16 +29,7 @@ export async function submitOrder(data: CheckoutValues, cartItems: CartItem[], i
       return { success: false, error: "The restaurant is currently closed. We are not accepting new orders at this time." };
     }
 
-    // Check Idempotency Key first
-    const existingOrder = await db.query.orders.findFirst({
-      where: eq(orders.idempotencyKey, idempotencyKey),
-    });
-
-    if (existingOrder) {
-      return { success: true, orderId: existingOrder.id };
-    }
-
-    // 2. Server-side validation of prices
+    // Server-side validation of prices
     const menuItemIds = [...new Set(cartItems.map((item) => item.menuItemId))];
     
     const dbMenuItems = await db.select().from(menuItems).where(inArray(menuItems.id, menuItemIds));
@@ -158,7 +149,21 @@ export async function submitOrder(data: CheckoutValues, cartItems: CartItem[], i
     revalidatePath("/admin/orders");
 
     return { success: true, orderId };
-  } catch (error) {
+  } catch (error: any) {
+    const isDuplicate = 
+      error.code === "23505" || 
+      error.message?.includes("duplicate key") ||
+      error.cause?.code === "23505";
+      
+    if (isDuplicate) {
+      const existingOrder = await db.query.orders.findFirst({
+        where: eq(orders.idempotencyKey, idempotencyKey)
+      });
+      if (existingOrder) {
+        return { success: true, orderId: existingOrder.id, isDuplicate: true };
+      }
+    }
+
     console.error("Checkout submission error:", error);
     return { success: false, error: "Failed to process order. Please try again." };
   }

@@ -35,6 +35,7 @@ export interface RecentOrderSummary {
   source: Order["source"];
   orderType: Order["orderType"];
   status: OrderStatus;
+  orderVersion: number;
   createdAt: Date;
 }
 

@@ -2,14 +2,14 @@
 
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { LiveOrder } from "@/server/actions/live-orders";
+import { LiveOrderProjection } from "@/server/actions/live-orders";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow, format } from "date-fns";
 import { Clock, MessageCircle, MapPin, Printer, Plus, UtensilsCrossed, User, Phone, Bike, ShoppingBag, Receipt, CircleCheck, AlertCircle, Banknote, MapPinned, UserCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { OrderStatus } from "@/server/actions/live-orders";
 import { ManualOrderDialog } from "./manual-order-dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -24,7 +24,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface KanbanCardProps {
-  order: LiveOrder;
+  order: LiveOrderProjection;
   role: "admin" | "manager" | "kitchen" | "cashier";
   isOverlay?: boolean;
   borderColor?: string;
@@ -57,7 +57,7 @@ function formatPhone(phone: string | null) {
   return phone;
 }
 
-export function KanbanCard({ order, role, isOverlay, borderColor = "border-border", onStatusChange }: KanbanCardProps) {
+export const KanbanCard = React.memo(function KanbanCard({ order, role, isOverlay, borderColor = "border-border", onStatusChange }: KanbanCardProps) {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isTableEditing, setIsTableEditing] = useState(false);
   const [editTableValue, setEditTableValue] = useState(order.tableNumber || "");
@@ -76,7 +76,7 @@ export function KanbanCard({ order, role, isOverlay, borderColor = "border-borde
   });
 
   const cancelMutation = useMutation({
-    mutationFn: (id: string) => cancelLiveOrder(id),
+    mutationFn: (id: string) => cancelLiveOrder(id, order.orderVersion),
     onMutate: async (id) => {
       await queryClient.cancelQueries({ queryKey: ["live-orders"] });
       const previousOrders = queryClient.getQueryData(["live-orders"]);
@@ -89,9 +89,14 @@ export function KanbanCard({ order, role, isOverlay, borderColor = "border-borde
       });
       return { previousOrders };
     },
-    onError: (err, id, context) => {
+    onError: (err: any, id, context) => {
       queryClient.setQueryData(["live-orders"], context?.previousOrders);
-      toast.error("Failed to cancel order");
+      if (err.message && err.message.includes("CONCURRENCY_CONFLICT")) {
+        toast.error("Order was modified by someone else. Refreshing...");
+      } else {
+        toast.error("Failed to cancel order");
+      }
+      queryClient.invalidateQueries({ queryKey: ["live-orders"] });
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["live-orders"] });
@@ -100,7 +105,7 @@ export function KanbanCard({ order, role, isOverlay, borderColor = "border-borde
   });
 
   const markPaidMutation = useMutation({
-    mutationFn: (id: string) => markOrderPaid(id),
+    mutationFn: (id: string) => markOrderPaid(id, order.orderVersion),
     onMutate: async (id) => {
       await queryClient.cancelQueries({ queryKey: ["live-orders"] });
       const previousOrders = queryClient.getQueryData(["live-orders"]);
@@ -113,9 +118,14 @@ export function KanbanCard({ order, role, isOverlay, borderColor = "border-borde
       });
       return { previousOrders };
     },
-    onError: (err, id, context) => {
+    onError: (err: any, id, context) => {
       queryClient.setQueryData(["live-orders"], context?.previousOrders);
-      toast.error("Failed to mark as paid");
+      if (err.message && err.message.includes("CONCURRENCY_CONFLICT")) {
+        toast.error("Order was modified by someone else. Refreshing...");
+      } else {
+        toast.error("Failed to mark as paid");
+      }
+      queryClient.invalidateQueries({ queryKey: ["live-orders"] });
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["live-orders"] });
@@ -123,7 +133,7 @@ export function KanbanCard({ order, role, isOverlay, borderColor = "border-borde
   });
 
   const voidItemMutation = useMutation({
-    mutationFn: ({ orderId, itemId }: { orderId: string, itemId: string }) => removeOrderItem(orderId, itemId),
+    mutationFn: ({ orderId, itemId }: { orderId: string, itemId: string }) => removeOrderItem(orderId, order.orderVersion, itemId),
     onMutate: async ({ orderId, itemId }) => {
       await queryClient.cancelQueries({ queryKey: ["live-orders"] });
       const previousOrders = queryClient.getQueryData(["live-orders"]);
@@ -147,9 +157,14 @@ export function KanbanCard({ order, role, isOverlay, borderColor = "border-borde
       });
       return { previousOrders };
     },
-    onError: (err, variables, context) => {
+    onError: (err: any, variables, context) => {
       queryClient.setQueryData(["live-orders"], context?.previousOrders);
-      toast.error("Failed to void item");
+      if (err.message && err.message.includes("CONCURRENCY_CONFLICT")) {
+        toast.error("Order was modified by someone else. Refreshing...");
+      } else {
+        toast.error("Failed to void item");
+      }
+      queryClient.invalidateQueries({ queryKey: ["live-orders"] });
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["live-orders"] });
@@ -157,7 +172,7 @@ export function KanbanCard({ order, role, isOverlay, borderColor = "border-borde
   });
 
   const updateTableMutation = useMutation({
-    mutationFn: ({ orderId, tableNumber }: { orderId: string, tableNumber: string }) => updateTableNumber(orderId, tableNumber),
+    mutationFn: ({ orderId, tableNumber }: { orderId: string, tableNumber: string }) => updateTableNumber(orderId, order.orderVersion, tableNumber),
     onMutate: async ({ orderId, tableNumber }) => {
       await queryClient.cancelQueries({ queryKey: ["live-orders"] });
       const previousOrders = queryClient.getQueryData(["live-orders"]);
@@ -976,7 +991,17 @@ export function KanbanCard({ order, role, isOverlay, borderColor = "border-borde
     </div>
     </>
   );
-}
+}, (prevProps, nextProps) => {
+  return (
+    prevProps.order.status === nextProps.order.status &&
+    prevProps.order.paymentStatus === nextProps.order.paymentStatus &&
+    prevProps.order.updatedAt?.getTime() === nextProps.order.updatedAt?.getTime() &&
+    prevProps.order.items.length === nextProps.order.items.length &&
+    prevProps.isOverlay === nextProps.isOverlay &&
+    prevProps.role === nextProps.role &&
+    prevProps.borderColor === nextProps.borderColor
+  );
+});
 
 function LiveTime({ date }: { date: Date | string }) {
   const [timeStr, setTimeStr] = useState("");

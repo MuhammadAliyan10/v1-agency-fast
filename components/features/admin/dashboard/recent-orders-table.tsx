@@ -90,7 +90,7 @@ export function RecentOrdersTable({ data }: RecentOrdersTableProps) {
 
                 const handleUpdateStatus = (newStatus: OrderStatus) => {
                   startTransition(async () => {
-                    const result = await updateLiveOrderStatus(order.id, newStatus);
+                    const result = await updateLiveOrderStatus(order.id, order.orderVersion, newStatus);
                     if (result.success) {
                       toast.success(`Order #${order.id} marked as ${newStatus}`);
                       router.refresh();
