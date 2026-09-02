@@ -413,6 +413,8 @@ export const orders = pgTable(
     checkoutSessionId: varchar("checkout_session_id", { length: 100 }).unique(),
     createdAt:         timestamp("created_at").defaultNow(),
     updatedAt:         timestamp("updated_at").defaultNow(),
+    voidReason:        varchar("void_reason", { length: 255 }),
+    isWaste:           boolean("is_waste").default(false).notNull(),
   },
   (table) => ({
     statusIdx:        index("orders_status_idx").on(table.status),
@@ -637,4 +639,32 @@ export const inventoryItemsRelations = relations(inventoryItems, ({ many }) => (
 
 export const inventoryTransactionsRelations = relations(inventoryTransactions, ({ one }) => ({
   inventoryItem: one(inventoryItems, { fields: [inventoryTransactions.inventoryItemId], references: [inventoryItems.id] }),
+}));
+
+export const shiftStatusEnum = pgEnum("shift_status", ["open", "closed"]);
+
+export const registerShifts = pgTable(
+  "register_shifts",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    openedById: uuid("opened_by_id").references(() => users.id, { onDelete: "restrict" }).notNull(),
+    closedById: uuid("closed_by_id").references(() => users.id, { onDelete: "set null" }),
+    openedAt: timestamp("opened_at").defaultNow().notNull(),
+    closedAt: timestamp("closed_at"),
+    startingFloat: integer("starting_float").default(0).notNull(),
+    expectedCash: integer("expected_cash").default(0).notNull(),
+    actualCash: integer("actual_cash"),
+    variance: integer("variance"),
+    status: shiftStatusEnum("status").default("open").notNull(),
+    notes: text("notes"),
+  },
+  (table) => ({
+    statusIdx: index("register_shifts_status_idx").on(table.status),
+    openedAtIdx: index("register_shifts_opened_at_idx").on(table.openedAt),
+  })
+);
+
+export const registerShiftsRelations = relations(registerShifts, ({ one }) => ({
+  openedBy: one(users, { fields: [registerShifts.openedById], references: [users.id], relationName: "openedBy" }),
+  closedBy: one(users, { fields: [registerShifts.closedById], references: [users.id], relationName: "closedBy" }),
 }));

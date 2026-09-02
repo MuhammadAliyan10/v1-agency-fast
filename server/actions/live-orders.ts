@@ -4,6 +4,7 @@ import { db } from "@/database/db";
 import { orders, orderItems, users, menuItems, itemVariants, itemAddOns } from "@/database/schema";
 import { inArray, notInArray, eq, asc, desc, and, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
+import { registerShifts } from "@/database/schema";
 import { revalidatePath, unstable_noStore as noStore } from "next/cache";
 import { requireAdmin, requireManagerPermission } from "@/lib/auth/session";
 import { logActivity } from "@/server/actions/activity";
@@ -487,6 +488,15 @@ const manualOrderSchema = z.object({
 export async function createManualOrder(payload: z.infer<typeof manualOrderSchema>) {
   const session = await requireManagerPermission("orders", "create");
   try {
+    // Enforce open shift for POS orders (Dine-In, Pickup, Delivery created manually)
+    const activeShift = await db.query.registerShifts.findFirst({
+      where: eq(registerShifts.status, "open"),
+    });
+    
+    if (!activeShift) {
+      throw new Error("UNAUTHORIZED: Cannot create manual order without an open cash register shift.");
+    }
+
     const validated = manualOrderSchema.parse(payload);
     
     // Fetch live menu prices for security
@@ -730,7 +740,7 @@ export async function addItemsToExistingOrder(data: z.infer<typeof addItemsSchem
   }
 }
 
-export async function cancelLiveOrder(orderId: string, currentVersion: number) {
+export async function cancelLiveOrder(orderId: string, currentVersion: number, voidReason?: string, isWaste?: boolean) {
   const session = await requireManagerPermission("orders", "delete");
   try {
     const currentOrder = await db.query.orders.findFirst({ where: eq(orders.id, orderId) });
@@ -740,7 +750,13 @@ export async function cancelLiveOrder(orderId: string, currentVersion: number) {
     }
 
     const result = await db.update(orders)
-      .set({ status: "cancelled", updatedAt: new Date(), orderVersion: sql`${orders.orderVersion} + 1` as any })
+      .set({ 
+        status: "cancelled", 
+        updatedAt: new Date(), 
+        orderVersion: sql`${orders.orderVersion} + 1` as any,
+        voidReason: voidReason || null,
+        isWaste: isWaste || false
+      })
       .where(and(eq(orders.id, orderId), eq(orders.orderVersion, currentVersion)))
       .returning();
 

@@ -22,6 +22,7 @@ import { MoreVertical, Trash2, ArrowRightLeft } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { VoidReasonDialog } from "./void-reason-dialog";
 
 interface KanbanCardProps {
   order: LiveOrderProjection;
@@ -63,6 +64,9 @@ export const KanbanCard = React.memo(function KanbanCard({ order, role, isOverla
   const [editTableValue, setEditTableValue] = useState(order.tableNumber || "");
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [selectedTransferTableId, setSelectedTransferTableId] = useState("");
+  const [isVoidDialogOpen, setIsVoidDialogOpen] = useState(false);
+  const [voidTarget, setVoidTarget] = useState<{ type: "order" | "item", itemId?: string } | null>(null);
+
   const queryClient = useQueryClient();
 
   const { data: tablesData, isLoading: isTablesLoading } = useQuery({
@@ -76,7 +80,7 @@ export const KanbanCard = React.memo(function KanbanCard({ order, role, isOverla
   });
 
   const cancelMutation = useMutation({
-    mutationFn: (id: string) => cancelLiveOrder(id, order.orderVersion),
+    mutationFn: ({ id, reason, isWaste }: { id: string, reason: string, isWaste: boolean }) => cancelLiveOrder(id, order.orderVersion, reason, isWaste),
     onMutate: async (id) => {
       await queryClient.cancelQueries({ queryKey: ["live-orders"] });
       const previousOrders = queryClient.getQueryData(["live-orders"]);
@@ -133,7 +137,7 @@ export const KanbanCard = React.memo(function KanbanCard({ order, role, isOverla
   });
 
   const voidItemMutation = useMutation({
-    mutationFn: ({ orderId, itemId }: { orderId: string, itemId: string }) => removeOrderItem(orderId, order.orderVersion, itemId),
+    mutationFn: ({ orderId, itemId, reason, isWaste }: { orderId: string, itemId: string, reason: string, isWaste: boolean }) => removeOrderItem(orderId, order.orderVersion, itemId),
     onMutate: async ({ orderId, itemId }) => {
       await queryClient.cancelQueries({ queryKey: ["live-orders"] });
       const previousOrders = queryClient.getQueryData(["live-orders"]);
@@ -379,7 +383,10 @@ export const KanbanCard = React.memo(function KanbanCard({ order, role, isOverla
                           <AlertDialogCancel>Keep Order</AlertDialogCancel>
                           <AlertDialogAction 
                             className="bg-rose-600 hover:bg-rose-700 text-white"
-                            onClick={() => cancelMutation.mutate(order.id)}
+                            onClick={() => {
+                              setVoidTarget({ type: "order" });
+                              setIsVoidDialogOpen(true);
+                            }}
                           >
                             Yes, Cancel Order
                           </AlertDialogAction>
@@ -597,7 +604,10 @@ export const KanbanCard = React.memo(function KanbanCard({ order, role, isOverla
                                     <AlertDialogCancel>Cancel</AlertDialogCancel>
                                     <AlertDialogAction 
                                       className="bg-rose-600 hover:bg-rose-700 text-white"
-                                      onClick={() => voidItemMutation.mutate({ orderId: order.id, itemId: item.id })}
+                                      onClick={() => {
+                                        setVoidTarget({ type: "item", itemId: item.id });
+                                        setIsVoidDialogOpen(true);
+                                      }}
                                     >
                                       Void Item
                                     </AlertDialogAction>
@@ -989,6 +999,18 @@ export const KanbanCard = React.memo(function KanbanCard({ order, role, isOverla
         <div style={{ fontSize: "10px", marginTop: "4px" }}>Powered by AgencyFast</div>
       </div>
     </div>
+      <VoidReasonDialog
+        open={isVoidDialogOpen}
+        onOpenChange={setIsVoidDialogOpen}
+        isItemLevel={voidTarget?.type === "item"}
+        onConfirm={(reason, isWaste) => {
+          if (voidTarget?.type === "order") {
+            cancelMutation.mutate({ id: order.id, reason, isWaste });
+          } else if (voidTarget?.type === "item" && voidTarget.itemId) {
+            voidItemMutation.mutate({ orderId: order.id, itemId: voidTarget.itemId, reason, isWaste });
+          }
+        }}
+      />
     </>
   );
 }, (prevProps, nextProps) => {

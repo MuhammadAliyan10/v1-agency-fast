@@ -183,6 +183,13 @@
       "when": 1788348125069,
       "tag": "0025_chemical_shockwave",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1788348816486,
+      "tag": "0026_cooing_bloodstorm",
+      "breakpoints": true
     }
   ]
 }

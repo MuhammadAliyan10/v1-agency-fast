@@ -93,63 +93,68 @@ export function AppSidebar({ session }: { session: SessionPayload | null }) {
       </SidebarHeader>
 
       <SidebarContent className="px-2 group-data-[collapsible=icon]:px-0">
-        {Object.entries(adminNavConfig).map(([key, items]) => (
-          <SidebarGroup key={key} className="pt-3">
-            <SidebarGroupLabel className="text-[11px] font-medium text-muted-foreground/70 px-3 mb-0.5 capitalize">
-              {key === "Main" ? "Platform" : key}
-            </SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu className="gap-0.5">
-                {items.filter(item => {
-                  if (!session) return false;
-                  if (session.role === "admin") return true;
-                  if ((item as any).permission) {
-                    return session.permissions[(item as any).permission as keyof SessionPayload["permissions"]];
-                  }
-                  return true;
-                }).map((item) => {
-                  // Exact match for leaf routes to prevent parent/child bleeding
-                  // e.g. /admin/orders should NOT activate when on /admin/orders/history
-                  const hasChildren = items.some(
-                    (other) => other.url !== item.url && other.url.startsWith(item.url + "/")
-                  );
-                  const isActive = pathname === item.url || (hasChildren ? false : pathname.startsWith(item.url + "/"));
-                  return (
-                    <SidebarMenuItem key={item.title}>
-                      <SidebarMenuButton 
-                        asChild 
-                        isActive={isActive}
-                        className={`font-medium transition-colors  ${
-                          isActive 
-                            ? "bg-primary/10 text-primary hover:bg-primary/15" 
-                            : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
-                        }`}
-                      >
-                        <Link href={item.url} className="flex items-center gap-2.5">
-                          {/* @ts-ignore */}
-                          <item.icon className="w-4 h-4" />
-                          <span>{item.title}</span>
-                        </Link>
-                      </SidebarMenuButton>
-                      {item.url === "/admin/orders" ? (
-                        pendingOrdersCount > 0 && (
-                          <SidebarMenuBadge className="bg-primary !text-white px-1.5 py-0 text-[9px] font-bold">
-                            {pendingOrdersCount}
-                          </SidebarMenuBadge>
-                        )
-                      ) : (item as any).badge ? (
-                        <SidebarMenuBadge className="bg-primary !text-white px-1.5 py-0 text-[9px] font-bold">
-                          {(item as any).badge}
-                        </SidebarMenuBadge>
-                      ) : null}
-                    </SidebarMenuItem>
-                  );
-                })}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
+        {Object.entries(adminNavConfig).map(([key, items]) => {
+          const filteredItems = items.filter(item => {
+            if (!session) return false;
+            if (session.role === "admin") return true;
+            if ((item as any).permission) {
+              return session.permissions[(item as any).permission as keyof SessionPayload["permissions"]];
+            }
+            return true;
+          });
 
-        ))}
+          if (filteredItems.length === 0) return null;
+
+          return (
+            <SidebarGroup key={key} className="pt-3">
+              <SidebarGroupLabel className="text-[11px] font-medium text-muted-foreground/70 px-3 mb-0.5 capitalize">
+                {key === "Main" ? "Platform" : key}
+              </SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu className="gap-0.5">
+                  {filteredItems.map((item) => {
+                    // Exact match for leaf routes to prevent parent/child bleeding
+                    // e.g. /admin/orders should NOT activate when on /admin/orders/history
+                    const hasChildren = items.some(
+                      (other) => other.url !== item.url && other.url.startsWith(item.url + "/")
+                    );
+                    const isActive = pathname === item.url || (hasChildren ? false : pathname.startsWith(item.url + "/"));
+                    return (
+                      <SidebarMenuItem key={item.title}>
+                        <SidebarMenuButton 
+                          asChild 
+                          isActive={isActive}
+                          className={`font-medium transition-colors  ${
+                            isActive 
+                              ? "bg-primary/10 text-primary hover:bg-primary/15" 
+                              : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+                          }`}
+                        >
+                          <Link href={item.url} className="flex items-center gap-2.5">
+                            {/* @ts-ignore */}
+                            <item.icon className="w-4 h-4" />
+                            <span>{item.title}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                        {item.url === "/admin/orders" ? (
+                          pendingOrdersCount > 0 && (
+                            <SidebarMenuBadge className="bg-primary !text-white px-1.5 py-0 text-[9px] font-bold">
+                              {pendingOrdersCount}
+                            </SidebarMenuBadge>
+                          )
+                        ) : (item as any).badge ? (
+                          <SidebarMenuBadge className="bg-primary !text-white px-1.5 py-0 text-[9px] font-bold">
+                            {(item as any).badge}
+                          </SidebarMenuBadge>
+                        ) : null}
+                      </SidebarMenuItem>
+                    );
+                  })}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          );
+        })}
       </SidebarContent>
 
       <SidebarFooter className="border-t p-4 group-data-[collapsible=icon]:p-2">

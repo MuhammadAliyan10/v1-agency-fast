@@ -19,6 +19,7 @@ import { getLiveOrders, updateLiveOrderStatus, OrderStatus, LiveOrderProjection 
 import { KanbanColumn } from "./kanban-column";
 import { KanbanCard } from "./kanban-card";
 import { ManualOrderDialog } from "./manual-order-dialog";
+import { ShiftManager } from "../finance/shift-manager";
 import { toast } from "sonner";
 import { Loader2, Plus, Volume2, VolumeX, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -249,6 +250,7 @@ export function LiveOrdersBoard({ role }: LiveOrdersBoardProps) {
             description="Manage active orders and track kitchen operations" 
             className="mb-0"
           >
+            <ShiftManager />
             <ManualOrderDialog>
               <Button size="sm" className="gap-1.5 h-9 hidden sm:flex">
                 <Plus className="h-4 w-4" />
