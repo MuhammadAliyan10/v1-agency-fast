@@ -1,5 +1,6 @@
 "use server";
 
+import crypto from "crypto";
 import { db } from "@/database/db";
 import { orders, orderItems, users, menuItems, itemVariants, itemAddOns } from "@/database/schema";
 import { inArray, notInArray, eq, asc, desc, and, sql } from "drizzle-orm";
@@ -592,6 +593,7 @@ export async function createManualOrder(payload: z.infer<typeof manualOrderSchem
 
     await db.insert(orders).values({
       id: orderId,
+      trackingToken: crypto.randomUUID(),
       customerId,
       customerName: finalCustomerName,
       customerPhone: finalCustomerPhone,

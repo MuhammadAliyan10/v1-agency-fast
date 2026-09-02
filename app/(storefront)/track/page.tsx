@@ -18,8 +18,7 @@ export default function TrackSearchPage() {
     setIsSearching(true);
     const formattedId = orderId.trim().toUpperCase();
     
-    // Add "CC-" prefix if the user just typed numbers
-    const finalId = formattedId.startsWith("CC-") ? formattedId : `CC-${formattedId}`;
+    const finalId = formattedId;
     
     router.push(`/track/${finalId}`);
   };
@@ -29,7 +28,7 @@ export default function TrackSearchPage() {
       <div className="text-center mb-8">
         <h1 className="text-3xl md:text-5xl font-heading font-black tracking-tight mb-3 text-zinc-950">Track Your Order</h1>
         <p className="text-muted-foreground text-sm md:text-base font-medium">
-          Enter your Order ID below to see the live status of your meal.
+          Enter your Tracking Link or Token below to see the live status of your meal.
         </p>
       </div>
 
@@ -41,17 +40,17 @@ export default function TrackSearchPage() {
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400" />
             <Input 
-              placeholder="e.g. CC-12345 or 12345" 
+              placeholder="Enter tracking token..." 
               value={orderId}
               onChange={(e) => setOrderId(e.target.value)}
-              className="pl-12 h-14 md:h-16 text-base md:text-lg bg-zinc-50 border-transparent focus-visible:ring-2 focus-visible:ring-primary focus-visible:bg-white transition-all font-mono tracking-wide"
+              className="pl-12 h-14 md:h-16 text-base md:text-lg bg-zinc-50 border-transparent focus-visible:ring-2 focus-visible:ring-primary focus-visible:bg-white transition-all font-mono tracking-wide rounded-none"
               autoFocus
             />
           </div>
           <Button 
             type="submit" 
             disabled={!orderId.trim() || isSearching}
-            className="h-14 md:h-16 text-base md:text-lg font-bold shadow-xl shadow-primary/20 hover:shadow-primary/30 transition-all active:scale-[0.98]"
+            className="h-14 md:h-16 text-base md:text-lg font-bold shadow-xl shadow-primary/20 hover:shadow-primary/30 transition-all active:scale-[0.98] rounded-none"
           >
             {isSearching ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : null}
             {isSearching ? "Searching..." : "Track Now"}
@@ -59,7 +58,7 @@ export default function TrackSearchPage() {
         </form>
 
         <div className="mt-6 text-center text-xs md:text-sm text-zinc-500 font-medium">
-          <p>Find your Order ID on your receipt or confirmation screen.</p>
+          <p>Find your tracking link in your confirmation message or email.</p>
         </div>
       </div>
     </div>

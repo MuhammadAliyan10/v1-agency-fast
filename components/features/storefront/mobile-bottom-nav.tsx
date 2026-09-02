@@ -6,9 +6,10 @@ import { Home, UtensilsCrossed, MapPin, ShoppingBag } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCart } from "@/store/use-cart";
 import { useState, useEffect } from "react";
-import { CartSheet } from "./cart-sheet";
+import { CheckoutDrawer } from "./checkout-drawer";
+import { FloatingCart } from "./floating-cart";
 
-export function MobileBottomNav() {
+export function MobileBottomNav({ isOpen = true }: { isOpen?: boolean }) {
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -27,13 +28,14 @@ export function MobileBottomNav() {
   ];
 
   if (pathname.includes("/product/") || pathname.includes("/checkout")) {
-    return <CartSheet open={isCartOpen} onOpenChange={setIsCartOpen} />;
+    return <CheckoutDrawer open={isCartOpen} onOpenChange={setIsCartOpen} />;
   }
 
   return (
     <>
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-zinc-200 pb-safe shadow-[0_-4px_12px_rgba(0,0,0,0.03)] font-sans">
-        <div className="flex items-center justify-around h-16 px-2">
+      <FloatingCart onOpen={() => setIsCartOpen(true)} disabled={!isOpen} />
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-background border-t border-border pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_12px_rgba(0,0,0,0.03)] font-sans">
+        <div className="flex items-center justify-around h-[68px] px-2">
           {navItems.map((item) => {
             const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href + "/"));
             return (
@@ -41,33 +43,33 @@ export function MobileBottomNav() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors",
-                  isActive ? "text-primary" : "text-zinc-500 hover:text-zinc-900"
+                  "flex flex-col items-center justify-center w-full h-[68px] space-y-1 transition-colors min-h-[48px]",
+                  isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"
                 )}
               >
-                <item.icon className={cn("w-5 h-5", isActive && "fill-primary/10")} strokeWidth={isActive ? 2.5 : 2} />
-                <span className="text-[10px] font-semibold tracking-wide uppercase">{item.label}</span>
+                <item.icon className={cn("w-6 h-6", isActive && "fill-primary/10")} strokeWidth={isActive ? 2.5 : 2} />
+                <span className="text-[10px] font-semibold tracking-wide uppercase mt-1">{item.label}</span>
               </Link>
             );
           })}
           
           <button
             onClick={() => setIsCartOpen(true)}
-            className="flex flex-col items-center justify-center w-full h-full space-y-1 text-zinc-500 hover:text-zinc-900 transition-colors relative"
+            className="flex flex-col items-center justify-center w-full h-[68px] space-y-1 text-muted-foreground hover:text-foreground transition-colors relative min-h-[48px]"
           >
-            <div className="relative">
-              <ShoppingBag className="w-5 h-5" strokeWidth={2} />
+            <div className="relative mt-1">
+              <ShoppingBag className="w-6 h-6" strokeWidth={2} />
               {mounted && totalItems > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 h-4 w-4 flex items-center justify-center bg-primary text-primary-foreground text-[9px] font-bold">
+                <span className="absolute -top-1 -right-2 h-4 w-4 flex items-center justify-center bg-primary text-primary-foreground text-[10px] font-bold rounded-none">
                   {totalItems}
                 </span>
               )}
             </div>
-            <span className="text-[10px] font-semibold tracking-wide uppercase">Cart</span>
+            <span className="text-[10px] font-semibold tracking-wide uppercase mt-1">Cart</span>
           </button>
         </div>
       </div>
-      <CartSheet open={isCartOpen} onOpenChange={setIsCartOpen} />
+      <CheckoutDrawer open={isCartOpen} onOpenChange={setIsCartOpen} />
     </>
   );
 }

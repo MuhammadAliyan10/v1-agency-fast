@@ -39,10 +39,14 @@ export async function submitOrder(data: CheckoutValues, cartItems: CartItem[], i
     let calculatedSubtotal = 0;
     const orderItemsPayload: any[] = [];
 
-    // 3. Re-calculate total strictly based on DB records
+    // 3. Re-calculate total strictly based on DB records and perform JIT validation
     for (const item of cartItems) {
       const dbItem = dbMenuItems.find(i => i.id === item.menuItemId);
       if (!dbItem) throw new Error(`Menu item ${item.menuItemId} not found`);
+
+      if (dbItem.isAvailable === false) {
+        return { success: false, error: `CART_ITEM_UNAVAILABLE: ${dbItem.name} is no longer available.` };
+      }
 
       let unitPrice = dbItem.basePrice;
 
@@ -84,7 +88,21 @@ export async function submitOrder(data: CheckoutValues, cartItems: CartItem[], i
 
     // 4. Delivery fee: Rs. 0 for pickup
     const isPickup = parsed.data.orderType === "pickup";
-    const deliveryFee = isPickup ? 0 : STORE_CONSTANTS.DELIVERY_FEE;
+    let deliveryFee = 0;
+    let zoneName = "";
+    if (!isPickup && parsed.data.deliveryZone) {
+      const zone = STORE_CONSTANTS.DELIVERY_ZONES.find(z => z.id === parsed.data.deliveryZone);
+      if (zone) {
+        deliveryFee = zone.fee;
+        zoneName = zone.name;
+      } else {
+        deliveryFee = STORE_CONSTANTS.DELIVERY_FEE;
+      }
+    }
+
+    const fullAddress = isPickup 
+      ? null 
+      : `${parsed.data.deliveryAddress}${zoneName ? `, Area: ${zoneName}` : ""}`;
 
     // 5. Coupon validation and discount
     let discountAmount = 0;
@@ -106,19 +124,21 @@ export async function submitOrder(data: CheckoutValues, cartItems: CartItem[], i
 
     const totalAmount = calculatedSubtotal + deliveryFee - discountAmount;
 
-    // 6. Generate order ID
+    // 6. Generate order ID and tracking token
     const entropy = randomBytes(2).toString("hex").toUpperCase();
     const timestampStr = Date.now().toString().slice(-4);
     const orderId = `CC-${timestampStr}${entropy}`;
+    const trackingToken = crypto.randomUUID();
 
     // 7. Insert Order and Order Items atomically
     await db.transaction(async (tx) => {
       await tx.insert(orders).values({
         id: orderId,
+        trackingToken: trackingToken,
         customerName: parsed.data.customerName,
         customerPhone: parsed.data.customerPhone,
         orderType: parsed.data.orderType,
-        deliveryAddress: isPickup ? null : (parsed.data.deliveryAddress || null),
+        deliveryAddress: fullAddress,
         deliveryNotes: parsed.data.deliveryNotes || null,
         latitude: parsed.data.latitude || null,
         longitude: parsed.data.longitude || null,
@@ -148,7 +168,7 @@ export async function submitOrder(data: CheckoutValues, cartItems: CartItem[], i
 
     revalidatePath("/admin/orders");
 
-    return { success: true, orderId };
+    return { success: true, orderId, trackingToken };
   } catch (error: any) {
     const isDuplicate = 
       error.code === "23505" || 
@@ -160,7 +180,7 @@ export async function submitOrder(data: CheckoutValues, cartItems: CartItem[], i
         where: eq(orders.idempotencyKey, idempotencyKey)
       });
       if (existingOrder) {
-        return { success: true, orderId: existingOrder.id, isDuplicate: true };
+        return { success: true, orderId: existingOrder.id, trackingToken: existingOrder.trackingToken, isDuplicate: true };
       }
     }
 

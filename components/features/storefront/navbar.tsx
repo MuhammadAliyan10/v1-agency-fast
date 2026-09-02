@@ -19,15 +19,9 @@ import { usePathname } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
+import { AppDrawer } from "@/components/ui/app-drawer";
 import { useCart } from "@/store/use-cart";
-import { CartSheet } from "./cart-sheet";
+import { CheckoutDrawer } from "./checkout-drawer";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -57,18 +51,24 @@ export function Navbar() {
   }, []);
 
   useEffect(() => {
+    const container = document.getElementById("main-scroll-container");
+    if (!container) return;
+    
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 20);
+      setIsScrolled(container.scrollTop > 20);
     };
 
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
+    container.addEventListener("scroll", handleScroll, { passive: true });
+    return () => container.removeEventListener("scroll", handleScroll);
   }, []);
 
   const totalItems = getTotalItems();
 
   return (
-    <header className="sticky top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-md border-b border-zinc-200 font-sans">
+    <header className={cn(
+      "sticky top-0 left-0 right-0 z-50 font-sans transition-all duration-300",
+      isScrolled ? "bg-background/80 backdrop-blur-md border-b border-border" : "bg-transparent border-transparent"
+    )}>
       <nav className="mx-auto max-w-screen-2xl px-4 md:px-6">
         <div className="flex items-center justify-between h-16 md:h-20">
           
@@ -76,25 +76,24 @@ export function Navbar() {
           <div className="flex items-center gap-10">
             {/* Mobile Menu Toggle */}
             <div className="md:hidden">
-              <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
-                <SheetTrigger asChild>
-                  <Button variant="ghost" size="icon" className="hover:bg-zinc-100 text-zinc-950 -ml-2" aria-label="Open menu">
-                    <Menu className="w-5 h-5 transition-colors duration-300" />
-                  </Button>
-                </SheetTrigger>
-                <SheetContent side="left" className="w-[300px] border-zinc-200">
-                  <SheetHeader className="px-4">
-                    <SheetTitle className="font-serif text-2xl tracking-tighter text-left">
+              <Button onClick={() => setIsMobileMenuOpen(true)} variant="ghost" size="icon" className="hover:bg-zinc-100 text-zinc-950 -ml-2 min-h-[48px] min-w-[48px]" aria-label="Open menu">
+                <Menu className="w-6 h-6 transition-colors duration-300" />
+              </Button>
+              
+              <AppDrawer open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+                <div className="flex flex-col h-full bg-background pb-8">
+                  <div className="px-4 py-4 border-b border-border">
+                    <h2 className="font-serif text-2xl tracking-tighter text-left font-bold">
                       Classy Crave
-                    </SheetTitle>
-                  </SheetHeader>
-                  <nav className="mt-6 flex flex-col gap-4 px-4">
+                    </h2>
+                  </div>
+                  <nav className="mt-4 flex flex-col px-4 space-y-2">
                     <Link
                       href="/"
                       onClick={() => setIsMobileMenuOpen(false)}
                       className={cn(
-                        "text-sm uppercase tracking-widest transition-colors",
-                        pathname === "/" ? "text-zinc-950 font-bold" : "text-zinc-600 hover:text-zinc-950 font-semibold"
+                        "text-sm uppercase tracking-widest transition-colors min-h-[48px] flex items-center px-4 rounded-none",
+                        pathname === "/" ? "bg-primary/5 text-primary font-bold border-l-2 border-primary" : "text-muted-foreground hover:bg-muted font-semibold border-l-2 border-transparent"
                       )}
                     >
                       Home
@@ -113,26 +112,26 @@ export function Navbar() {
                           href={link.href}
                           onClick={() => setIsMobileMenuOpen(false)}
                           className={cn(
-                            "text-sm uppercase tracking-widest transition-colors",
-                            isActive ? "text-zinc-950 font-bold" : "text-zinc-600 hover:text-zinc-950 font-semibold"
+                            "text-sm uppercase tracking-widest transition-colors min-h-[48px] flex items-center px-4 rounded-none",
+                            isActive ? "bg-primary/5 text-primary font-bold border-l-2 border-primary" : "text-muted-foreground hover:bg-muted font-semibold border-l-2 border-transparent"
                           )}
                         >
                           {link.label}
                         </Link>
                       );
                     })}
-                    <div className="h-px bg-zinc-100 my-2 w-full" />
+                    <div className="h-px bg-border my-2 w-full" />
                     <Link
                       href="#"
                       onClick={() => setIsMobileMenuOpen(false)}
-                      className="text-sm uppercase tracking-widest text-zinc-600 hover:text-zinc-950 font-semibold flex items-center gap-2"
+                      className="text-sm uppercase tracking-widest text-muted-foreground hover:bg-muted font-semibold flex items-center gap-2 min-h-[48px] px-4 rounded-none border-l-2 border-transparent"
                     >
-                      <User className="h-4 w-4" />
+                      <User className="h-5 w-5" />
                       Login
                     </Link>
                   </nav>
-                </SheetContent>
-              </Sheet>
+                </div>
+              </AppDrawer>
             </div>
 
             {/* Desktop Navigation */}
@@ -171,7 +170,7 @@ export function Navbar() {
           </div>
 
           {/* Center: Brand */}
-          <div className="absolute left-1/2 -translate-x-1/2">
+          <div className="absolute left-1/2 -translate-x-1/2 flex items-center justify-center min-h-[48px] min-w-[48px]">
             <Link href="/" className="block">
               <span className="font-serif text-xl md:text-2xl tracking-wider transition-colors duration-300 text-zinc-950">
                 Classy Crave
@@ -184,20 +183,20 @@ export function Navbar() {
             <Button 
               variant="ghost" 
               size="icon" 
-              className="relative p-2 transition-colors duration-300 text-zinc-950 hover:bg-zinc-100 h-auto w-auto hidden md:inline-flex"
+              className="relative p-2 transition-colors duration-300 text-zinc-950 hover:bg-zinc-100 min-h-[48px] min-w-[48px] hidden md:inline-flex"
             >
-              <User className="h-5 w-5" />
+              <User className="h-6 w-6" />
             </Button>
             
             <Button 
               variant="ghost" 
               size="icon" 
-              className="relative p-2 transition-colors duration-300 text-zinc-950 hover:bg-zinc-100 h-auto w-auto"
+              className="relative p-2 transition-colors duration-300 text-zinc-950 hover:bg-zinc-100 min-h-[48px] min-w-[48px]"
               onClick={() => setIsCartOpen(true)}
             >
-              <ShoppingBag className="h-5 w-5" />
+              <ShoppingBag className="h-6 w-6" />
               {mounted && totalItems > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 h-4 w-4 flex items-center justify-center bg-primary text-primary-foreground text-[9px] font-bold">
+                <span className="absolute top-1.5 right-1.5 h-4 w-4 flex items-center justify-center bg-primary text-primary-foreground text-[10px] font-bold rounded-none">
                   {totalItems}
                 </span>
               )}
@@ -205,7 +204,7 @@ export function Navbar() {
           </div>
         </div>
       </nav>
-      <CartSheet open={isCartOpen} onOpenChange={setIsCartOpen} />
+      <CheckoutDrawer open={isCartOpen} onOpenChange={setIsCartOpen} />
     </header>
   );
 }

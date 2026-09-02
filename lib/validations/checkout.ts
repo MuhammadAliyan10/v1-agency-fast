@@ -12,6 +12,7 @@ export const checkoutSchema = z
       .string()
       .regex(/^03\d{9}$/, "Please enter a valid Pakistani number (e.g. 03001234567)"),
     deliveryAddress: z.string().optional(),
+    deliveryZone: z.string().optional(),
     deliveryNotes: z.string().optional(),
     latitude: z.number().optional(),
     longitude: z.number().optional(),
@@ -22,11 +23,18 @@ export const checkoutSchema = z
   })
   .superRefine((data, ctx) => {
     if (data.orderType === "delivery") {
+      if (!data.deliveryZone) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["deliveryZone"],
+          message: "Please select a delivery area",
+        });
+      }
       if (!data.deliveryAddress || data.deliveryAddress.trim().length < 5) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ["deliveryAddress"],
-          message: "Delivery address must be at least 5 characters",
+          message: "Complete address must be at least 5 characters",
         });
       }
     }

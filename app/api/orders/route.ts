@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import crypto from "crypto";
 import { db } from "@/database/db";
 import { eq, inArray } from "drizzle-orm";
 import { orders, orderItems, menuItems, itemVariants } from "@/database/schema";
@@ -97,6 +98,7 @@ export async function POST(req: Request) {
         .insert(orders)
         .values({
           id: orderCode,
+          trackingToken: crypto.randomUUID(),
           customerName: data.customerName,
           customerPhone: data.customerPhone,
           deliveryAddress: data.deliveryAddress,

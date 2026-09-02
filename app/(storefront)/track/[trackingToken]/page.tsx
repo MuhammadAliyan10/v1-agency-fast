@@ -2,6 +2,7 @@
 
 import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import { 
   CheckCircle2, 
   Clock, 
@@ -48,36 +49,32 @@ interface TrackingData {
   items: any[];
 }
 
-export default function TrackingPage({ params }: { params: Promise<{ orderId: string }> }) {
+export default function TrackingPage({ params }: { params: Promise<{ trackingToken: string }> }) {
   const router = useRouter();
   const resolvedParams = use(params);
-  const orderId = resolvedParams.orderId;
+  const trackingToken = resolvedParams.trackingToken;
   
-  const [data, setData] = useState<TrackingData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState("");
-
   const fetchStatus = async () => {
-    try {
-      const res = await getOrderTrackingStatus(orderId);
-      if (res.success && res.data) {
-        setData(res.data as TrackingData);
-      } else {
-        setError(res.error || "Order not found");
-      }
-    } catch (err) {
-      console.error(err);
-      setError("Failed to fetch order status");
-    } finally {
-      setIsLoading(false);
+    const res = await getOrderTrackingStatus(trackingToken);
+    if (res.success && res.data) {
+      return res.data as TrackingData;
     }
+    throw new Error(res.error || "Order not found");
   };
 
-  useEffect(() => {
-    fetchStatus();
-    const interval = setInterval(fetchStatus, 10000);
-    return () => clearInterval(interval);
-  }, [orderId]);
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["tracking", trackingToken],
+    queryFn: fetchStatus,
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      if (status === "delivered" || status === "cancelled" || status === "rejected") {
+        return false;
+      }
+      return 10000; // Poll every 10 seconds
+    },
+    refetchOnWindowFocus: true,
+    retry: 1,
+  });
 
   if (isLoading) {
     return (
@@ -95,10 +92,10 @@ export default function TrackingPage({ params }: { params: Promise<{ orderId: st
           <Clock className="w-10 h-10" />
         </div>
         <h2 className="text-3xl font-heading font-black mb-3">Order Not Found</h2>
-        <p className="text-muted-foreground text-lg mb-10 max-w-sm">{error}</p>
+        <p className="text-muted-foreground text-lg mb-10 max-w-sm">{error instanceof Error ? error.message : "Failed to load order"}</p>
         <button 
           onClick={() => router.push("/")}
-          className="text-primary hover:text-primary/80 font-bold border-b-2 border-primary pb-1 transition-colors"
+          className="text-primary hover:text-primary/80 font-bold border-b-2 border-primary pb-1 transition-colors rounded-none"
         >
           Return to Menu
         </button>
@@ -149,7 +146,7 @@ export default function TrackingPage({ params }: { params: Promise<{ orderId: st
         {/* Back Link */}
         <button 
           onClick={() => router.push("/")}
-          className="inline-flex items-center text-xs font-bold text-muted-foreground hover:text-primary transition-colors mb-6 group"
+          className="inline-flex items-center text-xs font-bold text-muted-foreground hover:text-primary transition-colors mb-6 group rounded-none"
         >
           <ChevronLeft className="w-3.5 h-3.5 mr-1 group-hover:-translate-x-1 transition-transform" /> 
           Back to Menu
@@ -241,7 +238,7 @@ export default function TrackingPage({ params }: { params: Promise<{ orderId: st
 
                       <div 
                         className={cn(
-                          "w-10 h-10  flex items-center justify-center shrink-0 border-2 transition-all duration-700 bg-white",
+                          "w-10 h-10  flex items-center justify-center shrink-0 border-2 transition-all duration-700 bg-white rounded-none",
                           isCompleted 
                             ? "border-green-500 text-green-500" 
                             : "border-border text-muted-foreground opacity-50",

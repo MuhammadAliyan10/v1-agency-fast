@@ -380,6 +380,7 @@ export const orders = pgTable(
   "orders",
   {
     id:                varchar("id", { length: 12 }).primaryKey(),
+    trackingToken:     varchar("tracking_token", { length: 50 }).notNull().unique(),
     customerId:        uuid("customer_id").references(() => users.id, { onDelete: "set null" }),
     riderId:           uuid("rider_id").references(() => users.id, { onDelete: "set null" }),
     // FK to the waiter/staff user who took the order (replaces plain waiterName string)

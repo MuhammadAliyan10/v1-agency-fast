@@ -1,11 +1,15 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
-import { Search } from "lucide-react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
+import { MenuItemCard } from "./menu-item-card";
+import { ProductDetailDrawer } from "./product-detail-drawer";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ProductCard } from "./product-card";
-import { ProductDialog } from "./product-dialog";
+import { useCartStore } from "@/lib/store/cart-store";
+import { toast } from "sonner";
 
 interface MenuItem {
   id: string;
@@ -14,6 +18,7 @@ interface MenuItem {
   basePrice: number;
   imageUrl: string | null;
   variants: any[];
+  isAvailable?: boolean;
 }
 
 interface Category {
@@ -25,115 +30,168 @@ interface Category {
 
 interface MenuClientProps {
   categories: Category[];
+  isStoreOpen?: boolean;
 }
 
-export function MenuClient({ categories }: MenuClientProps) {
-  const [searchQuery, setSearchQuery] = useState("");
+export function MenuClient({ categories, isStoreOpen = true }: MenuClientProps) {
   const [activeCategory, setActiveCategory] = useState<string>("all");
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  
+  const addItem = useCartStore(state => state.addItem);
 
-  const filteredCategories = useMemo(() => {
-    let filtered = categories;
+  // Filter categories and items based on search term
+  const validCategories = useMemo(() => {
+    const term = searchTerm.toLowerCase().trim();
+    
+    return categories.reduce((acc: Category[], category) => {
+      const matchedItems = category.items?.filter(item => 
+        item.name.toLowerCase().includes(term) || 
+        (item.description && item.description.toLowerCase().includes(term))
+      ) || [];
+      
+      // If category has matches, include it
+      if (matchedItems.length > 0) {
+        acc.push({ ...category, items: matchedItems });
+      }
+      return acc;
+    }, []);
+  }, [categories, searchTerm]);
 
-    // Filter by active category pill
-    if (activeCategory !== "all") {
-      filtered = filtered.filter(c => c.slug === activeCategory);
+  // Create refs for scroll spy
+  const categoryRefs = useRef<{ [key: string]: HTMLElement | null }>({});
+
+  const scrollToCategory = (slug: string) => {
+    setActiveCategory(slug);
+    const container = document.getElementById("main-scroll-container");
+    if (!container) return;
+
+    if (slug === "all") {
+      container.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
     }
-
-    // Filter by search query
-    if (searchQuery.trim() !== "") {
-      const lowerQuery = searchQuery.toLowerCase();
-      filtered = filtered.map(category => ({
-        ...category,
-        items: category.items.filter(item =>
-          item.name.toLowerCase().includes(lowerQuery) ||
-          (item.description?.toLowerCase().includes(lowerQuery))
-        )
-      })).filter(category => category.items.length > 0);
+    const element = categoryRefs.current[slug];
+    if (element) {
+      // Offset by navbar height + sticky header height (~180px with search)
+      const y = element.getBoundingClientRect().top + container.scrollTop - container.getBoundingClientRect().top - 180;
+      container.scrollTo({ top: y, behavior: 'smooth' });
     }
+  };
 
-    return filtered;
-  }, [categories, activeCategory, searchQuery]);
-
-  const flatItems = useMemo(() => {
-    return filteredCategories.flatMap(c =>
-      c.items.map(item => ({ ...item, categoryName: c.name }))
-    );
-  }, [filteredCategories]);
+  const handleQuickAdd = (item: any) => {
+    addItem({
+      id: item.id,
+      name: item.name,
+      price: item.basePrice || item.price,
+      quantity: 1,
+      options: { imageUrl: item.imageUrl }
+    });
+    toast.success("Added to cart");
+  };
 
   return (
-    <div className="flex flex-col md:flex-row w-full max-w-[1400px] mx-auto pb-24 md:pb-12 pt-8 px-4 md:px-8 gap-8">
-      {/* Left Sidebar (Fixed on Desktop) */}
-      <aside className="w-full md:w-[25%] shrink-0 flex flex-col gap-6 md:sticky md:top-[100px] md:h-[calc(100vh-120px)] overflow-y-auto pr-2 md:pr-4 scrollbar-hide">
+    <div className="w-full relative pb-[140px]">
+      {/* Sticky Header Group: Search + Categories */}
+      <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-md border-b border-border w-full shadow-sm">
+        
         {/* Search Bar */}
-        <div className="relative w-full">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            type="text"
-            placeholder="Search our menu..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 h-11 bg-muted/40 border-muted text-sm md:text-base shadow-sm focus-visible:ring-1 focus-visible:ring-primary focus-visible:border-primary transition-all placeholder:text-muted-foreground"
-          />
+        <div className="p-3 pb-0">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="Search for your favorite food..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-10 h-12 rounded-none bg-muted/50 border-border focus-visible:ring-primary focus-visible:ring-1"
+            />
+            {searchTerm && (
+              <button 
+                onClick={() => setSearchTerm("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* Category Filters (Keyword Pills) */}
-        <div className="flex flex-wrap gap-2 mt-6">
-          <button
-            onClick={() => setActiveCategory("all")}
-            className={cn(
-              "px-4 py-2  text-xs font-bold transition-all border",
-              activeCategory === "all"
-                ? "bg-zinc-900 border-zinc-900 text-white shadow-md"
-                : "bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50"
-            )}
-          >
-            All
-          </button>
-          {categories.map((category) => (
+        {/* Horizontal Category Nav */}
+        <ScrollArea className="w-full whitespace-nowrap">
+          <div className="flex w-max space-x-2 p-3">
             <button
-              key={category.id}
-              onClick={() => setActiveCategory(category.slug)}
+              onClick={() => scrollToCategory("all")}
               className={cn(
-                "px-4 py-2  text-xs font-bold transition-all border",
-                activeCategory === category.slug
-                  ? "bg-zinc-900 border-zinc-900 text-white shadow-md"
-                  : "bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50"
+                "px-4 py-2 text-sm font-bold transition-all border rounded-none min-h-[48px]",
+                activeCategory === "all"
+                  ? "bg-primary border-primary text-primary-foreground shadow-sm"
+                  : "bg-background border-border text-foreground hover:bg-muted"
               )}
             >
-              {category.name}
+              All
             </button>
-          ))}
-        </div>
-      </aside>
-
-      {/* Main Content Area (Products Grid) */}
-      <main className="w-full md:w-[75%]">
-        {flatItems.length === 0 ? (
-          <div className="px-4 py-24 text-center bg-zinc-50 rounded-[24px] border border-zinc-100 flex flex-col items-center justify-center">
-            <h3 className="text-xl font-bold text-zinc-950">No items found</h3>
-            <p className="text-sm text-zinc-500 mt-2 font-medium">Try adjusting your search or category filter.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-3 gap-2 md:gap-6">
-            {flatItems.map((item) => (
-              <ProductCard
-                key={item.id}
-                id={item.id}
-                name={item.name}
-                description={item.description || "Fresh, delicious, and made just for you with the finest ingredients."}
-                basePrice={item.basePrice || 500}
-                imageUrl={item.imageUrl || undefined}
-                categoryName={item.categoryName}
-                variants={item.variants?.length > 0 ? item.variants : undefined}
-                onCustomize={() => setSelectedItem(item)}
-              />
+            {validCategories.map((category) => (
+              <button
+                key={category.id}
+                onClick={() => scrollToCategory(category.slug)}
+                className={cn(
+                  "px-4 py-2 text-sm font-bold transition-all border rounded-none min-h-[48px]",
+                  activeCategory === category.slug
+                    ? "bg-primary border-primary text-primary-foreground shadow-sm"
+                    : "bg-background border-border text-foreground hover:bg-muted"
+                )}
+              >
+                {category.name}
+              </button>
             ))}
           </div>
-        )}
-      </main>
+          <ScrollBar orientation="horizontal" className="hidden" />
+        </ScrollArea>
+      </div>
 
-      <ProductDialog
+      {/* Menu Feed */}
+      <div className="flex flex-col w-full">
+        {validCategories.length === 0 ? (
+          <div className="p-12 text-center flex flex-col items-center justify-center">
+            <Search className="w-12 h-12 text-muted-foreground/30 mb-4" />
+            <h3 className="text-xl font-bold mb-2">No items found</h3>
+            <p className="text-muted-foreground mb-6 text-sm">
+              We couldn't find any matches for "{searchTerm}".
+            </p>
+            <Button onClick={() => setSearchTerm("")} className="rounded-none font-bold h-12 px-8">
+              Clear Search
+            </Button>
+          </div>
+        ) : (
+          validCategories.map((category, catIndex) => (
+            <section 
+              key={category.id} 
+              id={category.slug}
+              ref={(el) => { categoryRefs.current[category.slug] = el; }}
+              className="scroll-mt-[190px]"
+              style={{ contentVisibility: 'auto', containIntrinsicSize: 'auto 500px' }}
+            >
+              <div className="bg-muted/30 px-4 py-3 border-b border-border">
+                <h2 className="font-bold text-lg text-foreground tracking-tight">{category.name}</h2>
+              </div>
+              <div className="flex flex-col gap-3 p-3 bg-muted/10">
+                {category.items.map((item) => (
+                  <MenuItemCard
+                    key={item.id}
+                    item={{ ...item, isAvailable: isStoreOpen ? (item.isAvailable !== false) : false }}
+                    onAdd={handleQuickAdd}
+                    onCustomize={(item) => setSelectedItem(item)}
+                    priority={catIndex === 0}
+                  />
+                ))}
+              </div>
+            </section>
+          ))
+        )}
+      </div>
+
+      {/* Product Customization Drawer */}
+      <ProductDetailDrawer
         isOpen={!!selectedItem}
         item={selectedItem}
         onClose={() => setSelectedItem(null)}

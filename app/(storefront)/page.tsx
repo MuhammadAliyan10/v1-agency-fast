@@ -1,7 +1,9 @@
 import { getPublicMenu } from "@/server/actions/storefront";
 import { CategoryBento } from "@/components/features/storefront/category-bento";
 import { TrendingSection } from "@/components/features/storefront/trending-section";
+import { HowItWorks } from "@/components/features/storefront/how-it-works";
 import Image from "next/image";
+import Link from "next/link";
 
 export default async function StorefrontPage() {
   const { data } = await getPublicMenu();
@@ -11,10 +13,9 @@ export default async function StorefrontPage() {
 
   return (
     <div className="flex flex-col w-full">
-      {/* Hero Section */}
       <section className="w-[100vw] h-[55vh] md:h-[70vh] relative left-1/2 -translate-x-1/2">
-        <div className="absolute inset-0 bg-black/50 z-10 flex flex-col items-center justify-center text-center px-4 md:px-6">
-          <div className="max-w-4xl mt-12 md:mt-16 w-full">
+        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent z-10 flex flex-col justify-end pb-12 md:pb-16 items-center text-center px-4 md:px-6">
+          <div className="max-w-4xl w-full">
             <span className="text-white font-mono uppercase tracking-[0.2em] text-[10px] md:text-sm mb-3 md:mb-4 block drop-shadow-md">
               SILLANWALI'S FINEST • EST. 2024
             </span>
@@ -25,9 +26,9 @@ export default async function StorefrontPage() {
               Premium fast food, crafted for the extraordinary craving.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 md:gap-4 px-4 w-full sm:w-auto">
-              <a href="/menu" className="w-full sm:w-auto inline-flex items-center justify-center h-12 md:h-14 px-8 md:px-10 bg-primary text-primary-foreground font-bold hover:bg-primary/90 transition-transform active:scale-95 shadow-xl font-sans tracking-wide uppercase text-xs md:text-sm">
+              <Link href="/menu" className="w-full sm:w-auto inline-flex items-center justify-center h-12 md:h-14 px-8 md:px-10 bg-primary text-primary-foreground font-bold hover:bg-primary/90 transition-transform active:scale-95 shadow-xl font-sans tracking-wide uppercase text-xs md:text-sm rounded-none">
                 Order Now
-              </a>
+              </Link>
             </div>
           </div>
         </div>
@@ -40,13 +41,13 @@ export default async function StorefrontPage() {
         />
       </section>
 
-      {/* Trending Section */}
       {categories.length > 0 && (
-        <TrendingSection categories={categories} />
+        <>
+          <TrendingSection categories={categories} />
+          <CategoryBento categories={categories} />
+          <HowItWorks />
+        </>
       )}
-
-      {/* Category Bento Grid */}
-      <CategoryBento categories={categories} />
 
       {/* Empty State */}
       {categories.length === 0 && (

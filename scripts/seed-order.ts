@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { db } from "../database/db";
 import { orders, menuItems, orderItems } from "../database/schema";
 
@@ -18,6 +19,7 @@ async function main() {
       
       await db.insert(orders).values({
         id: orderId,
+        trackingToken: crypto.randomUUID(),
         customerName: `Test User ${i + 1}`,
         customerPhone: `+92 300 123456${i}`,
         deliveryAddress: `${123 + i} Test Street, Lahore`,

@@ -1,4 +1,5 @@
 import { db } from "@/database/db";
+import crypto from "crypto";
 import { Client } from "@upstash/qstash";
 import { orders, orderItems, menuItems, whatsappSessions, orderStatusHistory, itemVariants, outboundMessages } from "@/database/schema";
 import { eq, inArray, sql } from "drizzle-orm";
@@ -103,6 +104,7 @@ export async function createOrderFromWhatsApp(phone: string, restaurantId: strin
 
     await tx.insert(orders).values({
       id: orderId,
+      trackingToken: crypto.randomUUID(),
       customerName,
       customerPhone: phone,
       orderType: "delivery",

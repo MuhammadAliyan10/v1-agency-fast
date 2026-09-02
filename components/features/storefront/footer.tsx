@@ -37,6 +37,12 @@ const TwitterIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+const WhatsAppIcon = ({ className }: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+  </svg>
+);
+
 const marqueeText = `PREMIUM FAST FOOD • EST. 2024 • FAST DELIVERY • Classy Crave • `;
 
 export function Footer() {
@@ -47,7 +53,7 @@ export function Footer() {
   }
 
   return (
-    <footer className="relative bg-zinc-950 text-white overflow-hidden font-sans">
+    <footer className="relative bg-zinc-950 text-white overflow-hidden font-sans pb-[calc(env(safe-area-inset-bottom)+140px)] md:pb-8">
       {/* 1. The Marquee */}
       <div className="border-b border-zinc-900 py-3 overflow-hidden">
         <motion.div
@@ -107,21 +113,21 @@ export function Footer() {
 
             <div className="flex items-center gap-6 pt-2">
               <Link
-                href="#"
+                href="/"
                 className="text-zinc-500 hover:text-white transition-colors"
                 aria-label="Instagram"
               >
                 <InstagramIcon className="h-5 w-5" />
               </Link>
               <Link
-                href="#"
+                href="/"
                 className="text-zinc-500 hover:text-white transition-colors"
-                aria-label="Twitter"
+                aria-label="WhatsApp"
               >
-                <TwitterIcon className="h-5 w-5" />
+                <WhatsAppIcon className="h-5 w-5" />
               </Link>
               <Link
-                href="#"
+                href="/"
                 className="text-zinc-500 hover:text-white transition-colors"
                 aria-label="TikTok"
               >
@@ -165,7 +171,7 @@ export function Footer() {
               {["Track Order", "Feedback", "Refund Policy", "FAQs"].map((item) => (
                 <li key={item}>
                   <Link
-                    href="#"
+                    href="/"
                     className="group flex items-center text-sm text-zinc-300 hover:text-white transition-colors"
                   >
                     <span className="group-hover:translate-x-1 transition-transform duration-300">

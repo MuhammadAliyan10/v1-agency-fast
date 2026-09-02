@@ -226,6 +226,7 @@
     font-feature-settings: "cv11", "ss01";
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    overscroll-behavior-y: none;
   }
 
   /* Cormorant Garamond heading treatment */
@@ -244,6 +245,13 @@
    UTILITY CLASSES
    ───────────────────────────────────────────────────────────── */
 @layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
   /* Cognac amber utilities */
   .text-amber-crave {
     color: oklch(0.72 0.14 52);
