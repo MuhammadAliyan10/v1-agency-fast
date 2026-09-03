@@ -116,6 +116,39 @@ export async function sendWhatsAppInteractiveButtons(
   });
 }
 
+export async function sendWhatsAppItemCard(
+  to: string,
+  title: string,
+  price: number,
+  imageUrl: string,
+  itemId: string,
+  buttonTitle: string = "View Details"
+) {
+  return sendWhatsAppMessage(to, {
+    type: "interactive",
+    interactive: {
+      type: "button",
+      header: {
+        type: "image",
+        image: {
+          link: imageUrl,
+        },
+      },
+      body: {
+        text: `*${title}*\nRs. ${price}`,
+      },
+      action: {
+        buttons: [
+          {
+            type: "reply",
+            reply: { id: `view_item_${itemId}`, title: buttonTitle.substring(0, 20) },
+          },
+        ],
+      },
+    },
+  });
+}
+
 export async function sendWhatsAppInteractiveList(
   to: string,
   text: string,

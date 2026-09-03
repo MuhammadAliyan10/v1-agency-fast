@@ -1,7 +1,7 @@
 import { db } from "@/database/db";
 import { whatsappSessions, menuItems, categories, itemVariants, orders, orderItems, deals, dealSlots, storeSettings } from "@/database/schema";
 import { eq, sql, inArray } from "drizzle-orm";
-import { sendWhatsAppText, sendWhatsAppInteractiveList, sendWhatsAppInteractiveButtons, sendWhatsAppImage, downloadWhatsAppMedia } from "./client";
+import { sendWhatsAppText, sendWhatsAppInteractiveList, sendWhatsAppInteractiveButtons, sendWhatsAppImage, downloadWhatsAppMedia, sendWhatsAppItemCard } from "./client";
 import { transcribeVoiceNote } from "./ai-helper";
 import { createOrderFromWhatsApp } from "@/server/actions/whatsapp-orders";
 
@@ -762,18 +762,33 @@ async function handleItemSelection(phone: string, session: any, input: string) {
     return;
   }
 
-  if (input.startsWith("item_")) {
-    const itemId = input.replace("item_", "");
+  if (input.startsWith("view_item_")) {
+    const itemId = input.replace("view_item_", "");
     const dbItem = await db.query.menuItems.findFirst({ where: eq(menuItems.id, itemId) });
     if (dbItem) matchedItem = dbItem;
+  } else if (input.startsWith("item_")) {
+    const itemId = input.replace("item_", "");
+    const dbItem = await db.query.menuItems.findFirst({ where: eq(menuItems.id, itemId) });
+    if (dbItem) {
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://agency-fast.vercel.app";
+      const imageUrl = dbItem.imageUrl || `${baseUrl}/Menu/Items.jpeg`;
+      await sendWhatsAppItemCard(phone, dbItem.name, dbItem.basePrice, imageUrl, dbItem.id, "Order Now");
+      return updateSessionState(session.id, "item_selection", session.cart, session.tempData);
+    }
   } else {
     // Fuzzy fallback (only if input is long enough to avoid false positives)
     if (input.length > 3) {
       const items = await db.select().from(menuItems).where(eq(menuItems.isAvailable, true));
-      matchedItem = items.find(i =>
+      const fuzzyMatch = items.find(i =>
         i.name.toLowerCase().includes(input) ||
         input.includes(i.name.toLowerCase())
       );
+      if (fuzzyMatch) {
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://agency-fast.vercel.app";
+        const imageUrl = fuzzyMatch.imageUrl || `${baseUrl}/Menu/Items.jpeg`;
+        await sendWhatsAppItemCard(phone, fuzzyMatch.name, fuzzyMatch.basePrice, imageUrl, fuzzyMatch.id, "Order Now");
+        return updateSessionState(session.id, "item_selection", session.cart, session.tempData);
+      }
     }
   }
 
