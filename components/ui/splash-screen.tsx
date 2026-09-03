@@ -117,7 +117,7 @@ export function SplashScreen() {
         {/* Logo Icon */}
         <div className="splash-logo" style={{ flexShrink: 0 }}>
           <Image
-            src="/Logo.png"
+            src="/logo.png"
             alt="Classy Crave"
             width={72}
             height={72}
