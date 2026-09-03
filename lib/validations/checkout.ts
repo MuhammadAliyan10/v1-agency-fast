@@ -16,7 +16,7 @@ export const checkoutSchema = z
     deliveryNotes: z.string().optional(),
     latitude: z.number().optional(),
     longitude: z.number().optional(),
-    paymentMethod: z.enum(["COD", "JazzCash", "EasyPaisa"], {
+    paymentMethod: z.enum(["COD", "JazzCash", "EasyPaisa", "Bank"], {
       message: "Please select a payment method",
     }),
     couponCode: z.string().optional(),

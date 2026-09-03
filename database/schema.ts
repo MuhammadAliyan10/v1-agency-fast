@@ -106,6 +106,7 @@ export const paymentMethodEnum = pgEnum("payment_method", [
   "Card",
   "JazzCash",
   "EasyPaisa",
+  "Bank",
 ]);
 
 export const paymentStatusEnum = pgEnum("payment_status", [

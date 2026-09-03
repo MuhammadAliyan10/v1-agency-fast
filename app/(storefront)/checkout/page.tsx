@@ -1,4 +1,5 @@
 "use client";
+import Image from "next/image";
 
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
@@ -310,14 +311,51 @@ export default function CheckoutPage() {
                           { value: "COD", label: "Cash on Delivery", desc: isDelivery ? "Pay when you receive" : "Pay at pickup" },
                           { value: "JazzCash", label: "JazzCash", desc: "Manual verification" },
                           { value: "EasyPaisa", label: "EasyPaisa", desc: "Manual verification" },
+                          { value: "Bank", label: "Bank Transfer", desc: "Manual verification" },
                         ].map(opt => (
-                          <FormItem key={opt.value} className="relative flex items-center gap-3 p-3 border border-zinc-100 cursor-pointer transition-all hover:bg-zinc-50 [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/5">
-                            <FormControl><RadioGroupItem value={opt.value} className="h-4 w-4" /></FormControl>
-                            <div className="flex flex-col cursor-pointer">
-                              <FormLabel className="font-bold text-zinc-950 cursor-pointer text-xs">{opt.label}</FormLabel>
-                              <span className="text-[10px] text-zinc-500 font-medium mt-0.5">{opt.desc}</span>
-                            </div>
-                          </FormItem>
+                          <div key={opt.value} className="flex flex-col gap-1">
+                            <FormItem className="relative flex items-center gap-3 p-3 border border-zinc-100 cursor-pointer transition-all hover:bg-zinc-50 [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/5">
+                              <FormControl><RadioGroupItem value={opt.value} className="h-4 w-4" /></FormControl>
+                              <div className="flex flex-col cursor-pointer w-full">
+                                <FormLabel className="font-bold text-zinc-950 cursor-pointer text-xs w-full">{opt.label}</FormLabel>
+                                <span className="text-[10px] text-zinc-500 font-medium mt-0.5">{opt.desc}</span>
+                              </div>
+                            </FormItem>
+                            {field.value === opt.value && opt.value === "JazzCash" && (
+                              <div className="p-3 ml-7 bg-muted text-sm text-muted-foreground border-l-4 border-primary space-y-1">
+                                <p><strong>Account Title:</strong> Classy Crave</p>
+                                <p className="flex items-center gap-2">
+                                  <strong>Account Number:</strong> <span className="font-mono">03001234567</span>
+                                  <button type="button" onClick={() => { navigator.clipboard.writeText("03001234567"); toast.success("Copied!"); }} className="text-muted-foreground hover:text-foreground">
+                                    <Copy className="w-3.5 h-3.5" />
+                                  </button>
+                                </p>
+                              </div>
+                            )}
+                            {field.value === opt.value && opt.value === "EasyPaisa" && (
+                              <div className="p-3 ml-7 bg-muted text-sm text-muted-foreground border-l-4 border-primary space-y-1">
+                                <p><strong>Account Title:</strong> Classy Crave</p>
+                                <p className="flex items-center gap-2">
+                                  <strong>Account Number:</strong> <span className="font-mono">03001234567</span>
+                                  <button type="button" onClick={() => { navigator.clipboard.writeText("03001234567"); toast.success("Copied!"); }} className="text-muted-foreground hover:text-foreground">
+                                    <Copy className="w-3.5 h-3.5" />
+                                  </button>
+                                </p>
+                              </div>
+                            )}
+                            {field.value === opt.value && opt.value === "Bank" && (
+                              <div className="p-3 ml-7 bg-muted text-sm text-muted-foreground border-l-4 border-primary space-y-1">
+                                <p><strong>Bank:</strong> Meezan Bank</p>
+                                <p><strong>Account Title:</strong> Classy Crave</p>
+                                <p className="flex items-center gap-2">
+                                  <strong>Account Number:</strong> <span className="font-mono">01234567890123</span>
+                                  <button type="button" onClick={() => { navigator.clipboard.writeText("01234567890123"); toast.success("Copied!"); }} className="text-muted-foreground hover:text-foreground">
+                                    <Copy className="w-3.5 h-3.5" />
+                                  </button>
+                                </p>
+                              </div>
+                            )}
+                          </div>
                         ))}
                       </RadioGroup>
                     </FormControl>
@@ -349,18 +387,31 @@ export default function CheckoutPage() {
 
             <div className="space-y-3 max-h-[35vh] overflow-y-auto no-scrollbar pr-1 mb-4">
               {items.map((item) => (
-                <div key={item.cartItemId} className="flex justify-between items-start gap-3">
-                  <div className="flex gap-2">
-                    <span className="font-bold text-xs shrink-0 text-zinc-950 bg-zinc-100 px-1.5 py-0.5">{item.quantity}x</span>
-                    <div>
-                      <p className="font-bold text-xs text-zinc-950 leading-snug">{item.name}</p>
-                      {item.variantName && <p className="text-[10px] text-zinc-500 font-medium mt-0.5">{item.variantName}</p>}
-                      {item.addOns && item.addOns.length > 0 && (
-                        <p className="text-[9px] text-zinc-400 mt-0.5">+ {item.addOns.map(a => a.name).join(", ")}</p>
-                      )}
+                <div key={item.cartItemId} className="flex gap-3 items-start">
+                  <div className="relative w-12 h-12 shrink-0 bg-zinc-100 overflow-hidden rounded-sm">
+                    {item.imageUrl ? (
+                      <Image src={item.imageUrl} alt={item.name} fill sizes="48px" className="object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <ShoppingBag className="w-4 h-4 text-zinc-400" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between items-start gap-2">
+                      <div>
+                        <p className="font-bold text-xs text-zinc-950 leading-snug">{item.name}</p>
+                        {item.variantName && <p className="text-[10px] text-zinc-500 font-medium mt-0.5">{item.variantName}</p>}
+                        {item.addOns && item.addOns.length > 0 && (
+                          <p className="text-[9px] text-zinc-400 mt-0.5">+ {item.addOns.map(a => a.name).join(", ")}</p>
+                        )}
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="font-black text-xs text-zinc-950 tracking-tight">{STORE_CONSTANTS.CURRENCY}{item.subtotal}</div>
+                        <span className="text-[10px] text-zinc-400">{item.quantity}×</span>
+                      </div>
                     </div>
                   </div>
-                  <div className="font-black text-xs shrink-0 text-zinc-950 tracking-tight">{STORE_CONSTANTS.CURRENCY}{item.subtotal}</div>
                 </div>
               ))}
             </div>
