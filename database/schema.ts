@@ -84,6 +84,7 @@ export const whatsappSessionStateEnum = pgEnum("whatsapp_session_state", [
   "human_handoff",
   "cancelled",
   "expired",
+  "session_reset_confirm",
 ]);
 
 export const whatsappMessageDirectionEnum = pgEnum("whatsapp_message_direction", [

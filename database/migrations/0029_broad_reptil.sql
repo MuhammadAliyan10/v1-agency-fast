@@ -1,0 +1,1 @@
+ALTER TYPE "public"."whatsapp_session_state" ADD VALUE 'session_reset_confirm';

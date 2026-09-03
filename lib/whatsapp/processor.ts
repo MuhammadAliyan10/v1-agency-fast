@@ -294,6 +294,27 @@ export async function processWhatsAppMessage(phone: string, message: any, contac
       return updateSessionState(session.id, "reorder_menu", [], session.tempData);
     }
 
+    // Check if user already has items in cart or an active order flow in progress
+    const hasActiveItemsOrSession = (session.cart && session.cart.length > 0) ||
+      ["category_selection", "item_selection", "cart_review", "checkout", "address_input", "name_input", "deal_builder", "macro_selection"].includes(session.state);
+
+    if (hasActiveItemsOrSession) {
+      const itemCount = (session.cart || []).length;
+      const promptMsg = session.language === "ur"
+        ? `Aapka ek order session pehle se chal raha hai${itemCount > 0 ? ` (${itemCount} item(s) cart mein hain)` : ""}. Kya aap ise continue karna chahenge ya naya order start karna chahenge?`
+        : `You have an active order session in progress${itemCount > 0 ? ` (${itemCount} item(s) in cart)` : ""}. Would you like to continue your current order or start a new session?`;
+
+      await sendWhatsAppInteractiveButtons(
+        phone,
+        promptMsg,
+        [
+          { id: "session_continue", title: "Continue Order" },
+          { id: "session_start_new", title: "Start New Session" }
+        ]
+      );
+      return updateSessionState(session.id, "session_reset_confirm", session.cart || [], session.tempData || {});
+    }
+
     const isFirstTime = (session.cart || []).length === 0 && Object.keys((session.tempData as any) || {}).length === 0;
     session.state = "greeting";
     session.cart = [];
@@ -429,6 +450,32 @@ export async function processWhatsAppMessage(phone: string, message: any, contac
         } else if (input === "use_new") {
           await sendWhatsAppText(phone, t("Great! Please reply with your full delivery address (e.g. House 12, Street 4, Sector F) OR tap the 📎 Attachment icon and share your Location.", session.language));
           return updateSessionState(session.id, "address_input", session.cart || [], session.tempData);
+        }
+        break;
+
+      case "session_reset_confirm":
+        if (input === "session_continue") {
+          const cartCount = (session.cart || []).length;
+          if (cartCount > 0) {
+            await sendWhatsAppInteractiveButtons(
+              phone,
+              session.language === "ur"
+                ? `Continuing your order! Aapke cart mein ${cartCount} item(s) hain.`
+                : `Continuing your order! You have ${cartCount} item(s) in your cart.`,
+              [
+                { id: "checkout", title: "Checkout Now" },
+                { id: "menu", title: "View Menu / Add Items" }
+              ]
+            );
+            return updateSessionState(session.id, "item_selection", session.cart || [], session.tempData);
+          } else {
+            return handleGreeting(phone, session, true);
+          }
+        } else if (input === "session_start_new") {
+          session.cart = [];
+          session.tempData = {};
+          await sendWhatsAppText(phone, session.language === "ur" ? "Naya session shuru kar diya gaya hai." : "Started a new session.");
+          return handleGreeting(phone, session, true);
         }
         break;
 

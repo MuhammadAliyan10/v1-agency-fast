@@ -13,7 +13,7 @@ import { useCart } from "@/store/use-cart";
 import { toast } from "sonner";
 import {
   ShoppingBag, CheckCircle2, Minus, Plus, Sparkles, Utensils,
-  Tag, Clock, ArrowRight, ChevronDown, ChevronUp
+  Clock, ArrowRight
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -77,7 +77,6 @@ function getSlotChoices(slot: DealSlot): DealMenuItem[] {
   if (!slot.category?.menuItems) return [];
   const required = slot.requiredVariantName?.trim().toLowerCase();
   if (!required) return slot.category.menuItems;
-  // Only include items that have at least one variant matching the required name
   return slot.category.menuItems.filter((item) =>
     item.variants?.some((v) => v.name.trim().toLowerCase() === required)
   );
@@ -105,13 +104,13 @@ function SlotStep({
     const isFixedComplete = !hasVariants || !!selection?.variantId;
 
     return (
-      <div className={cn("border bg-white", isFixedComplete ? "border-border/60" : "border-amber-400")}>
+      <div className={cn("border bg-white rounded-none overflow-hidden", isFixedComplete ? "border-border/60" : "border-amber-400")}>
         <div className={cn("flex items-center gap-2 px-4 py-2 border-b border-border/40", isFixedComplete ? "bg-zinc-100" : "bg-amber-50")}>
           <div className={cn("w-5 h-5 rounded-full text-white flex items-center justify-center text-[10px] font-black shrink-0", isFixedComplete ? "bg-green-600" : "bg-amber-500")}>
             {isFixedComplete ? "✓" : stepNumber}
           </div>
           <span className={cn("text-xs font-black uppercase tracking-wide", isFixedComplete ? "text-zinc-600" : "text-amber-800")}>
-            Step {stepNumber}: {slot.slotName}
+            STEP {stepNumber}: {slot.slotName.toUpperCase()}
           </span>
           <Badge className={cn("ml-auto text-[9px] font-bold rounded-none border", isFixedComplete ? "bg-green-100 text-green-700 border-green-300" : "bg-amber-100 text-amber-700 border-amber-300")}>
             Fixed Item
@@ -178,7 +177,7 @@ function SlotStep({
   const isComplete = !!selection;
 
   return (
-    <div className={cn("border bg-white", isComplete ? "border-primary/50" : "border-border/60")}>
+    <div className={cn("border bg-white rounded-none overflow-hidden", isComplete ? "border-primary/50" : "border-border/60")}>
       <div className={cn(
         "flex items-center gap-2 px-4 py-2 border-b",
         isComplete ? "bg-primary/5 border-primary/20" : "bg-zinc-100 border-border/40"
@@ -191,7 +190,7 @@ function SlotStep({
         </div>
         <div className="flex-1 min-w-0">
           <span className="text-xs font-black uppercase tracking-wide text-zinc-700">
-            Step {stepNumber}: {slot.slotName}
+            STEP {stepNumber}: {slot.slotName.toUpperCase()}
           </span>
           {required && (
             <span className="ml-2 text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5">
@@ -214,15 +213,12 @@ function SlotStep({
           onValueChange={(itemId) => {
             const item = choices.find((c) => c.id === itemId);
             if (!item) return;
-            // If required variant name specified, auto-select it
             if (required) {
               const variant = item.variants?.find((v) => v.name.trim().toLowerCase() === required);
               onSelect({ slotId: slot.id, itemId: item.id, itemName: item.name, variantId: variant?.id, variantName: variant?.name, quantity: slot.quantity });
             } else if (!item.variants || item.variants.length === 0) {
-              // No variants — select item directly
               onSelect({ slotId: slot.id, itemId: item.id, itemName: item.name, quantity: slot.quantity });
             } else {
-              // Has variants but no requiredVariantName — select item without variant yet (prompt below)
               onSelect({ slotId: slot.id, itemId: item.id, itemName: item.name, variantId: undefined, variantName: undefined, quantity: slot.quantity });
             }
           }}
@@ -276,7 +272,6 @@ function SlotStep({
                   )}
                 </label>
 
-                {/* Inline variant picker when this item is selected and has variants */}
                 {needsVariantPick && (
                   <div className="px-4 pb-3 bg-primary/5 border-t border-primary/10">
                     <p className="text-[10px] font-black uppercase tracking-wider text-zinc-500 mt-2 mb-2">
@@ -320,7 +315,7 @@ function SlotStep({
   );
 }
 
-// ─── DealCard (replaces old one) ─────────────────────────────────────────────
+// ─── DealCard ─────────────────────────────────────────────────────────────────
 
 export function DealCard({ deal }: { deal: DealItem }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -328,15 +323,16 @@ export function DealCard({ deal }: { deal: DealItem }) {
   const [selections, setSelections] = useState<Record<string, SlotSelection>>({});
 
   const addItemStore = useCartStore((state) => state.addItem);
-  const addItemUseCart = useCart((state) => state.addItem);
 
-  const savings = deal.originalPrice - deal.dealPrice;
-  const savingsPct = Math.round((savings / deal.originalPrice) * 100);
+  const savings = deal.originalPrice > deal.dealPrice ? deal.originalPrice - deal.dealPrice : 0;
+  const savingsPct = deal.originalPrice > deal.dealPrice && deal.originalPrice > 0 
+    ? Math.round((savings / deal.originalPrice) * 100) 
+    : 0;
+
   const isExpiringSoon = deal.validUntil
     ? (new Date(deal.validUntil).getTime() - Date.now()) < 24 * 60 * 60 * 1000
     : false;
 
-  // Derive dynamic slots that require user selection
   const dynamicSlots = useMemo(() =>
     deal.slots.filter((s) => s.categoryId && !s.menuItemId),
     [deal.slots]
@@ -346,8 +342,6 @@ export function DealCard({ deal }: { deal: DealItem }) {
     [deal.slots]
   );
 
-  // Completion guard: all dynamic slots must have a selection with variant if item has variants
-  // AND all fixed slots with variants must have a selection
   const isComplete = useMemo(() => {
     const dynamicComplete = dynamicSlots.every((s) => {
       const sel = selections[s.id];
@@ -371,7 +365,6 @@ export function DealCard({ deal }: { deal: DealItem }) {
     return dynamicComplete && fixedComplete;
   }, [dynamicSlots, fixedSlots, selections]);
 
-  // Auto-select first choice in each dynamic slot when drawer opens
   useEffect(() => {
     if (!drawerOpen) return;
     const auto: Record<string, SlotSelection> = {};
@@ -396,7 +389,6 @@ export function DealCard({ deal }: { deal: DealItem }) {
   const handleAddToCart = () => {
     if (!isComplete) return;
 
-    // Build structured specialInstructions for KDS
     const parts: string[] = [];
     let stepNum = 1;
     deal.slots.forEach((slot) => {
@@ -415,7 +407,6 @@ export function DealCard({ deal }: { deal: DealItem }) {
     });
     const instructionsText = `[DEAL: ${deal.name}] - ${parts.join(", ")}`;
 
-    // Build addOns array for cart display
     const addOnsList = deal.slots.map((slot) => {
       if (slot.menuItem) {
         const sel = selections[slot.id];
@@ -426,11 +417,6 @@ export function DealCard({ deal }: { deal: DealItem }) {
       return { name: `${sel.quantity}× ${sel.itemName}${sel.variantName ? ` (${sel.variantName})` : ""}`, price: 0 };
     });
 
-    const primaryMenuItemId = deal.slots.find((s) => s.menuItemId)?.menuItemId
-      ?? dynamicSlots[0]?.id.substring(0, 36)
-      ?? deal.id.substring(0, 36);
-
-    // 1. Add to cart-store (checkout drawer)
     addItemStore({
       id: `deal-${deal.id}-${Date.now()}`,
       name: `[DEAL] ${deal.name}`,
@@ -453,7 +439,7 @@ export function DealCard({ deal }: { deal: DealItem }) {
   return (
     <>
       {/* ── Card ─────────────────────────────────────── */}
-      <div className="group bg-white border border-zinc-200/80 hover:border-primary/50 flex flex-col overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+      <div className="group bg-white border border-zinc-200/80 hover:border-primary/50 flex flex-col overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 rounded-none">
         {/* Image Banner */}
         <div className="relative aspect-[16/9] w-full bg-zinc-100 overflow-hidden">
           {deal.imageUrl ? (
@@ -469,7 +455,9 @@ export function DealCard({ deal }: { deal: DealItem }) {
             </div>
           )}
           <div className="absolute top-3 left-3 flex flex-wrap gap-1.5 z-10">
-            <Badge className="bg-primary text-primary-foreground font-black text-xs px-2.5 py-1 rounded-none shadow-md">SAVE {savingsPct}%</Badge>
+            {savingsPct > 0 && (
+              <Badge className="bg-primary text-primary-foreground font-black text-xs px-2.5 py-1 rounded-none shadow-md">SAVE {savingsPct}%</Badge>
+            )}
             {deal.dealType === "event" && deal.eventLabel && (
               <Badge className="bg-black text-white font-bold text-xs px-2 py-0.5 rounded-none">{deal.eventLabel}</Badge>
             )}
@@ -494,7 +482,7 @@ export function DealCard({ deal }: { deal: DealItem }) {
           {deal.slots.length > 0 && (
             <div className="mb-5 bg-zinc-50 p-3 border border-zinc-100">
               <p className="text-[10px] font-black uppercase tracking-wider text-zinc-400 mb-2 flex items-center gap-1">
-                <Utensils className="w-3 h-3 text-primary" /> What's Included:
+                <Utensils className="w-3 h-3 text-primary" /> What&apos;s Included:
               </p>
               <ul className="space-y-1.5">
                 {deal.slots.map((slot, idx) => (
@@ -524,7 +512,9 @@ export function DealCard({ deal }: { deal: DealItem }) {
           <div className="mt-auto pt-4 border-t border-zinc-100 flex items-center justify-between gap-3">
             <div>
               <span className="text-xl font-black text-zinc-950">{STORE_CONSTANTS.CURRENCY} {deal.dealPrice}</span>
-              <span className="text-xs text-zinc-400 line-through ml-2">{STORE_CONSTANTS.CURRENCY} {deal.originalPrice}</span>
+              {savings > 0 && (
+                <span className="text-xs text-zinc-400 line-through ml-2">{STORE_CONSTANTS.CURRENCY} {deal.originalPrice}</span>
+              )}
             </div>
             <Button
               onClick={() => setDrawerOpen(true)}
@@ -538,75 +528,90 @@ export function DealCard({ deal }: { deal: DealItem }) {
       </div>
 
       {/* ── Customizer Drawer ────────────────────────── */}
-      <AppDrawer open={drawerOpen} onOpenChange={setDrawerOpen} className="max-h-[95vh]">
-        {/* Header */}
-        <div className="sticky -top-1 z-10 bg-white border-b border-border/60 pb-3 mb-4 -mx-4 px-4">
-          {deal.imageUrl && (
-            <div className="relative h-32 w-full bg-zinc-100 overflow-hidden -mt-4 mb-3 mx-0">
-              <Image src={deal.imageUrl} alt={deal.name} fill className="object-cover" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-              <div className="absolute bottom-3 left-4">
-                <Badge className="bg-primary text-white text-[10px] font-black rounded-none mb-1">{savingsPct}% OFF</Badge>
-                <h2 className="text-white font-heading font-black text-lg leading-tight">{deal.name}</h2>
+      <AppDrawer open={drawerOpen} onOpenChange={setDrawerOpen}>
+        <div className="flex flex-col h-full bg-background rounded-none min-h-0 overflow-hidden">
+          
+          {/* Scrollable Content Body with Side Padding */}
+          <div className="flex-1 overflow-y-auto px-4 md:px-6 pb-6">
+            
+            {/* Image Header */}
+            {deal.imageUrl ? (
+              <div className="relative w-full aspect-[4/3] shrink-0 bg-muted rounded-none overflow-hidden mb-4 mt-2">
+                <Image src={deal.imageUrl} alt={deal.name} fill className="object-cover" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+                <div className="absolute bottom-3 left-4 right-4">
+                  {savingsPct > 0 && (
+                    <Badge className="bg-primary text-primary-foreground text-[10px] font-black rounded-none mb-1">
+                      {savingsPct}% OFF
+                    </Badge>
+                  )}
+                  <h2 className="text-white font-heading font-black text-xl leading-tight">{deal.name}</h2>
+                </div>
               </div>
-            </div>
-          )}
-          {!deal.imageUrl && (
-            <div className="mb-2">
-              <Badge className="bg-primary text-white text-[10px] font-black rounded-none mb-1">{savingsPct}% OFF</Badge>
-              <h2 className="font-heading font-black text-xl text-zinc-950">{deal.name}</h2>
-              {deal.description && <p className="text-xs text-zinc-500 mt-1">{deal.description}</p>}
-            </div>
-          )}
-          {dynamicSlots.length > 0 && (
-            <p className="text-xs text-zinc-500 font-medium flex items-center gap-1">
-              <ArrowRight className="w-3.5 h-3.5 text-primary shrink-0" />
-              Select your preferences for {dynamicSlots.length} item{dynamicSlots.length > 1 ? "s" : ""} below
-            </p>
-          )}
-        </div>
+            ) : (
+              <div className="mb-4 mt-2">
+                {savingsPct > 0 && (
+                  <Badge className="bg-primary text-primary-foreground text-[10px] font-black rounded-none mb-1">
+                    {savingsPct}% OFF
+                  </Badge>
+                )}
+                <h2 className="font-heading font-black text-2xl text-zinc-950">{deal.name}</h2>
+                {deal.description && <p className="text-xs text-zinc-500 mt-1">{deal.description}</p>}
+              </div>
+            )}
 
-        {/* Slot Steps */}
-        <div className="space-y-3 pb-4">
-          {deal.slots.map((slot, index) => (
-            <SlotStep
-              key={slot.id}
-              slot={slot}
-              stepNumber={index + 1}
-              selection={selections[slot.id]}
-              onSelect={handleSelect}
-            />
-          ))}
-        </div>
+            {dynamicSlots.length > 0 && (
+              <p className="text-xs text-zinc-500 font-medium flex items-center gap-1 mb-4 bg-muted/50 p-2.5">
+                <ArrowRight className="w-3.5 h-3.5 text-primary shrink-0" />
+                Select your preferences for {dynamicSlots.length} item{dynamicSlots.length > 1 ? "s" : ""} below:
+              </p>
+            )}
 
-        {/* Quantity + Add to Cart sticky footer */}
-        <div className="sticky bottom-0 bg-white border-t border-border/60 pt-4 -mx-4 px-4 pb-4">
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <span className="block text-[10px] font-bold uppercase tracking-wider text-zinc-400">Total</span>
-              <span className="text-lg font-black text-zinc-950">{STORE_CONSTANTS.CURRENCY} {deal.dealPrice * quantity}</span>
-            </div>
-            <div className="flex items-center border border-zinc-300">
-              <Button type="button" variant="ghost" size="icon" className="h-10 w-10 rounded-none" onClick={() => setQuantity(Math.max(1, quantity - 1))} disabled={quantity <= 1}>
-                <Minus className="w-4 h-4" />
-              </Button>
-              <span className="w-10 text-center font-black text-sm">{quantity}</span>
-              <Button type="button" variant="ghost" size="icon" className="h-10 w-10 rounded-none" onClick={() => setQuantity(quantity + 1)}>
-                <Plus className="w-4 h-4" />
-              </Button>
+            {/* Slot Steps */}
+            <div className="space-y-4">
+              {deal.slots.map((slot, index) => (
+                <SlotStep
+                  key={slot.id}
+                  slot={slot}
+                  stepNumber={index + 1}
+                  selection={selections[slot.id]}
+                  onSelect={handleSelect}
+                />
+              ))}
             </div>
           </div>
 
-          <Button
-            onClick={handleAddToCart}
-            disabled={!isComplete}
-            className="w-full h-13 font-bold text-sm uppercase tracking-wider rounded-none gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <ShoppingBag className="w-4 h-4" />
-            {isComplete
-              ? `Add to Cart · ${STORE_CONSTANTS.CURRENCY} ${deal.dealPrice * quantity}`
-              : `Choose all items to continue (${Object.keys(selections).length}/${dynamicSlots.length} done)`}
-          </Button>
+          {/* Sticky Bottom Actions Footer */}
+          <div className="shrink-0 p-4 bg-background border-t border-border z-50">
+            <div className="flex flex-col gap-3 max-w-xl mx-auto">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="block text-[10px] font-bold uppercase tracking-wider text-zinc-400">Total</span>
+                  <span className="text-xl font-black text-zinc-950">{STORE_CONSTANTS.CURRENCY} {deal.dealPrice * quantity}</span>
+                </div>
+                <div className="flex items-center border border-border h-10">
+                  <Button type="button" variant="ghost" size="icon" className="h-full w-10 rounded-none hover:bg-muted" onClick={() => setQuantity(Math.max(1, quantity - 1))} disabled={quantity <= 1}>
+                    <Minus className="w-4 h-4" />
+                  </Button>
+                  <span className="w-8 text-center font-bold text-sm">{quantity}</span>
+                  <Button type="button" variant="ghost" size="icon" className="h-full w-10 rounded-none hover:bg-muted" onClick={() => setQuantity(quantity + 1)}>
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+
+              <Button
+                onClick={handleAddToCart}
+                disabled={!isComplete}
+                className="w-full h-12 font-bold text-sm uppercase tracking-wider rounded-none gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg active:scale-[0.98] transition-transform"
+              >
+                <ShoppingBag className="w-4 h-4" />
+                {isComplete
+                  ? `Add to Cart · ${STORE_CONSTANTS.CURRENCY} ${deal.dealPrice * quantity}`
+                  : `Choose all items to continue (${Object.keys(selections).length}/${dynamicSlots.length} done)`}
+              </Button>
+            </div>
+          </div>
         </div>
       </AppDrawer>
     </>
