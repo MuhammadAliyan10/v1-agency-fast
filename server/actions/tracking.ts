@@ -2,12 +2,15 @@
 
 import { db } from "@/database/db";
 import { orders } from "@/database/schema";
-import { eq } from "drizzle-orm";
+import { eq, or } from "drizzle-orm";
 
-export async function getOrderTrackingStatus(trackingToken: string) {
+export async function getOrderTrackingStatus(tokenOrId: string) {
   try {
     const order = await db.query.orders.findFirst({
-      where: eq(orders.trackingToken, trackingToken),
+      where: or(
+        eq(orders.trackingToken, tokenOrId),
+        eq(orders.id, tokenOrId)
+      ),
       with: {
         items: {
           with: {
