@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AppDrawer } from "@/components/ui/app-drawer";
 import { useCart } from "@/store/use-cart";
+import { useCartStore } from "@/lib/store/cart-store";
 import { CheckoutDrawer } from "./checkout-drawer";
 import { cn } from "@/lib/utils";
 import {
@@ -43,9 +44,9 @@ export function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
   const pathname = usePathname();
   
-  const getTotalItems = useCart((state) => state.getTotalItems);
-  const { setTheme } = useTheme();
-  
+  const items = useCartStore((state) => state.items);
+  const totalItems = items.reduce((sum, i) => sum + i.quantity, 0);
+
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -61,8 +62,6 @@ export function Navbar() {
     container.addEventListener("scroll", handleScroll, { passive: true });
     return () => container.removeEventListener("scroll", handleScroll);
   }, []);
-
-  const totalItems = getTotalItems();
 
   return (
     <header className={cn(

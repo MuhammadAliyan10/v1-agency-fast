@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Minus, Plus, Flame, Leaf } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useCart } from "@/store/use-cart";
+import { useCartStore } from "@/lib/store/cart-store";
 import { toast } from "sonner";
 import { STORE_CONSTANTS } from "@/lib/constants";
 
@@ -14,7 +14,7 @@ interface ProductOrderFormProps {
 }
 
 export function ProductOrderForm({ item, globalAddons = [] }: ProductOrderFormProps) {
-  const { addItem } = useCart();
+  const addItemStore = useCartStore((state) => state.addItem);
   
   // Main Item State
   const [selectedVariant, setSelectedVariant] = useState<any>(null);
@@ -103,16 +103,17 @@ export function ProductOrderForm({ item, globalAddons = [] }: ProductOrderFormPr
       return a ? { name: a.name, price: a.price } : null;
     }).filter(Boolean) as { name: string; price: number }[];
 
-    addItem({
-      menuItemId: item.id,
+    addItemStore({
+      id: `${item.id}-${selectedVariant?.id || "base"}-${Date.now()}`,
       name: item.name,
-      variantName: selectedVariant ? selectedVariant.name : undefined,
-      addOns: selectedAddOnsData.length > 0 ? selectedAddOnsData : undefined,
+      price: mainItemPrice,
       quantity,
-      unitPrice: mainItemPrice,
-      subtotal: mainItemTotal,
-      imageUrl: item.imageUrl || undefined,
-      specialInstructions: specialInstructions.trim() !== "" ? specialInstructions.trim() : undefined,
+      options: {
+        imageUrl: item.imageUrl || null,
+        variant: selectedVariant ? selectedVariant.name : undefined,
+        addOns: selectedAddOnsData,
+        specialInstructions: specialInstructions.trim() !== "" ? specialInstructions.trim() : undefined,
+      },
     });
 
     let addedCount = quantity;
@@ -134,14 +135,15 @@ export function ProductOrderForm({ item, globalAddons = [] }: ProductOrderFormPr
             }
           }
 
-          addItem({
-            menuItemId: crossItem.id,
+          addItemStore({
+            id: `${crossItem.id}-${Date.now()}`,
             name: crossItem.name,
-            variantName,
+            price: unitPrice,
             quantity: qty,
-            unitPrice,
-            subtotal: unitPrice * qty,
-            imageUrl: crossItem.imageUrl || undefined,
+            options: {
+              imageUrl: crossItem.imageUrl || null,
+              variant: variantName,
+            },
           });
           
           addedCount += qty;

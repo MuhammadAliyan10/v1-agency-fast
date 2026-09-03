@@ -43,21 +43,23 @@ export function TrendingSection({ categories, title = "Bestsellers" }: TrendingS
 
   return (
     <section className="py-8 w-full border-b border-border bg-background">
-      <div className="px-4 mb-4 flex items-center justify-between">
-        <h2 className="font-bold text-xl tracking-tight text-foreground uppercase">{title}</h2>
-      </div>
+      <div className="max-w-7xl mx-auto px-4 md:px-8">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="font-bold text-xl tracking-tight text-foreground uppercase">{title}</h2>
+        </div>
 
-      <div className="w-full relative">
-        <div className="flex overflow-x-auto snap-x snap-mandatory scroll-smooth scrollbar-hide px-4 pb-4 gap-4">
-          {displayItems.map((item) => (
-            <div key={item.id} className="snap-start shrink-0 w-[85vw] max-w-[320px] shadow-sm border border-border">
-              <MenuItemCard
-                item={item}
-                onAdd={handleQuickAdd}
-                onCustomize={(item) => setSelectedItem(item)}
-              />
-            </div>
-          ))}
+        <div className="w-full relative">
+          <div className="flex overflow-x-auto snap-x snap-mandatory scroll-smooth scrollbar-hide pb-4 gap-4">
+            {displayItems.map((item) => (
+              <div key={item.id} className="snap-start shrink-0 w-[85vw] max-w-[320px] shadow-sm border border-border">
+                <MenuItemCard
+                  item={item}
+                  onAdd={handleQuickAdd}
+                  onCustomize={(item) => setSelectedItem(item)}
+                />
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 

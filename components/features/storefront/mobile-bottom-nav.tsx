@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Home, UtensilsCrossed, MapPin, ShoppingBag, Loader2, Tag } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCart } from "@/store/use-cart";
+import { useCartStore } from "@/lib/store/cart-store";
 import { useState, useEffect, useTransition } from "react";
 import { CheckoutDrawer } from "./checkout-drawer";
 import { FloatingCart } from "./floating-cart";
@@ -17,7 +18,6 @@ export function MobileBottomNav({ isOpen = true }: { isOpen?: boolean }) {
   const [mounted, setMounted] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [navigatingTo, setNavigatingTo] = useState<string | null>(null);
-  const getTotalItems = useCart((state) => state.getTotalItems);
 
   useEffect(() => {
     setMounted(true);
@@ -27,7 +27,8 @@ export function MobileBottomNav({ isOpen = true }: { isOpen?: boolean }) {
     setNavigatingTo(null);
   }, [pathname]);
 
-  const totalItems = getTotalItems();
+  const items = useCartStore((state) => state.items);
+  const totalItems = items.reduce((sum, i) => sum + i.quantity, 0);
 
   const handleNavClick = (href: string) => {
     if (pathname === href) return;

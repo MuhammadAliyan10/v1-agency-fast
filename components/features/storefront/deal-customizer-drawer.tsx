@@ -327,19 +327,6 @@ export function DealCard({ deal }: { deal: DealItem }) {
       },
     });
 
-    // 2. Add to use-cart (checkout page)
-    addItemUseCart({
-      menuItemId: primaryMenuItemId,
-      name: `[DEAL] ${deal.name}`,
-      quantity,
-      unitPrice: deal.dealPrice,
-      subtotal: deal.dealPrice * quantity,
-      imageUrl: deal.imageUrl || undefined,
-      specialInstructions: instructionsText,
-      variantName: deal.eventLabel || "Combo Offer",
-      addOns: addOnsList,
-    });
-
     toast.success(`${quantity}× "${deal.name}" added to cart!`);
     setDrawerOpen(false);
     setQuantity(1);
