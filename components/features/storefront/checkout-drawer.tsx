@@ -60,17 +60,25 @@ export function CheckoutDrawer({ open, onOpenChange }: CheckoutDrawerProps) {
     if (items.length === 0) return;
     const idempotencyKey = crypto.randomUUID();
     try {
-      const mappedItems = items.map(item => ({
-        cartItemId: crypto.randomUUID(),
-        menuItemId: item.id.substring(0, 36),
-        name: item.name,
-        variantName: item.options?.variant || null,
-        unitPrice: item.price,
-        quantity: item.quantity,
-        subtotal: item.price * item.quantity,
-        addOns: item.options?.addOns || [],
-        specialInstructions: null,
-      }));
+      const mappedItems = items.map(item => {
+        let menuItemId: string | null = item.id;
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (!uuidRegex.test(menuItemId)) {
+          const match = menuItemId.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+          menuItemId = match ? match[0] : null;
+        }
+        return {
+          cartItemId: crypto.randomUUID(),
+          menuItemId: menuItemId,
+          name: item.name,
+          variantName: item.options?.variant || null,
+          unitPrice: item.price,
+          quantity: item.quantity,
+          subtotal: item.price * item.quantity,
+          addOns: item.options?.addOns || [],
+          specialInstructions: item.options?.specialInstructions || null,
+        };
+      });
       const response = await submitOrder(data, mappedItems as any, idempotencyKey);
       if (response.success && response.orderId) {
         clearCart();

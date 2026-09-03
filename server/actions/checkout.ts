@@ -32,14 +32,14 @@ export async function submitOrder(data: CheckoutValues, cartItems: CartItem[], i
     // Server-side validation of prices
     const regularCartItems = cartItems.filter((item) => !item.name.startsWith("[DEAL]"));
     const menuItemIds = [...new Set(regularCartItems.map((item) => item.menuItemId))];
-    
-    const dbMenuItems = menuItemIds.length > 0 
+
+    const dbMenuItems = menuItemIds.length > 0
       ? await db.select().from(menuItems).where(inArray(menuItems.id, menuItemIds))
       : [];
-    const dbVariants = menuItemIds.length > 0 
+    const dbVariants = menuItemIds.length > 0
       ? await db.select().from(itemVariants).where(inArray(itemVariants.menuItemId, menuItemIds))
       : [];
-    const dbAddOns = menuItemIds.length > 0 
+    const dbAddOns = menuItemIds.length > 0
       ? await db.select().from(itemAddOns).where(inArray(itemAddOns.menuItemId, menuItemIds))
       : [];
 
@@ -56,8 +56,20 @@ export async function submitOrder(data: CheckoutValues, cartItems: CartItem[], i
         const itemSubtotal = unitPrice * item.quantity;
         calculatedSubtotal += itemSubtotal;
 
+        // Ensure menuItemId is either a valid UUID or null to prevent DB syntax error
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        let validMenuItemId: string | null = null;
+        if (item.menuItemId) {
+          if (uuidRegex.test(item.menuItemId)) {
+            validMenuItemId = item.menuItemId;
+          } else {
+            const match = item.menuItemId.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+            validMenuItemId = match ? match[0] : null;
+          }
+        }
+
         orderItemsPayload.push({
-          menuItemId: item.menuItemId,
+          menuItemId: validMenuItemId,
           variantId: null,
           itemName: item.name,
           variantName: item.variantName || "Combo Deal",
@@ -130,8 +142,8 @@ export async function submitOrder(data: CheckoutValues, cartItems: CartItem[], i
       }
     }
 
-    const fullAddress = isPickup 
-      ? null 
+    const fullAddress = isPickup
+      ? null
       : `${parsed.data.deliveryAddress}${zoneName ? `, Area: ${zoneName}` : ""}`;
 
     // 5. Coupon validation and discount
@@ -182,12 +194,18 @@ export async function submitOrder(data: CheckoutValues, cartItems: CartItem[], i
         totalAmount: totalAmount,
         idempotencyKey: idempotencyKey,
       });
+await tx.insert(orderItems).values(
+        orderItemsPayload.map((payload) => {
+          // Check if this specific item is a Deal
+          const isDeal = payload.itemName.startsWith("[DEAL]");
 
-      await tx.insert(orderItems).values(
-        orderItemsPayload.map((payload) => ({
-          orderId: orderId,
-          ...payload,
-        }))
+          return {
+            ...payload,
+            orderId: orderId,
+            // If it's a deal, send null. If it's normal food, send the ID.
+            menuItemId: isDeal ? null : payload.menuItemId,
+          };
+        })
       );
     });
 
@@ -200,11 +218,11 @@ export async function submitOrder(data: CheckoutValues, cartItems: CartItem[], i
 
     return { success: true, orderId, trackingToken };
   } catch (error: any) {
-    const isDuplicate = 
-      error.code === "23505" || 
+    const isDuplicate =
+      error.code === "23505" ||
       error.message?.includes("duplicate key") ||
       error.cause?.code === "23505";
-      
+
     if (isDuplicate) {
       const existingOrder = await db.query.orders.findFirst({
         where: eq(orders.idempotencyKey, idempotencyKey)

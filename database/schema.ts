@@ -322,16 +322,16 @@ export const dealSlots = pgTable(
     dealId:        uuid("deal_id").references(() => deals.id, { onDelete: "cascade" }).notNull(),
     slotName:      varchar("slot_name", { length: 150 }).notNull(), // e.g., "1x Medium Pizza"
     quantity:      integer("quantity").default(1).notNull(),
-    
+
     // Optional: Fixed Menu Item for this slot (e.g., specific "Zinger Burger")
     menuItemId:    uuid("menu_item_id").references(() => menuItems.id, { onDelete: "set null" }),
-    
+
     // Optional: Category for dynamic choice (e.g., Any "Pizza")
     categoryId:    uuid("category_id").references(() => categories.id, { onDelete: "set null" }),
-    
+
     // Optional: Required Variant Name (e.g., "Medium" for pizzas, or "1.5 Ltr" for drinks)
     requiredVariantName: varchar("required_variant_name", { length: 100 }),
-    
+
     createdAt:     timestamp("created_at").defaultNow(),
   },
   (table) => ({
@@ -431,7 +431,6 @@ export const orders = pgTable(
     tableIdIdx:       index("orders_table_id_idx").on(table.tableId),
   })
 );
-
 export const orderItems = pgTable(
   "order_items",
   {
@@ -439,9 +438,9 @@ export const orderItems = pgTable(
     orderId:             varchar("order_id", { length: 12 })
       .references(() => orders.id, { onDelete: "cascade" })
       .notNull(),
+    // Removed .notNull() here so deals can be inserted without crashing
     menuItemId:          uuid("menu_item_id")
-      .references(() => menuItems.id, { onDelete: "restrict" })
-      .notNull(),
+      .references(() => menuItems.id, { onDelete: "restrict" }),
     variantId:           uuid("variant_id").references(() => itemVariants.id, { onDelete: "set null" }),
     itemName:            varchar("item_name", { length: 150 }).notNull(),
     variantName:         varchar("variant_name", { length: 50 }),
@@ -458,7 +457,6 @@ export const orderItems = pgTable(
     menuItemIdIdx: index("order_items_menu_item_id_idx").on(table.menuItemId),
   })
 );
-
 export const storeSettings = pgTable("store_settings", {
   key:       varchar("key", { length: 100 }).primaryKey(),
   value:     text("value").notNull(),

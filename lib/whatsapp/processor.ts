@@ -117,7 +117,7 @@ function t(en: string, lang: string = "en"): string {
 
 
 type AppSession = typeof whatsappSessions.$inferSelect;
-type CartItem = { menuItemId: string, variantId?: string | null, quantity: number, name?: string, price?: number, isDeal?: boolean, specialInstructions?: string };
+type CartItem = { menuItemId: string | null, variantId?: string | null, quantity: number, name?: string, price?: number, isDeal?: boolean, specialInstructions?: string };
 
 export async function processWhatsAppMessage(phone: string, message: any, contact: any) {
   const restaurantId = "default"; // Multi-tenant ready
@@ -157,7 +157,7 @@ export async function processWhatsAppMessage(phone: string, message: any, contac
   // 1a. Check Business Hours
   const settings = await db.select().from(storeSettings).where(eq(storeSettings.key, "is_accepting_orders"));
   const isAcceptingOrders = settings.length > 0 ? settings[0].value === "true" : true;
-  
+
   // If the user types 'human' or is in human_handoff, we let it pass, otherwise intercept.
   const textBody = message.text?.body?.toLowerCase().trim() || "";
   if (!isAcceptingOrders && session.state !== "human_handoff" && textBody !== "human" && textBody !== "agent" && textBody !== "talk to staff") {
@@ -418,11 +418,13 @@ export async function processWhatsAppMessage(phone: string, message: any, contac
         if (input === "reorder_yes") {
           const pastOrderId = (session.tempData as any).pastOrderId;
           const pastOrderItems = await db.query.orderItems.findMany({ where: eq(orderItems.orderId, pastOrderId) });
-          const newCart = pastOrderItems.map(item => ({
-            menuItemId: item.menuItemId,
-            variantId: item.variantId || undefined,
-            quantity: item.quantity
-          }));
+          const newCart = pastOrderItems
+            .filter(item => item.menuItemId !== null)
+            .map(item => ({
+              menuItemId: item.menuItemId as string,
+              variantId: item.variantId || undefined,
+              quantity: item.quantity
+            }));
           session.cart = newCart;
           session.tempData = {};
           await sendWhatsAppText(phone, t("Great! I've added your previous items to the cart.", session.language));
@@ -990,7 +992,7 @@ async function handleConfirmation(phone: string, session: any, input: string) {
   // Fuzzy Intent Normalizer
   const yesWords = ["yes", "haan", "han", "g", "ji", "jee", "confirm", "1", "ok", "yep"];
   const noWords = ["no", "nahi", "nai", "cancel", "2", "nah"];
-  
+
   if (input === "confirm_yes" || yesWords.includes(input)) {
      input = "confirm_yes";
   } else if (input === "confirm_no" || noWords.includes(input)) {
@@ -1009,12 +1011,12 @@ async function handleConfirmation(phone: string, session: any, input: string) {
     } catch (error: any) {
       console.error("Order creation failed:", error);
       let errMsg = `Maafi chahta hoon, aapka order process nahi ho saka kyunke kuch masla aaya hai. Barae meharbani dubara koshish karein.`;
-      
+
       if (error.message.includes("is currently unavailable")) {
         const itemMatch = error.message.replace("Sorry, ", "").replace(" is currently unavailable.", "");
         errMsg = `Maafi chahta hoon, aapka order process nahi ho saka kyunke ${itemMatch} abhi out of stock ho gaya hai. Barae meharbani menu se koi aur item select karein.`;
       }
-      
+
       await sendWhatsAppText(phone, errMsg);
       await updateSessionState(session.id, "greeting", [], {});
     }
@@ -1061,7 +1063,7 @@ async function handleCartEdit(phone: string, session: any, input: string) {
       cart.splice(index, 1);
       await sendWhatsAppText(phone, "Item cart se remove kar diya gaya hai.");
     }
-    
+
     if (cart.length === 0) {
       await sendWhatsAppText(phone, t("Your cart is empty. Please select an item from the menu first.", session.language));
       return updateSessionState(session.id, "greeting", [], {});
