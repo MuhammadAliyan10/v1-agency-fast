@@ -101,17 +101,19 @@ function SlotStep({
   const required = slot.requiredVariantName?.trim().toLowerCase();
 
   if (isFixed && slot.menuItem) {
-    // Fixed slot — no user choice, just display
+    const hasVariants = (slot.menuItem.variants?.length ?? 0) > 0;
+    const isFixedComplete = !hasVariants || !!selection?.variantId;
+
     return (
-      <div className="border border-border/60 bg-zinc-50/50">
-        <div className="flex items-center gap-2 px-4 py-2 bg-zinc-100 border-b border-border/40">
-          <div className="w-5 h-5 rounded-full bg-green-600 text-white flex items-center justify-center text-[10px] font-black shrink-0">
-            ✓
+      <div className={cn("border bg-white", isFixedComplete ? "border-border/60" : "border-amber-400")}>
+        <div className={cn("flex items-center gap-2 px-4 py-2 border-b border-border/40", isFixedComplete ? "bg-zinc-100" : "bg-amber-50")}>
+          <div className={cn("w-5 h-5 rounded-full text-white flex items-center justify-center text-[10px] font-black shrink-0", isFixedComplete ? "bg-green-600" : "bg-amber-500")}>
+            {isFixedComplete ? "✓" : stepNumber}
           </div>
-          <span className="text-xs font-black uppercase tracking-wide text-zinc-600">
+          <span className={cn("text-xs font-black uppercase tracking-wide", isFixedComplete ? "text-zinc-600" : "text-amber-800")}>
             Step {stepNumber}: {slot.slotName}
           </span>
-          <Badge className="ml-auto text-[9px] font-bold bg-green-100 text-green-700 rounded-none border border-green-300">
+          <Badge className={cn("ml-auto text-[9px] font-bold rounded-none border", isFixedComplete ? "bg-green-100 text-green-700 border-green-300" : "bg-amber-100 text-amber-700 border-amber-300")}>
             Fixed Item
           </Badge>
         </div>
@@ -121,12 +123,53 @@ function SlotStep({
               <Image src={slot.menuItem.imageUrl} alt={slot.menuItem.name} fill className="object-cover" sizes="48px" />
             </div>
           )}
-          <div>
+          <div className="flex-1 min-w-0">
             <p className="font-bold text-sm text-zinc-950">{slot.quantity}× {slot.menuItem.name}</p>
-            <p className="text-xs text-zinc-500">Included in this deal</p>
+            {hasVariants && selection?.variantName && (
+              <p className="text-[11px] text-zinc-500 font-medium">{selection.variantName}</p>
+            )}
+            {!hasVariants && (
+              <p className="text-xs text-zinc-500">Included in this deal</p>
+            )}
+            {hasVariants && !selection?.variantId && (
+              <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wider mt-1">Pick flavor below</p>
+            )}
           </div>
-          <CheckCircle2 className="w-5 h-5 text-green-600 ml-auto shrink-0" />
+          {isFixedComplete && <CheckCircle2 className="w-5 h-5 text-green-600 shrink-0" />}
         </div>
+        
+        {hasVariants && (
+          <div className="px-4 pb-3 pt-1 border-t border-border/40 bg-zinc-50/50">
+            <p className="text-[10px] font-black uppercase tracking-wider text-zinc-500 mb-2">Choose your flavor:</p>
+            <div className="flex flex-wrap gap-2">
+              {slot.menuItem.variants!.map((v) => {
+                const isVariantSelected = selection?.variantId === v.id;
+                return (
+                  <button
+                    key={v.id}
+                    type="button"
+                    onClick={() => onSelect({
+                      slotId: slot.id,
+                      itemId: slot.menuItem!.id,
+                      itemName: slot.menuItem!.name,
+                      variantId: v.id,
+                      variantName: v.name,
+                      quantity: slot.quantity,
+                    })}
+                    className={cn(
+                      "text-xs px-3 py-1.5 border font-bold transition-all rounded-none",
+                      isVariantSelected
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "border-zinc-300 text-zinc-700 hover:border-primary hover:text-primary bg-white"
+                    )}
+                  >
+                    {v.name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -171,15 +214,17 @@ function SlotStep({
           onValueChange={(itemId) => {
             const item = choices.find((c) => c.id === itemId);
             if (!item) return;
-            // Find matching variant if required
-            let variantId: string | undefined;
-            let variantName: string | undefined;
+            // If required variant name specified, auto-select it
             if (required) {
               const variant = item.variants?.find((v) => v.name.trim().toLowerCase() === required);
-              variantId = variant?.id;
-              variantName = variant?.name;
+              onSelect({ slotId: slot.id, itemId: item.id, itemName: item.name, variantId: variant?.id, variantName: variant?.name, quantity: slot.quantity });
+            } else if (!item.variants || item.variants.length === 0) {
+              // No variants — select item directly
+              onSelect({ slotId: slot.id, itemId: item.id, itemName: item.name, quantity: slot.quantity });
+            } else {
+              // Has variants but no requiredVariantName — select item without variant yet (prompt below)
+              onSelect({ slotId: slot.id, itemId: item.id, itemName: item.name, variantId: undefined, variantName: undefined, quantity: slot.quantity });
             }
-            onSelect({ slotId: slot.id, itemId: item.id, itemName: item.name, variantId, variantName, quantity: slot.quantity });
           }}
           className="flex flex-col divide-y divide-border/30"
         >
@@ -188,38 +233,85 @@ function SlotStep({
               ? item.variants?.find((v) => v.name.trim().toLowerCase() === required)
               : null;
             const isSelected = selection?.itemId === item.id;
+            const itemVariants = item.variants || [];
+            const needsVariantPick = isSelected && !required && itemVariants.length > 0;
 
             return (
-              <label
-                key={item.id}
-                htmlFor={`slot-${slot.id}-item-${item.id}`}
-                className={cn(
-                  "flex items-center gap-3 px-4 py-3 cursor-pointer min-h-[48px] transition-colors",
-                  isSelected ? "bg-primary/5" : "hover:bg-zinc-50"
-                )}
-              >
-                <RadioGroupItem
-                  id={`slot-${slot.id}-item-${item.id}`}
-                  value={item.id}
-                  className="shrink-0"
-                />
-                {item.imageUrl && (
-                  <div className="relative w-10 h-10 shrink-0 overflow-hidden rounded-none bg-zinc-100">
-                    <Image src={item.imageUrl} alt={item.name} fill className="object-cover" sizes="40px" />
+              <div key={item.id}>
+                <label
+                  htmlFor={`slot-${slot.id}-item-${item.id}`}
+                  className={cn(
+                    "flex items-center gap-3 px-4 py-3 cursor-pointer min-h-[48px] transition-colors",
+                    isSelected ? "bg-primary/5" : "hover:bg-zinc-50"
+                  )}
+                >
+                  <RadioGroupItem
+                    id={`slot-${slot.id}-item-${item.id}`}
+                    value={item.id}
+                    className="shrink-0"
+                  />
+                  {item.imageUrl && (
+                    <div className="relative w-10 h-10 shrink-0 overflow-hidden rounded-none bg-zinc-100">
+                      <Image src={item.imageUrl} alt={item.name} fill className="object-cover" sizes="40px" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className={cn("text-sm font-bold leading-snug", isSelected ? "text-primary" : "text-zinc-900")}>
+                      {item.name}
+                    </p>
+                    {matchingVariant && (
+                      <p className="text-[11px] text-zinc-500 font-medium">
+                        {matchingVariant.name} · {STORE_CONSTANTS.CURRENCY} {matchingVariant.price}
+                      </p>
+                    )}
+                    {!required && itemVariants.length > 0 && !isSelected && (
+                      <p className="text-[10px] text-zinc-400 font-medium mt-0.5">
+                        {itemVariants.map(v => v.name).join(" · ")}
+                      </p>
+                    )}
+                  </div>
+                  {isSelected && selection?.variantId && <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />}
+                  {isSelected && !required && itemVariants.length > 0 && !selection?.variantId && (
+                    <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wider shrink-0">Pick flavor</span>
+                  )}
+                </label>
+
+                {/* Inline variant picker when this item is selected and has variants */}
+                {needsVariantPick && (
+                  <div className="px-4 pb-3 bg-primary/5 border-t border-primary/10">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-zinc-500 mt-2 mb-2">
+                      Choose your flavor:
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {itemVariants.map((v) => {
+                        const isVariantSelected = selection?.variantId === v.id;
+                        return (
+                          <button
+                            key={v.id}
+                            type="button"
+                            onClick={() => onSelect({
+                              slotId: slot.id,
+                              itemId: item.id,
+                              itemName: item.name,
+                              variantId: v.id,
+                              variantName: v.name,
+                              quantity: slot.quantity,
+                            })}
+                            className={cn(
+                              "text-xs px-3 py-1.5 border font-bold transition-all rounded-none",
+                              isVariantSelected
+                                ? "bg-primary text-primary-foreground border-primary"
+                                : "border-zinc-300 text-zinc-700 hover:border-primary hover:text-primary bg-white"
+                            )}
+                          >
+                            {v.name}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
-                <div className="flex-1 min-w-0">
-                  <p className={cn("text-sm font-bold leading-snug", isSelected ? "text-primary" : "text-zinc-900")}>
-                    {item.name}
-                  </p>
-                  {matchingVariant && (
-                    <p className="text-[11px] text-zinc-500 font-medium">
-                      {matchingVariant.name} · {STORE_CONSTANTS.CURRENCY} {matchingVariant.price}
-                    </p>
-                  )}
-                </div>
-                {isSelected && <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />}
-              </label>
+              </div>
             );
           })}
         </RadioGroup>
@@ -254,11 +346,30 @@ export function DealCard({ deal }: { deal: DealItem }) {
     [deal.slots]
   );
 
-  // Completion guard: all dynamic slots must have a selection
-  const isComplete = useMemo(() =>
-    dynamicSlots.every((s) => !!selections[s.id]),
-    [dynamicSlots, selections]
-  );
+  // Completion guard: all dynamic slots must have a selection with variant if item has variants
+  // AND all fixed slots with variants must have a selection
+  const isComplete = useMemo(() => {
+    const dynamicComplete = dynamicSlots.every((s) => {
+      const sel = selections[s.id];
+      if (!sel) return false;
+      const choices = getSlotChoices(s);
+      const selectedItem = choices.find(c => c.id === sel.itemId);
+      const hasVariants = (selectedItem?.variants?.length ?? 0) > 0;
+      if (hasVariants && !s.requiredVariantName && !sel.variantId) return false;
+      return true;
+    });
+
+    const fixedComplete = fixedSlots.every((s) => {
+      if (!s.menuItem) return true;
+      const hasVariants = (s.menuItem.variants?.length ?? 0) > 0;
+      if (!hasVariants) return true;
+      const sel = selections[s.id];
+      if (!sel || !sel.variantId) return false;
+      return true;
+    });
+
+    return dynamicComplete && fixedComplete;
+  }, [dynamicSlots, fixedSlots, selections]);
 
   // Auto-select first choice in each dynamic slot when drawer opens
   useEffect(() => {
@@ -290,7 +401,9 @@ export function DealCard({ deal }: { deal: DealItem }) {
     let stepNum = 1;
     deal.slots.forEach((slot) => {
       if (slot.menuItemId && slot.menuItem) {
-        parts.push(`Step ${stepNum}: ${slot.quantity}× ${slot.menuItem.name}`);
+        const sel = selections[slot.id];
+        const variantPart = sel?.variantName ? ` (${sel.variantName})` : "";
+        parts.push(`Step ${stepNum}: ${slot.quantity}× ${slot.menuItem.name}${variantPart}`);
       } else {
         const sel = selections[slot.id];
         if (sel) {
@@ -304,7 +417,11 @@ export function DealCard({ deal }: { deal: DealItem }) {
 
     // Build addOns array for cart display
     const addOnsList = deal.slots.map((slot) => {
-      if (slot.menuItem) return { name: `${slot.quantity}× ${slot.menuItem.name}`, price: 0 };
+      if (slot.menuItem) {
+        const sel = selections[slot.id];
+        const variantPart = sel?.variantName ? ` (${sel.variantName})` : "";
+        return { name: `${slot.quantity}× ${slot.menuItem.name}${variantPart}`, price: 0 };
+      }
       const sel = selections[slot.id];
       return { name: `${sel.quantity}× ${sel.itemName}${sel.variantName ? ` (${sel.variantName})` : ""}`, price: 0 };
     });

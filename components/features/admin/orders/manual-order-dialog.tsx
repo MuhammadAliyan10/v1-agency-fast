@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Search, Plus, Minus, Check, ShoppingBag, Loader2 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getPOSMenuData } from "@/server/actions/menu";
+import { getPublicDeals } from "@/server/actions/deals";
 import { createManualOrder, getStaffWaiters, addItemsToExistingOrder, LiveOrder } from "@/server/actions/live-orders";
 import { getTablesWithStatus } from "@/server/actions/tables";
 import { z } from "zod";
@@ -130,7 +131,8 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
   // POS State
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
-  
+  const [rightTab, setRightTab] = useState<"menu" | "deals">("menu");
+
   const [pendingTableId, setPendingTableId] = useState<string | null>(null);
   const [splitCheckModalOpen, setSplitCheckModalOpen] = useState(false);
   const [discountType, setDiscountType] = useState<"flat" | "percent">("flat");
@@ -145,6 +147,11 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
   const [selectedVariant, setSelectedVariant] = useState<string | null>(null);
   const [selectedAddOns, setSelectedAddOns] = useState<Set<string>>(new Set());
   const [itemSpecialInstructions, setItemSpecialInstructions] = useState("");
+
+  // Deal Config State
+  const [configDeal, setConfigDeal] = useState<any | null>(null);
+  const [dealSlotSelections, setDealSlotSelections] = useState<Record<string, { menuItemId: string; name: string; variantId: string | null; variantName: string | null }>>({});
+  const [dealQuantity, setDealQuantity] = useState(1);
 
   // Initialize from existingOrder if provided
   useEffect(() => {
@@ -189,8 +196,19 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
       return res.data;
     },
     enabled: isOpen,
-    staleTime: 1000 * 60 * 60, // 1 hour
-    gcTime: 1000 * 60 * 60 * 24, // 24 hours
+    staleTime: 1000 * 60 * 60,
+    gcTime: 1000 * 60 * 60 * 24,
+  });
+
+  const { data: dealsData, isLoading: isDealsLoading } = useQuery({
+    queryKey: ["pos-deals"],
+    queryFn: async () => {
+      const res = await getPublicDeals();
+      if (!res.success) throw new Error(res.error);
+      return res.data;
+    },
+    enabled: isOpen,
+    staleTime: 1000 * 60 * 5,
   });
 
   const { data: staffWaiters, isLoading: isStaffLoading } = useQuery({
@@ -273,6 +291,60 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
     setSelectedVariant(itemVariants.length > 0 ? itemVariants[0].id : null);
     setSelectedAddOns(new Set());
     setItemSpecialInstructions("");
+  };
+
+  const openDealConfig = (deal: any) => {
+    setConfigDeal(deal);
+    // Auto-fill fixed slots immediately
+    const autoSelections: typeof dealSlotSelections = {};
+    for (const slot of deal.slots) {
+      if (slot.menuItemId && !slot.categoryId && slot.menuItem) {
+        if (!slot.menuItem.variants || slot.menuItem.variants.length === 0) {
+          autoSelections[slot.id] = { menuItemId: slot.menuItem.id, name: slot.menuItem.name, variantId: null, variantName: null };
+        } else {
+          autoSelections[slot.id] = { menuItemId: slot.menuItem.id, name: slot.menuItem.name, variantId: null, variantName: null };
+        }
+      }
+    }
+    setDealSlotSelections(autoSelections);
+    setDealQuantity(1);
+  };
+
+  const addDealToCart = (deal: any) => {
+    const slotSummary = deal.slots.map((slot: any, idx: number) => {
+      const sel = dealSlotSelections[slot.id];
+      if (!sel) return null;
+      return `Step ${idx + 1}: ${slot.quantity}x ${sel.name}${sel.variantName ? ` (${sel.variantName})` : ""}`;
+    }).filter(Boolean).join(" | ");
+
+    const hash = generateItemHash(`deal-${deal.id}`, null, [], slotSummary);
+    const currentItems = form.getValues("items");
+    const existingIdx = currentItems.findIndex(p => p.hash === hash);
+
+    if (existingIdx !== -1) {
+      const existing = currentItems[existingIdx];
+      const newQty = (existing.quantity || 0) + dealQuantity;
+      update(existingIdx, { ...existing, quantity: newQty, totalPrice: newQty * deal.dealPrice });
+    } else {
+      append({
+        hash,
+        menuItemId: deal.slots[0]?.menuItemId || deal.id,
+        name: `[DEAL] ${deal.name}`,
+        imageUrl: deal.imageUrl || null,
+        variantId: null,
+        variantName: deal.eventLabel || "Combo Deal",
+        quantity: dealQuantity,
+        selectedAddOns: [],
+        specialInstructions: `[DEAL: ${deal.name}] - ${slotSummary}`,
+        unitPrice: deal.dealPrice,
+        totalPrice: deal.dealPrice * dealQuantity,
+      });
+    }
+
+    toast.success(`${dealQuantity}× "${deal.name}" added to order!`);
+    setConfigDeal(null);
+    setDealSlotSelections({});
+    setDealQuantity(1);
   };
 
   const addToCart = (menuItemId: string, name: string, basePrice: number, variantId?: string | null, addOnIds: string[] = [], specialInstructions?: string, imageUrl?: string | null) => {
@@ -718,39 +790,61 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
             </form>
           </Form>
 
-          {/* RIGHT PANEL: Menu */}
+          {/* RIGHT PANEL: Menu + Deals */}
           <div className="w-[60%] xl:w-[65%] flex flex-col bg-muted/10 relative">
             {isMenuLoading && (
               <div className="absolute inset-0 z-10 bg-background/50 flex items-center justify-center backdrop-blur-sm">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
             )}
-            
-            <div className="p-4 border-b flex gap-4 shrink-0 bg-background">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input 
-                  placeholder="Search menu instantly..." 
-                  className="pl-9 h-11 text-lg font-medium shadow-none"
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  autoFocus
-                />
+
+            {/* Right panel tab switcher */}
+            <div className="p-4 border-b bg-background shrink-0 space-y-3">
+              <div className="flex gap-0 border-b">
+                <button
+                  type="button"
+                  onClick={() => setRightTab("menu")}
+                  className={`px-6 py-2 text-sm font-semibold border-b-2 transition-none ${rightTab === "menu" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+                >
+                  Menu
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setRightTab("deals"); setSearchQuery(""); }}
+                  className={`px-6 py-2 text-sm font-semibold border-b-2 transition-none ${rightTab === "deals" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+                >
+                  Deals
+                </button>
               </div>
+
+              {rightTab === "menu" && (
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search menu instantly..."
+                    className="pl-9 h-11 text-base font-medium shadow-none"
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    autoFocus
+                  />
+                </div>
+              )}
             </div>
 
-            <div className="flex-1 overflow-y-auto overflow-x-hidden p-4">
+            {/* MENU TAB */}
+            {rightTab === "menu" && (
+              <div className="flex-1 overflow-y-auto overflow-x-hidden p-4">
                 <div className="flex gap-2 pb-4 overflow-x-auto">
-                  <Button 
-                    variant={selectedCategory === "all" ? "default" : "outline"} 
+                  <Button
+                    variant={selectedCategory === "all" ? "default" : "outline"}
                     className="whitespace-nowrap rounded-none"
                     onClick={() => setSelectedCategory("all")}
                   >
                     All Items
                   </Button>
                   {menuData?.categories.map(c => (
-                    <Button 
-                      key={c.id} 
+                    <Button
+                      key={c.id}
                       variant={selectedCategory === c.id ? "default" : "outline"}
                       className="whitespace-nowrap rounded-none"
                       onClick={() => setSelectedCategory(c.id)}
@@ -764,17 +858,15 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
                   {filteredItems.map(item => {
                     const hasVariants = menuData?.variants.some(v => v.menuItemId === item.id);
                     const hasAddOns = menuData?.addOns.some(a => a.menuItemId === item.id);
-                    // Find quantity of this item in the cart to show a quick badge
                     const cartQty = items.filter(c => c.menuItemId === item.id).reduce((sum, c) => sum + (c.quantity || 0), 0);
 
                     return (
-                      <button 
+                      <button
                         key={item.id}
                         type="button"
                         className="group flex flex-col text-left bg-background border overflow-hidden shadow-sm hover:shadow-md hover:border-primary transition-all active:scale-95 relative h-[240px] w-full rounded-none"
                         onClick={() => openItemConfig(item)}
                       >
-                        {/* Top Image */}
                         <div className="w-full h-[120px] bg-muted relative shrink-0">
                           {item.imageUrl ? (
                             <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
@@ -783,10 +875,9 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
                               <ShoppingBag className="w-10 h-10 text-muted-foreground/30" />
                             </div>
                           )}
-                          {/* Top Badges (Variants/Addons) */}
                           <div className="absolute top-2 left-2 flex flex-col gap-1">
-                             {hasVariants && <span className="text-[10px] bg-background/90 backdrop-blur-sm px-1.5 py-0.5 rounded-none font-medium shadow-sm border border-border/50">Variants</span>}
-                             {hasAddOns && <span className="text-[10px] bg-background/90 backdrop-blur-sm px-1.5 py-0.5 rounded-none font-medium shadow-sm border border-border/50">Add-ons</span>}
+                            {hasVariants && <span className="text-[10px] bg-background/90 backdrop-blur-sm px-1.5 py-0.5 rounded-none font-medium shadow-sm border border-border/50">Variants</span>}
+                            {hasAddOns && <span className="text-[10px] bg-background/90 backdrop-blur-sm px-1.5 py-0.5 rounded-none font-medium shadow-sm border border-border/50">Add-ons</span>}
                           </div>
                           {cartQty > 0 && (
                             <div className="absolute top-2 right-2 bg-primary text-primary-foreground text-xs font-bold px-2 py-1 shadow-sm rounded-none">
@@ -794,8 +885,6 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
                             </div>
                           )}
                         </div>
-
-                        {/* Content */}
                         <div className="p-3 w-full flex flex-col flex-1 min-h-0">
                           <h4 className="font-bold text-sm line-clamp-1 mb-1 shrink-0">{item.name}</h4>
                           <div className="overflow-hidden mb-2">
@@ -809,15 +898,324 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
                     );
                   })}
                   {filteredItems.length === 0 && (
-                     <div className="col-span-full py-20 text-center text-muted-foreground">
-                       No items found matching your search.
-                     </div>
+                    <div className="col-span-full py-20 text-center text-muted-foreground">
+                      No items found matching your search.
+                    </div>
                   )}
                 </div>
-            </div>
+              </div>
+            )}
+
+            {/* DEALS TAB */}
+            {rightTab === "deals" && (
+              <div className="flex-1 overflow-y-auto p-4">
+                {isDealsLoading && (
+                  <div className="flex items-center justify-center py-20">
+                    <Loader2 className="h-7 w-7 animate-spin text-primary" />
+                  </div>
+                )}
+
+                {!isDealsLoading && (!dealsData || dealsData.length === 0) && (
+                  <div className="text-center py-20 text-muted-foreground">No active deals available.</div>
+                )}
+
+                {/* Deal list or deal slot builder */}
+                {!isDealsLoading && dealsData && dealsData.length > 0 && !configDeal && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 pb-20">
+                    {dealsData.map(deal => (
+                      <button
+                        key={deal.id}
+                        type="button"
+                        className="group flex flex-col text-left bg-background border overflow-hidden shadow-sm hover:shadow-md hover:border-primary transition-all active:scale-95 rounded-none"
+                        onClick={() => openDealConfig(deal)}
+                      >
+                        <div className="w-full h-[130px] bg-muted relative shrink-0">
+                          {deal.imageUrl ? (
+                            <img src={deal.imageUrl} alt={deal.name} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <ShoppingBag className="w-10 h-10 text-muted-foreground/30" />
+                            </div>
+                          )}
+                          <div className="absolute top-2 left-2 bg-primary text-primary-foreground text-[10px] font-bold px-2 py-0.5 rounded-none">
+                            {deal.eventLabel || "DEAL"}
+                          </div>
+                        </div>
+                        <div className="p-3 flex flex-col gap-1 flex-1">
+                          <h4 className="font-bold text-sm line-clamp-1">{deal.name}</h4>
+                          {deal.description && (
+                            <p className="text-[11px] text-muted-foreground line-clamp-2 leading-snug">{deal.description}</p>
+                          )}
+                          <div className="flex items-center gap-2 mt-auto pt-2">
+                            <span className="text-muted-foreground line-through text-xs">Rs. {deal.originalPrice}</span>
+                            <span className="text-primary font-black text-base">Rs. {deal.dealPrice}</span>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Inline Deal Slot Builder */}
+                {!isDealsLoading && configDeal && (
+                  <div className="space-y-6 pb-6">
+                    <div className="flex items-center gap-3 border-b pb-4">
+                      <button
+                        type="button"
+                        onClick={() => { setConfigDeal(null); setDealSlotSelections({}); setDealQuantity(1); }}
+                        className="text-muted-foreground hover:text-foreground p-1"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5"/><path d="m12 5-7 7 7 7"/></svg>
+                      </button>
+                      <div>
+                        <h3 className="font-bold text-base">{configDeal.name}</h3>
+                        <div className="flex items-center gap-2">
+                          <span className="text-muted-foreground line-through text-xs">Rs. {configDeal.originalPrice}</span>
+                          <span className="text-primary font-black">Rs. {configDeal.dealPrice}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {configDeal.slots.map((slot: any, slotIdx: number) => {
+                      const isFixed = !!slot.menuItemId && !slot.categoryId;
+                      const isDynamic = !!slot.categoryId;
+
+                      // For dynamic slots, filter available items
+                      const dynamicItems = isDynamic
+                        ? (slot.category?.menuItems || []).filter((mi: any) => {
+                            if (!slot.requiredVariantName) return true;
+                            return (mi.variants || []).some((v: any) =>
+                              v.name.toLowerCase().includes(slot.requiredVariantName.toLowerCase())
+                            );
+                          })
+                        : [];
+
+                      const currentSelection = dealSlotSelections[slot.id];
+
+                      return (
+                        <div key={slot.id} className="space-y-3">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${currentSelection ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground border"}`}>
+                              {currentSelection ? <Check className="w-3 h-3" /> : slotIdx + 1}
+                            </div>
+                            <Label className="font-bold text-sm">
+                              {slot.slotName}
+                              {slot.requiredVariantName && (
+                                <span className="ml-2 text-xs font-normal text-muted-foreground">({slot.requiredVariantName})</span>
+                              )}
+                            </Label>
+                          </div>
+
+                          {isFixed && slot.menuItem && (
+                            <div
+                              className={`flex flex-col border transition-all rounded-none ${currentSelection?.menuItemId === slot.menuItem.id && (!slot.menuItem.variants?.length || currentSelection?.variantId) ? "border-primary bg-primary/5" : "border-border"}`}
+                            >
+                              <div 
+                                className="flex items-center gap-3 p-3 cursor-pointer"
+                                onClick={() => {
+                                  if (!slot.menuItem.variants?.length) {
+                                    setDealSlotSelections(prev => ({
+                                      ...prev,
+                                      [slot.id]: { menuItemId: slot.menuItem.id, name: slot.menuItem.name, variantId: null, variantName: null }
+                                    }));
+                                  }
+                                }}
+                              >
+                                {slot.menuItem.imageUrl && (
+                                  <img src={slot.menuItem.imageUrl} alt={slot.menuItem.name} className="w-12 h-12 object-cover shrink-0" />
+                                )}
+                                <div className="flex-1">
+                                  <p className="font-semibold text-sm">{slot.menuItem.name}</p>
+                                  {(!slot.menuItem.variants || slot.menuItem.variants.length === 0) && (
+                                    <p className="text-xs text-muted-foreground mt-1">Included in deal</p>
+                                  )}
+                                </div>
+                                {currentSelection?.menuItemId === slot.menuItem.id && (!slot.menuItem.variants?.length || currentSelection?.variantId) && (
+                                  <Check className="w-4 h-4 text-primary shrink-0" />
+                                )}
+                                {currentSelection?.menuItemId === slot.menuItem.id && slot.menuItem.variants?.length > 0 && !currentSelection?.variantId && (
+                                  <span className="text-[10px] font-bold text-amber-500 uppercase tracking-wider shrink-0">Pick flavor</span>
+                                )}
+                              </div>
+                              
+                              {slot.menuItem.variants && slot.menuItem.variants.length > 0 && (
+                                <div className="px-3 pb-3 pt-1 border-t border-border/50 flex flex-wrap gap-1.5 bg-background">
+                                  <p className="w-full text-[10px] font-black uppercase tracking-wider text-muted-foreground mb-1">
+                                    Choose your flavor:
+                                  </p>
+                                  {slot.menuItem.variants.map((v: any) => {
+                                    const variantActive = currentSelection?.variantId === v.id;
+                                    return (
+                                      <button
+                                        key={v.id}
+                                        type="button"
+                                        onClick={() => setDealSlotSelections(prev => ({
+                                          ...prev,
+                                          [slot.id]: { menuItemId: slot.menuItem.id, name: slot.menuItem.name, variantId: v.id, variantName: v.name }
+                                        }))}
+                                        className={`text-xs px-3 py-1.5 border font-bold transition-all rounded-none ${variantActive ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:border-primary hover:text-foreground"}`}
+                                      >
+                                        {v.name}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {isDynamic && (
+                            <div className="grid grid-cols-3 gap-3">
+                              {dynamicItems.length === 0 && (
+                                <p className="col-span-2 text-xs text-muted-foreground py-3">No matching items found for this slot.</p>
+                              )}
+                              {dynamicItems.map((mi: any) => {
+                                const matchingVariants = slot.requiredVariantName
+                                  ? (mi.variants || []).filter((v: any) =>
+                                      v.name.toLowerCase().includes(slot.requiredVariantName.toLowerCase())
+                                    )
+                                  : mi.variants || [];
+
+                                const isSelected = currentSelection?.menuItemId === mi.id;
+                                // All variants to show as buttons (filtered by requiredVariantName only if set)
+                                const allVariants: any[] = mi.variants || [];
+                                const displayVariants = slot.requiredVariantName
+                                  ? matchingVariants
+                                  : allVariants;
+
+                                return (
+                                  <div
+                                    key={mi.id}
+                                    className={`flex flex-col overflow-hidden border-2 rounded-none transition-all bg-background ${isSelected && (!displayVariants.length || currentSelection?.variantId) ? "border-primary shadow-md" : isSelected ? "border-primary/50" : "border-border hover:border-primary/40"}`}
+                                  >
+                                    {/* Image */}
+                                    <div className="w-full h-28 bg-muted shrink-0 relative">
+                                      {mi.imageUrl ? (
+                                        <img src={mi.imageUrl} alt={mi.name} className="w-full h-full object-cover" />
+                                      ) : (
+                                        <div className="w-full h-full flex items-center justify-center">
+                                          <ShoppingBag className="w-8 h-8 text-muted-foreground/20" />
+                                        </div>
+                                      )}
+                                      {isSelected && currentSelection?.variantId && (
+                                        <div className="absolute top-1.5 right-1.5 bg-primary text-primary-foreground rounded-full p-0.5">
+                                          <Check className="w-3 h-3" />
+                                        </div>
+                                      )}
+                                      {isSelected && displayVariants.length > 0 && !currentSelection?.variantId && (
+                                        <div className="absolute top-1.5 right-1.5 bg-amber-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-none">
+                                          Pick flavor
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    {/* Content */}
+                                    <div className="p-2 flex flex-col gap-1.5 flex-1">
+                                      <p className="font-bold text-xs leading-tight line-clamp-2">{mi.name}</p>
+
+                                      {displayVariants.length > 0 ? (
+                                        <div className="flex flex-wrap gap-1 mt-auto">
+                                          {displayVariants.map((v: any) => {
+                                            const variantActive = currentSelection?.menuItemId === mi.id && currentSelection?.variantId === v.id;
+                                            return (
+                                              <button
+                                                key={v.id}
+                                                type="button"
+                                                onClick={() => setDealSlotSelections(prev => ({
+                                                  ...prev,
+                                                  [slot.id]: { menuItemId: mi.id, name: mi.name, variantId: v.id, variantName: v.name }
+                                                }))}
+                                                className={`text-[11px] px-2 py-1 border font-semibold transition-all rounded-none ${variantActive ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:border-primary hover:text-foreground"}`}
+                                              >
+                                                {v.name}
+                                              </button>
+                                            );
+                                          })}
+                                        </div>
+                                      ) : (
+                                        <button
+                                          type="button"
+                                          onClick={() => setDealSlotSelections(prev => ({
+                                            ...prev,
+                                            [slot.id]: { menuItemId: mi.id, name: mi.name, variantId: null, variantName: null }
+                                          }))}
+                                          className={`mt-auto text-[11px] px-2 py-1.5 border font-semibold transition-all rounded-none w-full ${isSelected ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:border-primary hover:text-foreground"}`}
+                                        >
+                                          {isSelected ? "✓ Selected" : "Select"}
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+
+                    {/* Quantity + Add to Order */}
+                    <div className="border-t pt-4 space-y-4 sticky -bottom-4 -mx-4 px-4 bg-background/95 backdrop-blur-sm pb-4">
+                      {(() => {
+                        const totalSlots = configDeal.slots.length;
+                        const filledSlots = Object.keys(dealSlotSelections).length;
+                        const allFilled = configDeal.slots.every((s: any) => {
+                          const sel = dealSlotSelections[s.id];
+                          if (!sel) return false;
+                          
+                          // Check if the selected item has variants
+                          let hasVariants = false;
+                          if (s.categoryId) {
+                            const dynamicItems = s.category?.menuItems || [];
+                            const mi = dynamicItems.find((item: any) => item.id === sel.menuItemId);
+                            if (mi && mi.variants && mi.variants.length > 0) {
+                              hasVariants = true;
+                            }
+                          } else if (s.menuItem) {
+                            hasVariants = (s.menuItem.variants?.length || 0) > 0;
+                          }
+
+                          if (hasVariants && !sel.variantId) return false;
+                          return true;
+                        });
+                        return (
+                          <>
+                            {!allFilled && (
+                              <p className="text-xs text-amber-600 font-semibold">
+                                {totalSlots - filledSlots} selection(s) remaining before you can add to order.
+                              </p>
+                            )}
+                            <div className="flex items-center gap-4">
+                              <div className="flex items-center border rounded-none h-10">
+                                <Button type="button" variant="ghost" size="icon" className="h-full w-10 rounded-none" onClick={() => setDealQuantity(q => Math.max(1, q - 1))}>
+                                  <Minus className="h-3 w-3" />
+                                </Button>
+                                <span className="w-8 text-center font-bold text-sm">{dealQuantity}</span>
+                                <Button type="button" variant="ghost" size="icon" className="h-full w-10 rounded-none" onClick={() => setDealQuantity(q => q + 1)}>
+                                  <Plus className="h-3 w-3" />
+                                </Button>
+                              </div>
+                              <Button
+                                type="button"
+                                disabled={!allFilled}
+                                className="flex-1 h-10 rounded-none font-bold"
+                                onClick={() => addDealToCart(configDeal)}
+                              >
+                                Add to Order — Rs. {configDeal.dealPrice * dealQuantity}
+                              </Button>
+                            </div>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </DialogContent>
+
 
       {/* Item Configuration Sub-Modal */}
       <Dialog open={!!configItem} onOpenChange={(open) => !open && setConfigItem(null)}>
