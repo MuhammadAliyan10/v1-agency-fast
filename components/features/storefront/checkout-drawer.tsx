@@ -153,212 +153,214 @@ export function CheckoutDrawer({ open, onOpenChange }: CheckoutDrawerProps) {
             </Button>
           </div>
         ) : (
-          <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col flex-1 pb-32 overflow-y-auto">
-            {/* Order Summary */}
-            <div className="p-4 border-b border-border bg-muted/20">
-              <h3 className="font-bold text-sm uppercase tracking-wider mb-4 text-muted-foreground">Order Summary</h3>
-              <div className="space-y-4">
-                {items.map((item) => (
-                  <div key={item.id} className="flex gap-3">
-                    {/* Thumbnail */}
-                    <div className="relative w-14 h-14 shrink-0 bg-muted overflow-hidden rounded-sm">
-                      {item.options?.imageUrl ? (
-                        <Image
-                          src={item.options.imageUrl}
-                          alt={item.name}
-                          fill
-                          sizes="56px"
-                          className="object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <ShoppingBag className="w-5 h-5 text-muted-foreground/40" />
-                        </div>
-                      )}
-                    </div>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col flex-1 min-h-0 h-full">
+            <div className="flex-1 overflow-y-auto">
+              {/* Order Summary */}
+              <div className="p-4 border-b border-border bg-muted/20">
+                <h3 className="font-bold text-sm uppercase tracking-wider mb-4 text-muted-foreground">Order Summary</h3>
+                <div className="space-y-4">
+                  {items.map((item) => (
+                    <div key={item.id} className="flex gap-3">
+                      {/* Thumbnail */}
+                      <div className="relative w-14 h-14 shrink-0 bg-muted overflow-hidden rounded-sm">
+                        {item.options?.imageUrl ? (
+                          <Image
+                            src={item.options.imageUrl}
+                            alt={item.name}
+                            fill
+                            sizes="56px"
+                            className="object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <ShoppingBag className="w-5 h-5 text-muted-foreground/40" />
+                          </div>
+                        )}
+                      </div>
 
-                    <div className="flex-1 min-w-0">
-                      <div className="flex justify-between items-start gap-2">
-                        <span className="font-semibold text-sm line-clamp-2">{item.name}</span>
-                        <span className="font-bold text-sm shrink-0">Rs. {item.price * item.quantity}</span>
-                      </div>
-                      {(item.options?.variant || (item.options?.addOns && item.options.addOns.length > 0)) && (
-                        <div className="text-xs text-muted-foreground mt-0.5 space-y-0.5">
-                          {item.options.variant && <div>Size: {item.options.variant}</div>}
-                          {item.options.addOns?.map((addon: { name: string; price: number }, i: number) => (
-                            <div key={i}>+ {addon.name}</div>
-                          ))}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-start gap-2">
+                          <span className="font-semibold text-sm line-clamp-2">{item.name}</span>
+                          <span className="font-bold text-sm shrink-0">Rs. {item.price * item.quantity}</span>
                         </div>
-                      )}
-                      <div className="flex items-center gap-3 mt-2">
-                        <div className="flex items-center border border-border h-7 bg-background">
-                          <Button type="button" variant="ghost" size="icon" className="h-full w-7 rounded-none"
-                            onClick={() => updateQuantity(item.id, Math.max(1, item.quantity - 1))} disabled={item.quantity <= 1}>
-                            <Minus className="h-3 w-3" />
-                          </Button>
-                          <span className="w-6 text-center font-bold text-xs">{item.quantity}</span>
-                          <Button type="button" variant="ghost" size="icon" className="h-full w-7 rounded-none"
-                            onClick={() => updateQuantity(item.id, item.quantity + 1)}>
-                            <Plus className="h-3 w-3" />
-                          </Button>
+                        {(item.options?.variant || (item.options?.addOns && item.options.addOns.length > 0)) && (
+                          <div className="text-xs text-muted-foreground mt-0.5 space-y-0.5">
+                            {item.options.variant && <div>Size: {item.options.variant}</div>}
+                            {item.options.addOns?.map((addon: { name: string; price: number }, i: number) => (
+                              <div key={i}>+ {addon.name}</div>
+                            ))}
+                          </div>
+                        )}
+                        <div className="flex items-center gap-3 mt-2">
+                          <div className="flex items-center border border-border h-7 bg-background">
+                            <Button type="button" variant="ghost" size="icon" className="h-full w-7 rounded-none"
+                              onClick={() => updateQuantity(item.id, Math.max(1, item.quantity - 1))} disabled={item.quantity <= 1}>
+                              <Minus className="h-3 w-3" />
+                            </Button>
+                            <span className="w-6 text-center font-bold text-xs">{item.quantity}</span>
+                            <Button type="button" variant="ghost" size="icon" className="h-full w-7 rounded-none"
+                              onClick={() => updateQuantity(item.id, item.quantity + 1)}>
+                              <Plus className="h-3 w-3" />
+                            </Button>
+                          </div>
+                          <button type="button" onClick={() => removeItem(item.id)}
+                            className="text-red-500 hover:bg-red-50 p-1 transition-colors">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </div>
-                        <button type="button" onClick={() => removeItem(item.id)}
-                          className="text-red-500 hover:bg-red-50 p-1 transition-colors">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
                       </div>
                     </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Checkout Form */}
+              <div className="p-4 space-y-6">
+                {/* Order Type */}
+                <div className="space-y-2">
+                  <Tabs value={orderType} onValueChange={(v) => form.setValue("orderType", v as "delivery" | "pickup")} className="w-full">
+                    <TabsList className="w-full h-12 rounded-none p-0 grid grid-cols-2 bg-muted">
+                      <TabsTrigger value="delivery" className="rounded-none h-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-bold transition-all border-none">
+                        Delivery
+                      </TabsTrigger>
+                      <TabsTrigger value="pickup" className="rounded-none h-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-bold transition-all border-none">
+                        Pickup
+                      </TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="customerName" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Full Name</Label>
+                    <Input id="customerName" placeholder="e.g. John Doe" autoComplete="name"
+                      className="h-12 rounded-none border-border focus-visible:ring-primary"
+                      {...form.register("customerName")} />
+                    {form.formState.errors.customerName && (
+                      <span className="text-xs text-red-500 font-medium">{form.formState.errors.customerName.message}</span>
+                    )}
                   </div>
-                ))}
-              </div>
-            </div>
 
-            {/* Checkout Form */}
-            <div className="p-4 space-y-6 flex-1">
-              {/* Order Type */}
-              <div className="space-y-2">
-                <Tabs value={orderType} onValueChange={(v) => form.setValue("orderType", v as "delivery" | "pickup")} className="w-full">
-                  <TabsList className="w-full h-12 rounded-none p-0 grid grid-cols-2 bg-muted">
-                    <TabsTrigger value="delivery" className="rounded-none h-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-bold transition-all border-none">
-                      Delivery
-                    </TabsTrigger>
-                    <TabsTrigger value="pickup" className="rounded-none h-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-bold transition-all border-none">
-                      Pickup
-                    </TabsTrigger>
-                  </TabsList>
-                </Tabs>
-              </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="customerPhone" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Phone Number</Label>
+                    <Input id="customerPhone" type="tel" inputMode="tel" autoComplete="tel"
+                      placeholder="e.g. 03001234567"
+                      className="h-12 rounded-none border-border focus-visible:ring-primary"
+                      {...form.register("customerPhone")} />
+                    {form.formState.errors.customerPhone && (
+                      <span className="text-xs text-red-500 font-medium">{form.formState.errors.customerPhone.message}</span>
+                    )}
+                  </div>
 
-              <div className="space-y-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="customerName" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Full Name</Label>
-                  <Input id="customerName" placeholder="e.g. John Doe" autoComplete="name"
-                    className="h-12 rounded-none border-border focus-visible:ring-primary"
-                    {...form.register("customerName")} />
-                  {form.formState.errors.customerName && (
-                    <span className="text-xs text-red-500 font-medium">{form.formState.errors.customerName.message}</span>
+                  {orderType === "delivery" && (
+                    <>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Area / Neighborhood</Label>
+                        <Select onValueChange={(val) => form.setValue("deliveryZone", val)} defaultValue={form.watch("deliveryZone")}>
+                          <SelectTrigger className="w-full h-12 rounded-none border-border focus:ring-primary">
+                            <SelectValue placeholder="Select your area" />
+                          </SelectTrigger>
+                          <SelectContent className="rounded-none">
+                            {STORE_CONSTANTS.DELIVERY_ZONES.map((zone) => (
+                              <SelectItem key={zone.id} value={zone.id} className="cursor-pointer">
+                                {zone.name} (Rs. {zone.fee})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {form.formState.errors.deliveryZone && (
+                          <span className="text-xs text-red-500 font-medium">{form.formState.errors.deliveryZone.message}</span>
+                        )}
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="deliveryAddress" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Complete Address</Label>
+                        <Textarea id="deliveryAddress" placeholder="Street, House No..."
+                          autoComplete="street-address"
+                          className="min-h-[80px] rounded-none border-border focus-visible:ring-primary resize-none"
+                          {...form.register("deliveryAddress")} />
+                        {form.formState.errors.deliveryAddress && (
+                          <span className="text-xs text-red-500 font-medium">{form.formState.errors.deliveryAddress.message}</span>
+                        )}
+                      </div>
+                    </>
                   )}
-                </div>
 
-                <div className="space-y-1.5">
-                  <Label htmlFor="customerPhone" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Phone Number</Label>
-                  <Input id="customerPhone" type="tel" inputMode="tel" autoComplete="tel"
-                    placeholder="e.g. 03001234567"
-                    className="h-12 rounded-none border-border focus-visible:ring-primary"
-                    {...form.register("customerPhone")} />
-                  {form.formState.errors.customerPhone && (
-                    <span className="text-xs text-red-500 font-medium">{form.formState.errors.customerPhone.message}</span>
-                  )}
-                </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="deliveryNotes" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Order Notes (Optional)</Label>
+                    <Input id="deliveryNotes" placeholder="e.g. Less spicy, extra napkins"
+                      className="h-12 rounded-none border-border focus-visible:ring-primary"
+                      {...form.register("deliveryNotes")} />
+                  </div>
 
-                {orderType === "delivery" && (
-                  <>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Area / Neighborhood</Label>
-                      <Select onValueChange={(val) => form.setValue("deliveryZone", val)} defaultValue={form.watch("deliveryZone")}>
-                        <SelectTrigger className="w-full h-12 rounded-none border-border focus:ring-primary">
-                          <SelectValue placeholder="Select your area" />
-                        </SelectTrigger>
-                        <SelectContent className="rounded-none">
-                          {STORE_CONSTANTS.DELIVERY_ZONES.map((zone) => (
-                            <SelectItem key={zone.id} value={zone.id} className="cursor-pointer">
-                              {zone.name} (Rs. {zone.fee})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {form.formState.errors.deliveryZone && (
-                        <span className="text-xs text-red-500 font-medium">{form.formState.errors.deliveryZone.message}</span>
+                  {/* Payment Method */}
+                  <div className="space-y-1.5 mt-6 pb-6">
+                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 block">Payment Method</Label>
+                    <RadioGroup
+                      value={form.watch("paymentMethod")}
+                      onValueChange={(v) => form.setValue("paymentMethod", v as "COD" | "JazzCash" | "EasyPaisa" | "Bank")}
+                      className="grid gap-2"
+                    >
+                      <Label className="flex items-center space-x-3 border border-border p-4 cursor-pointer hover:bg-muted/50 rounded-none transition-colors">
+                        <RadioGroupItem value="COD" />
+                        <span className="font-semibold">Cash on Delivery</span>
+                      </Label>
+
+                      <Label className="flex items-center space-x-3 border border-border p-4 cursor-pointer hover:bg-muted/50 rounded-none transition-colors">
+                        <RadioGroupItem value="JazzCash" />
+                        <span className="font-semibold">Jazz Cash</span>
+                      </Label>
+                      {form.watch("paymentMethod") === "JazzCash" && (
+                        <div className="p-3 bg-muted text-sm text-muted-foreground border-l-4 border-primary space-y-1">
+                          <p><strong>Account Title:</strong> Classy Crave</p>
+                          <p className="flex items-center gap-2">
+                            <strong>Account Number:</strong> <span className="font-mono">03001234567</span>
+                            <button type="button" onClick={() => { navigator.clipboard.writeText("03001234567"); toast.success("Copied!"); }} className="text-muted-foreground hover:text-foreground">
+                              <Copy className="w-3.5 h-3.5" />
+                            </button>
+                          </p>
+                        </div>
                       )}
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="deliveryAddress" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Complete Address</Label>
-                      <Textarea id="deliveryAddress" placeholder="Street, House No..."
-                        autoComplete="street-address"
-                        className="min-h-[80px] rounded-none border-border focus-visible:ring-primary resize-none"
-                        {...form.register("deliveryAddress")} />
-                      {form.formState.errors.deliveryAddress && (
-                        <span className="text-xs text-red-500 font-medium">{form.formState.errors.deliveryAddress.message}</span>
+
+                      <Label className="flex items-center space-x-3 border border-border p-4 cursor-pointer hover:bg-muted/50 rounded-none transition-colors">
+                        <RadioGroupItem value="EasyPaisa" />
+                        <span className="font-semibold">EasyPaisa</span>
+                      </Label>
+                      {form.watch("paymentMethod") === "EasyPaisa" && (
+                        <div className="p-3 bg-muted text-sm text-muted-foreground border-l-4 border-primary space-y-1">
+                          <p><strong>Account Title:</strong> Classy Crave</p>
+                          <p className="flex items-center gap-2">
+                            <strong>Account Number:</strong> <span className="font-mono">03001234567</span>
+                            <button type="button" onClick={() => { navigator.clipboard.writeText("03001234567"); toast.success("Copied!"); }} className="text-muted-foreground hover:text-foreground">
+                              <Copy className="w-3.5 h-3.5" />
+                            </button>
+                          </p>
+                        </div>
                       )}
-                    </div>
-                  </>
-                )}
 
-                <div className="space-y-1.5">
-                  <Label htmlFor="deliveryNotes" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Order Notes (Optional)</Label>
-                  <Input id="deliveryNotes" placeholder="e.g. Less spicy, extra napkins"
-                    className="h-12 rounded-none border-border focus-visible:ring-primary"
-                    {...form.register("deliveryNotes")} />
-                </div>
-
-                {/* Payment Method */}
-                <div className="space-y-1.5 mt-6">
-                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 block">Payment Method</Label>
-                  <RadioGroup
-                    value={form.watch("paymentMethod")}
-                    onValueChange={(v) => form.setValue("paymentMethod", v as "COD" | "JazzCash" | "EasyPaisa" | "Bank")}
-                    className="grid gap-2"
-                  >
-                    <Label className="flex items-center space-x-3 border border-border p-4 cursor-pointer hover:bg-muted/50 rounded-none transition-colors">
-                      <RadioGroupItem value="COD" />
-                      <span className="font-semibold">Cash on Delivery</span>
-                    </Label>
-
-                    <Label className="flex items-center space-x-3 border border-border p-4 cursor-pointer hover:bg-muted/50 rounded-none transition-colors">
-                      <RadioGroupItem value="JazzCash" />
-                      <span className="font-semibold">Jazz Cash</span>
-                    </Label>
-                    {form.watch("paymentMethod") === "JazzCash" && (
-                      <div className="p-3 bg-muted text-sm text-muted-foreground border-l-4 border-primary space-y-1">
-                        <p><strong>Account Title:</strong> Classy Crave</p>
-                        <p className="flex items-center gap-2">
-                          <strong>Account Number:</strong> <span className="font-mono">03001234567</span>
-                          <button type="button" onClick={() => { navigator.clipboard.writeText("03001234567"); toast.success("Copied!"); }} className="text-muted-foreground hover:text-foreground">
-                            <Copy className="w-3.5 h-3.5" />
-                          </button>
-                        </p>
-                      </div>
-                    )}
-
-                    <Label className="flex items-center space-x-3 border border-border p-4 cursor-pointer hover:bg-muted/50 rounded-none transition-colors">
-                      <RadioGroupItem value="EasyPaisa" />
-                      <span className="font-semibold">EasyPaisa</span>
-                    </Label>
-                    {form.watch("paymentMethod") === "EasyPaisa" && (
-                      <div className="p-3 bg-muted text-sm text-muted-foreground border-l-4 border-primary space-y-1">
-                        <p><strong>Account Title:</strong> Classy Crave</p>
-                        <p className="flex items-center gap-2">
-                          <strong>Account Number:</strong> <span className="font-mono">03001234567</span>
-                          <button type="button" onClick={() => { navigator.clipboard.writeText("03001234567"); toast.success("Copied!"); }} className="text-muted-foreground hover:text-foreground">
-                            <Copy className="w-3.5 h-3.5" />
-                          </button>
-                        </p>
-                      </div>
-                    )}
-
-                    <Label className="flex items-center space-x-3 border border-border p-4 cursor-pointer hover:bg-muted/50 rounded-none transition-colors">
-                      <RadioGroupItem value="Bank" />
-                      <span className="font-semibold">Bank Transfer</span>
-                    </Label>
-                    {form.watch("paymentMethod") === "Bank" && (
-                      <div className="p-3 bg-muted text-sm text-muted-foreground border-l-4 border-primary space-y-1">
-                        <p><strong>Bank:</strong> Meezan Bank</p>
-                        <p><strong>Account Title:</strong> Classy Crave</p>
-                        <p className="flex items-center gap-2">
-                          <strong>Account Number:</strong> <span className="font-mono">01234567890123</span>
-                          <button type="button" onClick={() => { navigator.clipboard.writeText("01234567890123"); toast.success("Copied!"); }} className="text-muted-foreground hover:text-foreground">
-                            <Copy className="w-3.5 h-3.5" />
-                          </button>
-                        </p>
-                      </div>
-                    )}
-                  </RadioGroup>
+                      <Label className="flex items-center space-x-3 border border-border p-4 cursor-pointer hover:bg-muted/50 rounded-none transition-colors">
+                        <RadioGroupItem value="Bank" />
+                        <span className="font-semibold">Bank Transfer</span>
+                      </Label>
+                      {form.watch("paymentMethod") === "Bank" && (
+                        <div className="p-3 bg-muted text-sm text-muted-foreground border-l-4 border-primary space-y-1">
+                          <p><strong>Bank:</strong> Meezan Bank</p>
+                          <p><strong>Account Title:</strong> Classy Crave</p>
+                          <p className="flex items-center gap-2">
+                            <strong>Account Number:</strong> <span className="font-mono">01234567890123</span>
+                            <button type="button" onClick={() => { navigator.clipboard.writeText("01234567890123"); toast.success("Copied!"); }} className="text-muted-foreground hover:text-foreground">
+                              <Copy className="w-3.5 h-3.5" />
+                            </button>
+                          </p>
+                        </div>
+                      )}
+                    </RadioGroup>
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Sticky Footer */}
-            <div className="fixed bottom-0 left-0 right-0 bg-background border-t border-border p-4 z-50 shadow-[0_-8px_30px_rgba(0,0,0,0.12)]">
+            {/* Footer */}
+            <div className="shrink-0 bg-background border-t border-border p-4 shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
               <div className="flex justify-between items-center mb-3">
                 <span className="text-sm font-semibold text-muted-foreground">Total to pay</span>
                 <span className="text-xl font-bold tracking-tight">Rs. {finalTotal}</span>

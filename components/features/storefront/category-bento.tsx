@@ -33,10 +33,11 @@ export function CategoryBento({ categories }: CategoryBentoProps) {
 
   return (
     <section className="py-12 w-full">
-      <SectionHeader title="Explore Our Menu" actionLabel="View All" actionHref="/menu?category=all" />
-      
-      <div className="grid grid-cols-2 md:grid-cols-3 md:grid-rows-2 gap-3 md:gap-4 px-4 h-auto md:h-[500px]">
-        {displayCategories.map((category, index) => {
+      <div className="max-w-7xl mx-auto px-4 md:px-8">
+        <SectionHeader title="Explore Our Menu" actionLabel="View All" actionHref="/menu?category=all" />
+        
+        <div className="grid grid-cols-2 md:grid-cols-3 md:grid-rows-2 gap-3 md:gap-4 h-auto md:h-[500px]">
+          {displayCategories.map((category, index) => {
           // First item spans 2 cols on mobile, and 2 cols/2 rows on desktop
           const isFeatured = index === 0;
           
@@ -69,6 +70,7 @@ export function CategoryBento({ categories }: CategoryBentoProps) {
             </Link>
           );
         })}
+        </div>
       </div>
     </section>
   );

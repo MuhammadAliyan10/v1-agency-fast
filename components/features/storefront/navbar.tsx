@@ -81,7 +81,8 @@ export function Navbar() {
               
               <AppDrawer open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
                 <div className="flex flex-col h-full bg-background pb-8">
-                  <div className="px-4 py-4 border-b border-border">
+                  <div className="px-4 py-4 border-b border-border flex items-center gap-2.5">
+                    <Image src="/Logo.png" alt="Classy Crave" width={32} height={32} className="rounded-none object-contain" />
                     <h2 className="font-serif text-2xl tracking-tighter text-left font-bold">
                       Classy Crave
                     </h2>
@@ -99,7 +100,7 @@ export function Navbar() {
                     </Link>
                     {[
                       { href: "/menu", label: "Menu" },
-                      { href: "/deals", label: "Deals 🔥" },
+                      { href: "/deals", label: "Deals" },
                       { href: "/track", label: "Track" },
                       { href: "/about", label: "About" },
                       { href: "/contact", label: "Contact" }
@@ -137,7 +138,7 @@ export function Navbar() {
             <div className="hidden md:flex items-center gap-8">
               {[
                 { href: "/menu", label: "Menu" },
-                { href: "/deals", label: "Deals 🔥" },
+                { href: "/deals", label: "Deals" },
                 { href: "/track", label: "Track" },
                 { href: "/about", label: "About" },
                 { href: "/contact", label: "Contact" }
@@ -169,8 +170,9 @@ export function Navbar() {
           </div>
 
           {/* Center: Brand */}
-          <div className="absolute left-1/2 -translate-x-1/2 flex items-center justify-center min-h-[48px] min-w-[48px]">
-            <Link href="/" className="block">
+          <div className="absolute left-1/2 -translate-x-1/2 flex items-center justify-center gap-2 min-h-[48px]">
+            <Link href="/" className="flex items-center gap-2">
+              <Image src="/Logo.png" alt="Classy Crave" width={32} height={32} className="rounded-none object-contain" />
               <span className="font-serif text-xl md:text-2xl tracking-wider transition-colors duration-300 text-zinc-950">
                 Classy Crave
               </span>

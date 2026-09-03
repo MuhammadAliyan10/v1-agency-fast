@@ -13,7 +13,7 @@ export default async function DealsPage() {
   const activeDeals = (deals || []) as unknown as DealItem[];
 
   return (
-    <div className="min-h-screen bg-zinc-50/50 pb-24 pt-6 px-4 md:px-8">
+    <div className="flex-1 bg-zinc-50/50 pb-36 pt-6 px-4 md:px-8">
       <div className="max-w-7xl mx-auto">
 
         {/* Hero Header Banner */}

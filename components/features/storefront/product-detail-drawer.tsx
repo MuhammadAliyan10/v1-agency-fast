@@ -92,122 +92,122 @@ export function ProductDetailDrawer({ isOpen, onClose, item }: ProductDetailDraw
 
   return (
     <AppDrawer open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <div className="flex flex-col h-full bg-background rounded-none">
-        {/* Hero Image */}
-        <div className="relative w-full aspect-[4/3] shrink-0 bg-muted rounded-none overflow-hidden mb-4">
-          {item.imageUrl ? (
-            <Image
-              src={item.imageUrl}
-              alt={item.name}
-              fill
-              className="object-cover"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center bg-zinc-100 dark:bg-zinc-800">
-              <Utensils className="w-12 h-12 text-muted-foreground/50" />
+      <div className="flex flex-col h-full bg-background rounded-none min-h-0 overflow-hidden">
+        {/* Scrollable Content Body with Side Padding */}
+        <div className="flex-1 overflow-y-auto px-4 md:px-6 pb-6">
+          {/* Hero Image */}
+          <div className="relative w-full aspect-[4/3] shrink-0 bg-muted rounded-none overflow-hidden mb-4 mt-2">
+            {item.imageUrl ? (
+              <Image
+                src={item.imageUrl}
+                alt={item.name}
+                fill
+                className="object-cover"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-zinc-100 dark:bg-zinc-800">
+                <Utensils className="w-12 h-12 text-muted-foreground/50" />
+              </div>
+            )}
+          </div>
+
+          {/* Details */}
+          <div className="mb-6">
+            <h2 className="text-2xl font-bold leading-tight tracking-tight text-foreground">{item.name}</h2>
+            <p className="text-sm text-muted-foreground leading-relaxed mt-2">
+              {item.description || "Fresh, delicious, and made just for you with the finest ingredients."}
+            </p>
+          </div>
+
+          {/* Variants Selection */}
+          {variants.length > 0 && (
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-3 bg-muted/50 p-2.5">
+                <h3 className="font-semibold text-foreground text-sm">Size & Options</h3>
+                <span className="text-[10px] font-bold text-primary tracking-widest uppercase">Required</span>
+              </div>
+              <RadioGroup 
+                value={selectedVariant?.id?.toString()} 
+                onValueChange={handleVariantChange}
+                className="grid gap-2"
+              >
+                {variants.map((variant: any) => (
+                  <Label
+                    key={variant.id}
+                    htmlFor={`variant-${variant.id}`}
+                    className={cn(
+                      "flex items-center justify-between p-4 border rounded-none cursor-pointer transition-all min-h-[48px]",
+                      selectedVariant?.id === variant.id ? "border-primary bg-primary/5" : "border-border bg-background"
+                    )}
+                  >
+                    <div className="flex items-center gap-3">
+                      <RadioGroupItem value={variant.id?.toString()} id={`variant-${variant.id}`} />
+                      <span className="font-medium text-sm">{variant.name}</span>
+                    </div>
+                    <span className="font-semibold text-foreground text-sm">
+                      Rs. {variant.price}
+                    </span>
+                  </Label>
+                ))}
+              </RadioGroup>
+            </div>
+          )}
+
+          {/* Add-ons Selection */}
+          {addOns.length > 0 && (
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-3 bg-muted/50 p-2.5">
+                <h3 className="font-semibold text-foreground text-sm">Extra Add-ons</h3>
+                <span className="text-[10px] font-medium text-muted-foreground tracking-widest uppercase">Optional</span>
+              </div>
+              <div className="grid gap-2">
+                {addOns.map((addon: any) => (
+                  <Label
+                    key={addon.id}
+                    htmlFor={`addon-${addon.id}`}
+                    className={cn(
+                      "flex items-center justify-between p-4 border rounded-none cursor-pointer transition-all min-h-[48px]",
+                      selectedAddOns.includes(addon.id) ? "border-primary/50 bg-primary/5" : "border-border bg-background"
+                    )}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Checkbox 
+                        id={`addon-${addon.id}`} 
+                        checked={selectedAddOns.includes(addon.id)}
+                        onCheckedChange={() => handleAddOnToggle(addon.id)}
+                        className="rounded-none"
+                      />
+                      <span className="font-medium text-sm">{addon.name}</span>
+                    </div>
+                    <span className="text-muted-foreground font-medium text-sm">
+                      +Rs. {addon.price}
+                    </span>
+                  </Label>
+                ))}
+              </div>
             </div>
           )}
         </div>
 
-        {/* Details */}
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold leading-tight tracking-tight text-foreground">{item.name}</h2>
-          <p className="text-sm text-muted-foreground leading-relaxed mt-2">
-            {item.description || "Fresh, delicious, and made just for you with the finest ingredients."}
-          </p>
-        </div>
-
-        {/* Variants Selection */}
-        {variants.length > 0 && (
-          <div className="mb-6">
-            <div className="flex items-center justify-between mb-3 bg-muted/50 p-2">
-              <h3 className="font-semibold text-foreground">Size & Options</h3>
-              <span className="text-[10px] font-bold text-primary tracking-widest uppercase">Required</span>
-            </div>
-            <RadioGroup 
-              value={selectedVariant?.id?.toString()} 
-              onValueChange={handleVariantChange}
-              className="grid gap-2"
-            >
-              {variants.map((variant: any) => (
-                <Label
-                  key={variant.id}
-                  htmlFor={`variant-${variant.id}`}
-                  className={cn(
-                    "flex items-center justify-between p-4 border rounded-none cursor-pointer transition-all min-h-[48px]",
-                    selectedVariant?.id === variant.id ? "border-primary bg-primary/5" : "border-border bg-background"
-                  )}
-                >
-                  <div className="flex items-center gap-3">
-                    <RadioGroupItem value={variant.id?.toString()} id={`variant-${variant.id}`} />
-                    <span className="font-medium">{variant.name}</span>
-                  </div>
-                  <span className="font-semibold text-foreground">
-                    Rs. {variant.price}
-                  </span>
-                </Label>
-              ))}
-            </RadioGroup>
-          </div>
-        )}
-
-        {/* Add-ons Selection */}
-        {addOns.length > 0 && (
-          <div className="mb-6">
-            <div className="flex items-center justify-between mb-3 bg-muted/50 p-2">
-              <h3 className="font-semibold text-foreground">Extra Add-ons</h3>
-              <span className="text-[10px] font-medium text-muted-foreground tracking-widest uppercase">Optional</span>
-            </div>
-            <div className="grid gap-2">
-              {addOns.map((addon: any) => (
-                <Label
-                  key={addon.id}
-                  htmlFor={`addon-${addon.id}`}
-                  className={cn(
-                    "flex items-center justify-between p-4 border rounded-none cursor-pointer transition-all min-h-[48px]",
-                    selectedAddOns.includes(addon.id) ? "border-primary/50 bg-primary/5" : "border-border bg-background"
-                  )}
-                >
-                  <div className="flex items-center gap-3">
-                    <Checkbox 
-                      id={`addon-${addon.id}`} 
-                      checked={selectedAddOns.includes(addon.id)}
-                      onCheckedChange={() => handleAddOnToggle(addon.id)}
-                      className="rounded-none"
-                    />
-                    <span className="font-medium">{addon.name}</span>
-                  </div>
-                  <span className="text-muted-foreground font-medium">
-                    +Rs. {addon.price}
-                  </span>
-                </Label>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Spacing for sticky footer */}
-        <div className="h-[100px]" />
-
         {/* Bottom Actions Footer */}
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-background border-t border-border z-50">
-          <div className="flex items-center gap-4">
+        <div className="shrink-0 p-4 bg-background border-t border-border z-50">
+          <div className="flex items-center gap-4 max-w-xl mx-auto">
             {/* Quantity Controls */}
-            <div className="flex items-center border border-border h-12">
+            <div className="flex items-center border border-border h-12 shrink-0">
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-full w-12 rounded-none hover:bg-muted"
+                className="h-full w-10 rounded-none hover:bg-muted"
                 onClick={() => setQuantity(Math.max(1, quantity - 1))}
                 disabled={quantity <= 1}
               >
                 <Minus className="h-4 w-4" />
               </Button>
-              <span className="w-8 text-center font-bold">{quantity}</span>
+              <span className="w-8 text-center font-bold text-sm">{quantity}</span>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-full w-12 rounded-none hover:bg-muted"
+                className="h-full w-10 rounded-none hover:bg-muted"
                 onClick={() => setQuantity(quantity + 1)}
               >
                 <Plus className="h-4 w-4" />
@@ -217,7 +217,7 @@ export function ProductDetailDrawer({ isOpen, onClose, item }: ProductDetailDraw
             {/* Add to Cart Button */}
             <Button 
               onClick={handleAddToCart} 
-              className="flex-1 h-12 rounded-none font-bold text-base shadow-lg active:scale-[0.98] transition-transform"
+              className="flex-1 h-12 rounded-none font-bold text-sm shadow-lg active:scale-[0.98] transition-transform"
             >
               Add • Rs. {totalPrice}
             </Button>

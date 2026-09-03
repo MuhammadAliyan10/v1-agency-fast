@@ -2,9 +2,8 @@
 
 import React from "react";
 import Image from "next/image";
-import { Plus, Utensils } from "lucide-react";
+import { ShoppingBag, Utensils, Flame, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
 
 export interface MenuItemCardProps {
   item: {
@@ -15,7 +14,8 @@ export interface MenuItemCardProps {
     price?: number;
     imageUrl: string | null;
     variants?: any[];
-    tags?: { isSpicy?: boolean; isPopular?: boolean };
+    isFeatured?: boolean;
+    tags?: { isSpicy?: boolean; isPopular?: boolean; isFeatured?: boolean };
     isAvailable?: boolean;
   };
   onAdd: (item: any) => void;
@@ -25,8 +25,10 @@ export interface MenuItemCardProps {
 
 export const MenuItemCard = React.memo(function MenuItemCard({ item, onAdd, onCustomize, priority = false }: MenuItemCardProps) {
   const hasVariants = item.variants && item.variants.length > 0;
-  const isAvailable = item.isAvailable !== false; // assuming true if undefined
-  
+  const isAvailable = item.isAvailable !== false;
+  const price = item.basePrice || item.price || 0;
+  const isFeaturedItem = item.isFeatured || item.tags?.isFeatured;
+
   const handleAdd = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!isAvailable) return;
@@ -38,71 +40,89 @@ export const MenuItemCard = React.memo(function MenuItemCard({ item, onAdd, onCu
   };
 
   return (
-    <div 
+    <div
       onClick={() => isAvailable && onCustomize(item)}
       className={cn(
-        "flex items-center justify-between p-4 bg-background border border-border shadow-sm transition-colors min-h-[120px] rounded-none cursor-pointer",
-        !isAvailable && "opacity-60 grayscale-[0.5]"
+        "relative flex flex-col bg-white border border-zinc-200 shadow-sm overflow-hidden cursor-pointer group transition-shadow hover:shadow-md rounded-none",
+        !isAvailable && "opacity-60 grayscale-[0.4] pointer-events-none"
       )}
     >
-      <div className="flex flex-col justify-between h-full flex-1 pr-4">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <h3 className="font-bold text-base leading-tight text-foreground line-clamp-2">
-              {item.name}
-            </h3>
-            {item.tags?.isSpicy && (
-              <Badge variant="destructive" className="rounded-none px-1 py-0 text-[10px] uppercase">Spicy</Badge>
-            )}
-            {item.tags?.isPopular && (
-              <Badge variant="default" className="rounded-none px-1 py-0 text-[10px] uppercase bg-amber-500 hover:bg-amber-600 text-white">Top</Badge>
-            )}
+      {/* Image */}
+      <div className="relative w-full h-48 bg-zinc-100 overflow-hidden shrink-0">
+        {item.imageUrl ? (
+          <Image
+            src={item.imageUrl}
+            alt={item.name}
+            fill
+            priority={priority}
+            loading={priority ? undefined : "lazy"}
+            className="object-cover transition-transform duration-500 group-hover:scale-105"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-zinc-100">
+            <Utensils className="w-10 h-10 text-zinc-300" />
           </div>
-          <p className="text-sm text-muted-foreground line-clamp-2 leading-snug">
-            {item.description || "Fresh, delicious, and made just for you with the finest ingredients."}
-          </p>
+        )}
+
+        {/* Badges */}
+        <div className="absolute top-2.5 left-2.5 flex flex-col gap-1.5 z-10">
+          {isFeaturedItem && (
+            <span className="bg-primary text-primary-foreground text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 flex items-center gap-1">
+              <Star className="w-2.5 h-2.5 fill-current" /> Featured
+            </span>
+          )}
+          {item.tags?.isPopular && !isFeaturedItem && (
+            <span className="bg-amber-500 text-white text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 flex items-center gap-1">
+              <Star className="w-2.5 h-2.5 fill-current" /> Popular
+            </span>
+          )}
+          {item.tags?.isSpicy && (
+            <span className="bg-red-500 text-white text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 flex items-center gap-1">
+              <Flame className="w-2.5 h-2.5" /> Spicy
+            </span>
+          )}
         </div>
-        <div className="mt-2 font-bold text-foreground">
-          Rs. {item.basePrice || item.price}
-        </div>
+
+        {!isAvailable && (
+          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+            <span className="text-white text-xs font-bold uppercase tracking-widest bg-black/60 px-3 py-1.5">
+              Sold Out
+            </span>
+          </div>
+        )}
       </div>
 
-      <div className="relative shrink-0 flex flex-col items-end justify-between h-full">
-        <div className="relative w-24 h-24 bg-muted border border-border">
-          {item.imageUrl ? (
-            <Image
-              src={item.imageUrl}
-              alt={item.name}
-              fill
-              priority={priority}
-              loading={priority ? undefined : "lazy"}
-              className="object-cover"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center bg-zinc-100 dark:bg-zinc-800">
-              <Utensils className="w-8 h-8 text-muted-foreground/50" />
-            </div>
-          )}
-          
-          {!isAvailable && (
-            <div className="absolute inset-0 bg-black/40 flex items-center justify-center backdrop-blur-[1px]">
-              <span className="text-white text-[10px] font-bold uppercase tracking-wider bg-black/60 px-2 py-1">
-                Sold Out
-              </span>
-            </div>
-          )}
-          
+      {/* Content */}
+      <div className="p-4 flex flex-col flex-1 gap-2">
+        <h3 className="font-bold text-sm md:text-base leading-tight text-zinc-950 line-clamp-1">
+          {item.name}
+        </h3>
+        {item.description && (
+          <p className="text-xs text-zinc-500 line-clamp-2 leading-relaxed">
+            {item.description}
+          </p>
+        )}
+
+        <div className="flex items-center justify-between mt-auto pt-2 border-t border-zinc-100">
+          <div>
+            <p className="text-[10px] text-zinc-400 font-medium uppercase tracking-wider">
+              {hasVariants ? "From" : "Price"}
+            </p>
+            <p className="font-black text-base text-zinc-950">
+              Rs. {price.toLocaleString()}
+            </p>
+          </div>
+
           <button
             onClick={handleAdd}
             disabled={!isAvailable}
             className={cn(
-              "absolute -bottom-3 left-1/2 -translate-x-1/2 w-10 h-10 bg-background border border-border flex items-center justify-center shadow-md active:scale-95 transition-transform",
-              hasVariants ? "text-primary" : "text-foreground",
+              "h-9 w-9 flex items-center justify-center bg-primary text-primary-foreground shadow-sm active:scale-95 transition-transform shrink-0",
               !isAvailable && "opacity-50 cursor-not-allowed"
             )}
-            aria-label="Add item"
+            aria-label="Add to cart"
           >
-            <Plus className="w-5 h-5" />
+            <ShoppingBag className="w-4 h-4" />
           </button>
         </div>
       </div>

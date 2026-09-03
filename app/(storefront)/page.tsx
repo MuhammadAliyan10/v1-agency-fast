@@ -1,7 +1,7 @@
 import { getPublicMenu } from "@/server/actions/storefront";
 import { CategoryBento } from "@/components/features/storefront/category-bento";
 import { TrendingSection } from "@/components/features/storefront/trending-section";
-import { HowItWorks } from "@/components/features/storefront/how-it-works";
+import { SpecialItemSection } from "@/components/features/storefront/special-item-section";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -13,11 +13,12 @@ export default async function StorefrontPage() {
 
   return (
     <div className="flex flex-col w-full">
+      {/* Hero */}
       <section className="w-[100vw] h-[55vh] md:h-[70vh] relative left-1/2 -translate-x-1/2">
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent z-10 flex flex-col justify-end pb-12 md:pb-16 items-center text-center px-4 md:px-6">
           <div className="max-w-4xl w-full">
             <span className="text-white font-mono uppercase tracking-[0.2em] text-[10px] md:text-sm mb-3 md:mb-4 block drop-shadow-md">
-              SILLANWALI'S FINEST • EST. 2024
+              SILLANWALI&apos;S FINEST • EST. 2024
             </span>
             <h1 className="text-5xl sm:text-6xl md:text-[6rem] font-serif font-black text-white leading-none mb-4 md:mb-6 drop-shadow-2xl text-balance uppercase tracking-tight">
               Classy Crave
@@ -44,8 +45,8 @@ export default async function StorefrontPage() {
       {categories.length > 0 && (
         <>
           <TrendingSection categories={categories} />
+          <SpecialItemSection categories={categories} />
           <CategoryBento categories={categories} />
-          <HowItWorks />
         </>
       )}
 

@@ -2,13 +2,13 @@
 
 import React, { useEffect, useState } from "react";
 import { useCartStore } from "@/lib/store/cart-store";
-import { ShoppingBag, ChevronRight } from "lucide-react";
+import { ShoppingBag } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function FloatingCart({ onOpen, disabled }: { onOpen: () => void; disabled?: boolean }) {
   const [mounted, setMounted] = useState(false);
   const { getTotals } = useCartStore();
-  const { itemCount, totalPrice } = getTotals();
+  const { itemCount } = getTotals();
 
   useEffect(() => {
     setMounted(true);
@@ -17,25 +17,22 @@ export function FloatingCart({ onOpen, disabled }: { onOpen: () => void; disable
   if (!mounted || itemCount === 0) return null;
 
   return (
-    <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+72px)] left-0 right-0 px-4 z-40">
+    <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+88px)] right-4 z-40">
       <button 
         onClick={onOpen}
         disabled={disabled}
+        aria-label="View Cart"
         className={cn(
-          "w-full h-14 flex items-center justify-between px-4 shadow-lg active:scale-[0.98] transition-transform",
-          disabled ? "bg-muted text-muted-foreground cursor-not-allowed" : "bg-primary text-primary-foreground"
+          "relative w-14 h-14 rounded-full flex flex-col items-center justify-center shadow-xl active:scale-95 transition-all duration-200 border-2 border-white/30",
+          disabled ? "bg-muted text-muted-foreground cursor-not-allowed" : "bg-primary text-primary-foreground shadow-primary/40 hover:bg-primary/95"
         )}
       >
-        <div className="flex items-center gap-3">
-          <div className="bg-black/20 h-8 w-8 flex items-center justify-center font-bold text-sm">
-            {itemCount}
-          </div>
-          <span className="font-semibold text-sm">View Cart</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="font-bold">Rs. {totalPrice}</span>
-          <ChevronRight className="w-5 h-5" />
-        </div>
+        <ShoppingBag className="w-6 h-6" strokeWidth={2.2} />
+        
+        {/* Item Count Badge */}
+        <span className="absolute -top-1 -right-1 bg-zinc-950 text-white font-black text-[11px] min-w-[22px] h-[22px] px-1 rounded-full border-2 border-white flex items-center justify-center shadow-md animate-in zoom-in-50">
+          {itemCount}
+        </span>
       </button>
     </div>
   );

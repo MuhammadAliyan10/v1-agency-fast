@@ -3,10 +3,8 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, UtensilsCrossed, MapPin, ShoppingBag, Loader2, Tag } from "lucide-react";
+import { Home, UtensilsCrossed, MapPin, Phone, Loader2, Tag } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useCart } from "@/store/use-cart";
-import { useCartStore } from "@/lib/store/cart-store";
 import { useState, useEffect, useTransition } from "react";
 import { CheckoutDrawer } from "./checkout-drawer";
 import { FloatingCart } from "./floating-cart";
@@ -27,9 +25,6 @@ export function MobileBottomNav({ isOpen = true }: { isOpen?: boolean }) {
     setNavigatingTo(null);
   }, [pathname]);
 
-  const items = useCartStore((state) => state.items);
-  const totalItems = items.reduce((sum, i) => sum + i.quantity, 0);
-
   const handleNavClick = (href: string) => {
     if (pathname === href) return;
     setNavigatingTo(href);
@@ -47,6 +42,7 @@ export function MobileBottomNav({ isOpen = true }: { isOpen?: boolean }) {
   // Right side items
   const rightItems = [
     { label: "Track", href: "/track", icon: MapPin },
+    { label: "Contact", href: "/contact", icon: Phone },
   ];
 
   if (pathname.includes("/product/") || pathname.includes("/checkout")) {
@@ -141,22 +137,6 @@ export function MobileBottomNav({ isOpen = true }: { isOpen?: boolean }) {
               </button>
             );
           })}
-
-          {/* Cart */}
-          <button
-            onClick={() => setIsCartOpen(true)}
-            className="flex flex-col items-center justify-center w-full h-[68px] space-y-1 text-muted-foreground hover:text-foreground transition-colors relative min-h-[48px]"
-          >
-            <div className="relative mt-1">
-              <ShoppingBag className="w-6 h-6" strokeWidth={2} />
-              {mounted && totalItems > 0 && (
-                <span className="absolute -top-1 -right-2 h-4 w-4 flex items-center justify-center bg-primary text-primary-foreground text-[10px] font-bold rounded-none">
-                  {totalItems}
-                </span>
-              )}
-            </div>
-            <span className="text-[10px] font-semibold tracking-wide uppercase mt-1">Cart</span>
-          </button>
 
         </div>
       </div>

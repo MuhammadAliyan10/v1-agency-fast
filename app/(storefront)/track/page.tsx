@@ -13,53 +13,54 @@ export default function TrackSearchPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!orderId.trim()) return;
+    const cleanToken = orderId.replace(/^#/, "").trim().toUpperCase();
+    if (!cleanToken) return;
     
     setIsSearching(true);
-    const formattedId = orderId.trim().toUpperCase();
-    
-    const finalId = formattedId;
-    
-    router.push(`/track/${finalId}`);
+    router.push(`/track/${encodeURIComponent(cleanToken)}`);
   };
 
   return (
-    <div className="animate-in fade-in duration-500 w-full max-w-xl mx-auto flex flex-col justify-center min-h-[70vh] px-4">
-      <div className="text-center mb-8">
-        <h1 className="text-3xl md:text-5xl font-heading font-black tracking-tight mb-3 text-zinc-950">Track Your Order</h1>
-        <p className="text-muted-foreground text-sm md:text-base font-medium">
-          Enter your Tracking Link or Token below to see the live status of your meal.
-        </p>
-      </div>
+    <div className="flex-1 bg-white text-zinc-900 font-sans pb-64 pt-12 px-4 md:px-8 min-h-screen flex flex-col items-center justify-center">
+      <div className="w-full max-w-sm mx-auto space-y-6 text-center">
+        
+        {/* Title & Description */}
+        <div className="space-y-2">
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-zinc-950">
+            Track Your Order
+          </h1>
+          <p className="text-xs md:text-sm text-zinc-500 max-w-xs mx-auto leading-relaxed">
+            Enter your tracking token or Order ID below to view live preparation and delivery status.
+          </p>
+        </div>
 
-      <div className="bg-white p-6 md:p-8 shadow-[0_8px_30px_rgba(0,0,0,0.04)] border border-zinc-100 relative overflow-hidden">
-        {/* Decorative background element */}
-        <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-bl-[100px] -z-10" />
-
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4 relative z-10">
+        {/* Direct Form without extra card box */}
+        <form onSubmit={handleSubmit} className="space-y-3 pt-2 text-left">
           <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400" />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
             <Input 
               placeholder="Enter tracking token..." 
               value={orderId}
               onChange={(e) => setOrderId(e.target.value)}
-              className="pl-12 h-14 md:h-16 text-base md:text-lg bg-zinc-50 border-transparent focus-visible:ring-2 focus-visible:ring-primary focus-visible:bg-white transition-all font-mono tracking-wide rounded-none"
+              className="pl-10 h-11 text-sm bg-white border-zinc-300 focus-visible:ring-1 focus-visible:ring-primary focus-visible:border-primary transition-colors font-sans rounded-none"
               autoFocus
             />
           </div>
+
           <Button 
             type="submit" 
             disabled={!orderId.trim() || isSearching}
-            className="h-14 md:h-16 text-base md:text-lg font-bold shadow-xl shadow-primary/20 hover:shadow-primary/30 transition-all active:scale-[0.98] rounded-none"
+            className="h-11 text-sm font-semibold w-full rounded-none transition-colors active:scale-[0.99]"
           >
-            {isSearching ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : null}
-            {isSearching ? "Searching..." : "Track Now"}
+            {isSearching ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+            {isSearching ? "Searching..." : "Track Order"}
           </Button>
         </form>
 
-        <div className="mt-6 text-center text-xs md:text-sm text-zinc-500 font-medium">
-          <p>Find your tracking link in your confirmation message or email.</p>
-        </div>
+        <p className="text-[11px] text-zinc-400">
+          Find your tracking token in your WhatsApp or SMS confirmation message.
+        </p>
+
       </div>
     </div>
   );

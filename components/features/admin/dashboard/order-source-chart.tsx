@@ -25,7 +25,7 @@ interface OrderSourceChartProps {
 const chartConfig = {
   website: {
     label: "Website",
-    color: "hsl(var(--chart-1))",
+    color: "#D47E45",
   },
   whatsapp: {
     label: "WhatsApp",
@@ -33,7 +33,7 @@ const chartConfig = {
   },
   manager: {
     label: "Manager / POS",
-    color: "#f97316", // Orange
+    color: "hsl(var(--primary))", // Indigo primary
   },
   admin: {
     label: "Admin",

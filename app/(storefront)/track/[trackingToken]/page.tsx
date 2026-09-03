@@ -15,7 +15,9 @@ import {
   MapPin,
   Phone,
   CreditCard,
-  ChevronLeft
+  ChevronLeft,
+  ThumbsUp,
+  UtensilsCrossed
 } from "lucide-react";
 import { toast } from "sonner";
 import { getOrderTrackingStatus } from "@/server/actions/tracking";
@@ -24,6 +26,7 @@ import { STORE_CONSTANTS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { OrderActions } from "./order-actions";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type OrderStatus = "pending" | "approved" | "preparing" | "delayed" | "out_for_delivery" | "delivered" | "rejected" | "cancelled";
 
@@ -78,9 +81,97 @@ export default function TrackingPage({ params }: { params: Promise<{ trackingTok
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-white">
-        <Loader2 className="w-12 h-12 animate-spin text-primary mb-6" />
-        <p className="text-muted-foreground font-medium text-lg tracking-wide uppercase">Locating your order...</p>
+      <div className="min-h-screen bg-white pb-44 pt-6 px-4 md:px-8 font-sans">
+        <div className="w-full max-w-[85rem] mx-auto space-y-8">
+          
+          {/* Back link skeleton */}
+          <Skeleton className="h-4 w-28" />
+
+          {/* Header Skeleton */}
+          <div className="space-y-3">
+            <Skeleton className="h-9 w-64 md:w-80" />
+            <Skeleton className="h-4 w-48" />
+            <Skeleton className="h-4 w-72" />
+          </div>
+
+          {/* Live Status Bar Skeleton */}
+          <div className="border-2 border-border/60 p-6 md:p-8 space-y-6">
+            <Skeleton className="h-4 w-28" />
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="flex flex-col items-center gap-2">
+                  <Skeleton className="w-10 h-10 rounded-none" />
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-3 w-24" />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Main Content Grid Skeleton */}
+          <div className="grid lg:grid-cols-12 gap-6 xl:gap-8">
+            {/* Left Col - Order Items */}
+            <div className="lg:col-span-7 xl:col-span-8 border-2 border-border/60 p-6 space-y-5">
+              <Skeleton className="h-5 w-32 mb-6" />
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="flex justify-between items-center py-2">
+                  <div className="flex items-center gap-4">
+                    <Skeleton className="w-14 h-14 rounded-none" />
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-36" />
+                      <Skeleton className="h-3 w-24" />
+                    </div>
+                  </div>
+                  <Skeleton className="h-5 w-16" />
+                </div>
+              ))}
+              <div className="border-t border-border/50 pt-5 space-y-3">
+                <div className="flex justify-between">
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-4 w-16" />
+                </div>
+                <div className="flex justify-between">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-4 w-16" />
+                </div>
+                <div className="flex justify-between items-center pt-3 border-t border-border/50">
+                  <Skeleton className="h-5 w-28" />
+                  <Skeleton className="h-7 w-24" />
+                </div>
+              </div>
+            </div>
+
+            {/* Right Col - Customer Details */}
+            <div className="lg:col-span-5 xl:col-span-4 border-2 border-border/60 p-6 space-y-6">
+              <Skeleton className="h-5 w-36 mb-4" />
+              <div className="space-y-5">
+                <div className="flex gap-4">
+                  <Skeleton className="w-10 h-10 shrink-0" />
+                  <div className="space-y-1.5 flex-1">
+                    <Skeleton className="h-3 w-16" />
+                    <Skeleton className="h-4 w-full" />
+                  </div>
+                </div>
+                <div className="flex gap-4">
+                  <Skeleton className="w-10 h-10 shrink-0" />
+                  <div className="space-y-1.5 flex-1">
+                    <Skeleton className="h-3 w-16" />
+                    <Skeleton className="h-4 w-32" />
+                  </div>
+                </div>
+                <div className="flex gap-4">
+                  <Skeleton className="w-10 h-10 shrink-0" />
+                  <div className="space-y-1.5 flex-1">
+                    <Skeleton className="h-3 w-16" />
+                    <Skeleton className="h-4 w-24" />
+                  </div>
+                </div>
+              </div>
+              <Skeleton className="h-12 w-full mt-6" />
+            </div>
+          </div>
+
+        </div>
       </div>
     );
   }
@@ -106,23 +197,27 @@ export default function TrackingPage({ params }: { params: Promise<{ trackingTok
   const isPickup = data.orderType === "pickup";
 
   const deliverySteps = [
-    { key: "pending", label: "Order Placed", desc: "Waiting for confirmation", icon: Clock },
-    { key: "preparing", label: "Preparing", desc: "Chefs are cooking", icon: ChefHat },
-    { key: "out_for_delivery", label: "On the Way", desc: "Rider is heading to you", icon: Bike },
-    { key: "delivered", label: "Delivered", desc: "Enjoy your meal!", icon: PackageCheck },
+    { key: "pending",          label: "Order Placed",   desc: "Waiting for confirmation",  icon: Clock },
+    { key: "approved",         label: "Approved",       desc: "Order confirmed by store",   icon: ThumbsUp },
+    { key: "preparing",        label: "Preparing",      desc: "Chefs are cooking",           icon: ChefHat },
+    { key: "out_for_delivery", label: "Out for Delivery",desc: "Rider is on the way",        icon: Bike },
+    { key: "delivered",        label: "Delivered",      desc: "Enjoy your meal!",            icon: PackageCheck },
   ];
 
   const pickupSteps = [
-    { key: "pending", label: "Order Placed", desc: "Waiting for confirmation", icon: Clock },
-    { key: "preparing", label: "Preparing", desc: "Chefs are cooking", icon: ChefHat },
-    { key: "ready_for_pickup", label: "Ready!", desc: "Come collect your order", icon: PackageCheck },
-    { key: "delivered", label: "Collected", desc: "Enjoy your meal!", icon: CheckCircle2 },
+    { key: "pending",           label: "Order Placed",  desc: "Waiting for confirmation",   icon: Clock },
+    { key: "approved",          label: "Approved",      desc: "Order confirmed by store",    icon: ThumbsUp },
+    { key: "preparing",         label: "Preparing",     desc: "Chefs are cooking",            icon: ChefHat },
+    { key: "ready_for_pickup",  label: "Ready!",        desc: "Come collect your order",     icon: UtensilsCrossed },
+    { key: "delivered",         label: "Collected",     desc: "Enjoy your meal!",            icon: CheckCircle2 },
   ];
 
   const steps = isPickup ? pickupSteps : deliverySteps;
 
   const getStepIndex = (status: OrderStatus) => {
     if (status === "cancelled" || status === "rejected") return -1;
+    // "delayed" is shown at the same level as "preparing"
+    if (status === "delayed") return steps.findIndex(s => s.key === "preparing");
     return steps.findIndex(s => s.key === status);
   };
 

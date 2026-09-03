@@ -14,9 +14,9 @@ export function AppDrawer({ children, open, onOpenChange, className }: AppDrawer
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerPortal>
         <DrawerOverlay className="bg-black/60 backdrop-blur-sm" />
-        <DrawerContent className={cn("rounded-none border-0 mt-24 flex flex-col max-h-[85vh]", className)}>
-          <div className="mx-auto mt-4 h-1 w-[40px] shrink-0 bg-muted/50 rounded-full mb-4" />
-          <div className="flex-1 overflow-y-auto overscroll-none px-4 pb-safe">
+        <DrawerContent className={cn("rounded-none border-0 mt-16 flex flex-col max-h-[90vh] p-0 overflow-hidden bg-background", className)}>
+          <div className="mx-auto mt-3 h-1 w-[40px] shrink-0 bg-muted/50 rounded-full mb-2" />
+          <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
             {children}
           </div>
         </DrawerContent>
