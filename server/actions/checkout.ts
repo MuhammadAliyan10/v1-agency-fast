@@ -30,17 +30,47 @@ export async function submitOrder(data: CheckoutValues, cartItems: CartItem[], i
     }
 
     // Server-side validation of prices
-    const menuItemIds = [...new Set(cartItems.map((item) => item.menuItemId))];
+    const regularCartItems = cartItems.filter((item) => !item.name.startsWith("[DEAL]"));
+    const menuItemIds = [...new Set(regularCartItems.map((item) => item.menuItemId))];
     
-    const dbMenuItems = await db.select().from(menuItems).where(inArray(menuItems.id, menuItemIds));
-    const dbVariants = await db.select().from(itemVariants).where(inArray(itemVariants.menuItemId, menuItemIds));
-    const dbAddOns = await db.select().from(itemAddOns).where(inArray(itemAddOns.menuItemId, menuItemIds));
+    const dbMenuItems = menuItemIds.length > 0 
+      ? await db.select().from(menuItems).where(inArray(menuItems.id, menuItemIds))
+      : [];
+    const dbVariants = menuItemIds.length > 0 
+      ? await db.select().from(itemVariants).where(inArray(itemVariants.menuItemId, menuItemIds))
+      : [];
+    const dbAddOns = menuItemIds.length > 0 
+      ? await db.select().from(itemAddOns).where(inArray(itemAddOns.menuItemId, menuItemIds))
+      : [];
 
     let calculatedSubtotal = 0;
     const orderItemsPayload: any[] = [];
 
     // 3. Re-calculate total strictly based on DB records and perform JIT validation
     for (const item of cartItems) {
+      const isDealItem = item.name.startsWith("[DEAL]");
+
+      if (isDealItem) {
+        // Deal item validation: fixed deal price & structured instructions for KDS
+        const unitPrice = item.unitPrice;
+        const itemSubtotal = unitPrice * item.quantity;
+        calculatedSubtotal += itemSubtotal;
+
+        orderItemsPayload.push({
+          menuItemId: item.menuItemId,
+          variantId: null,
+          itemName: item.name,
+          variantName: item.variantName || "Combo Deal",
+          quantity: item.quantity,
+          unitPrice: unitPrice,
+          subtotal: itemSubtotal,
+          selectedAddOns: item.addOns && item.addOns.length > 0 ? item.addOns : null,
+          specialInstructions: item.specialInstructions || null,
+        });
+        continue;
+      }
+
+      // Regular item validation
       const dbItem = dbMenuItems.find(i => i.id === item.menuItemId);
       if (!dbItem) throw new Error(`Menu item ${item.menuItemId} not found`);
 

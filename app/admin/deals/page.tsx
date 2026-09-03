@@ -15,9 +15,19 @@ export default async function AdminDealsPage() {
       id: item.id, 
       name: item.name, 
       basePrice: item.basePrice,
-      categoryId: cat.id
+      categoryId: cat.id,
+      variants: item.variants || [],
     }))
   );
+
+  // Enrich categories with variant data on their items
+  const enrichedCategories = categories.map((cat: any) => ({
+    ...cat,
+    items: (cat.items || []).map((item: any) => ({
+      ...item,
+      variants: item.variants || [],
+    })),
+  }));
 
   return (
     <div className="space-y-6 p-6">

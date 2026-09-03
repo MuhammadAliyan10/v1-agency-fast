@@ -440,7 +440,28 @@ export function DealsAdmin({ initialDeals, menuItems, categories }: { initialDea
                                   Required Variant Name (Optional)
                                   <span className="bg-primary/10 text-primary px-1 py-0.5 rounded text-[8px] tracking-widest">ADVANCED</span>
                                 </Label>
-                                <Input {...form.register(`slots.${index}.requiredVariantName`)} placeholder="e.g. Medium (Forces user to select a 'Medium' size)" className="h-8 text-xs" />
+                                <Input {...form.register(`slots.${index}.requiredVariantName`)} placeholder="e.g. Small (only shows items with a 'Small' variant)" className="h-8 text-xs" />
+                                {/* Live count preview */}
+                                {(() => {
+                                  const catId = form.watch(`slots.${index}.categoryId`);
+                                  const variantFilter = form.watch(`slots.${index}.requiredVariantName`)?.trim().toLowerCase();
+                                  if (!catId || catId === "none") return null;
+                                  const cat = categories.find(c => c.id === catId);
+                                  if (!cat) return null;
+                                  const matchingItems = variantFilter
+                                    ? cat.items.filter(i => (i as any).variants?.some((v: any) => v.name.trim().toLowerCase() === variantFilter))
+                                    : cat.items;
+                                  const count = matchingItems.length;
+                                  return (
+                                    <p className={cn("text-[10px] font-bold mt-1 flex items-center gap-1",
+                                      count === 0 ? "text-destructive" : "text-emerald-600"
+                                    )}>
+                                      {count === 0
+                                        ? `⚠ No items match this filter — customers will see an empty slot!`
+                                        : `✓ ${count} item${count !== 1 ? "s" : ""} will be available for customers to choose from`}
+                                    </p>
+                                  );
+                                })()}
                               </div>
                             </div>
                           </div>

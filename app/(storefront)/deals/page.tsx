@@ -1,107 +1,82 @@
 // app/(storefront)/deals/page.tsx
 import { getPublicDeals } from "@/server/actions/deals";
 import { STORE_CONSTANTS } from "@/lib/constants";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { Tag, Clock, ArrowRight } from "lucide-react";
-import { DealAddToCart } from "@/components/features/storefront/deal-add-to-cart";
+import { Tag, Sparkles, Flame, ShieldCheck, ArrowRight } from "lucide-react";
+import { DealCard, DealItem } from "@/components/features/storefront/deal-customizer-drawer";
 
 export const dynamic = "force-dynamic";
 
 export default async function DealsPage() {
   const { data: deals } = await getPublicDeals();
-  const activeDeals = deals || [];
+  const activeDeals = (deals || []) as unknown as DealItem[];
 
   return (
-    <div className="px-4 md:px-8 pb-16 pt-4">
-      <div className="mb-8">
-        <p className="text-xs font-bold uppercase tracking-widest text-primary mb-1">Limited Time</p>
-        <h1 className="text-2xl md:text-3xl font-heading font-black tracking-tight">Deals & Offers</h1>
-        <p className="text-muted-foreground text-sm mt-1">Exclusive combos and event specials — grab them while they last.</p>
-      </div>
+    <div className="min-h-screen bg-zinc-50/50 pb-24 pt-6 px-4 md:px-8">
+      <div className="max-w-7xl mx-auto">
 
-      {activeDeals.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-24 text-center">
-          <Tag className="w-16 h-16 text-muted-foreground opacity-20 mb-4" />
-          <h2 className="text-xl font-bold text-zinc-950">No active deals right now</h2>
-          <p className="text-muted-foreground text-sm mt-2">Check back soon — we run specials on events and weekends!</p>
-          <Button asChild variant="outline" className="mt-6">
-            <Link href="/menu">Browse Menu</Link>
-          </Button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6">
-          {activeDeals.map((deal) => {
-            const savings = deal.originalPrice - deal.dealPrice;
-            const savingsPct = Math.round((savings / deal.originalPrice) * 100);
-            const isExpiringSoon = deal.validUntil
-              ? (new Date(deal.validUntil).getTime() - Date.now()) < 24 * 60 * 60 * 1000
-              : false;
+        {/* Hero Header Banner */}
+        <div className="relative overflow-hidden bg-zinc-950 text-white p-6 md:p-10 mb-8 border border-zinc-800 shadow-xl">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-primary/20 blur-[120px] rounded-full pointer-events-none" />
+          <div className="relative z-10 max-w-2xl">
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-primary text-primary-foreground text-[11px] font-black uppercase tracking-widest mb-3">
+              <Sparkles className="w-3.5 h-3.5" /> Exclusive Savings
+            </div>
+            <h1 className="text-3xl md:text-5xl font-heading font-black tracking-tight leading-tight mb-3">
+              Deals & Combo Offers
+            </h1>
+            <p className="text-zinc-400 text-sm md:text-base leading-relaxed mb-6 font-medium">
+              Handpicked multi-item meals, limited time combos & event promotions crafted for maximum savings and unbeatable taste.
+            </p>
 
-            return (
-              <div key={deal.id} className="bg-white border border-border/50 flex flex-col overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                {/* Image / Banner */}
-                {deal.imageUrl ? (
-                  <div className="relative aspect-[16/9] bg-muted">
-                    <img src={deal.imageUrl} alt={deal.name} className="w-full h-full object-cover" />
-                    <div className="absolute top-3 left-3 flex gap-1.5">
-                      <Badge className="bg-primary text-white text-xs font-black px-2 py-0.5">
-                        {savingsPct}% OFF
-                      </Badge>
-                      {deal.dealType === "event" && deal.eventLabel && (
-                        <Badge variant="secondary" className="text-xs font-bold">{deal.eventLabel}</Badge>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="relative aspect-[16/9] bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center">
-                    <Tag className="w-12 h-12 text-primary/30" />
-                    <div className="absolute top-3 left-3 flex gap-1.5">
-                      <Badge className="bg-primary text-white text-xs font-black px-2 py-0.5">{savingsPct}% OFF</Badge>
-                      {deal.dealType === "event" && deal.eventLabel && (
-                        <Badge variant="secondary" className="text-xs font-bold">{deal.eventLabel}</Badge>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                <div className="p-4 flex flex-col flex-1">
-                  <h2 className="font-heading font-black text-lg tracking-tight leading-tight mb-1">{deal.name}</h2>
-                  {deal.description && <p className="text-sm text-muted-foreground mb-3 leading-relaxed">{deal.description}</p>}
-
-                  {/* Items included */}
-                  {deal.slots && (deal.slots as any[]).length > 0 && (
-                    <div className="mb-3">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1.5">Includes</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {(deal.slots as any[]).map((slot, idx) => (
-                          <li key={idx} className="flex justify-between items-center text-sm">
-                            <span className="font-semibold text-zinc-950">{slot.quantity}x {slot.slotName}</span>
-                          </li>
-                        ))}</div>
-                    </div>
-                  )}
-
-                  {isExpiringSoon && (
-                    <div className="flex items-center gap-1.5 text-xs text-orange-600 font-bold mb-3">
-                      <Clock className="w-3 h-3 animate-pulse" /> Expires soon!
-                    </div>
-                  )}
-
-                  <div className="mt-auto flex items-center justify-between pt-3 border-t border-border/30">
-                    <div>
-                      <p className="text-lg font-black text-foreground">{STORE_CONSTANTS.CURRENCY} {deal.dealPrice}</p>
-                      <p className="text-xs text-muted-foreground line-through">{STORE_CONSTANTS.CURRENCY} {deal.originalPrice}</p>
-                    </div>
-                    <DealAddToCart deal={deal as any} />
-                  </div>
-                </div>
+            <div className="flex flex-wrap gap-4 text-xs font-bold text-zinc-300">
+              <div className="flex items-center gap-1.5">
+                <Flame className="w-4 h-4 text-primary" /> Up to 40% Off Combos
               </div>
-            );
-          })}
+              <div className="flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-green-500" /> Hot & Fresh Delivery
+              </div>
+            </div>
+          </div>
         </div>
-      )}
+
+        {/* Deals Content Section */}
+        {activeDeals.length === 0 ? (
+          <div className="bg-white border border-zinc-200 p-12 text-center flex flex-col items-center justify-center min-h-[50vh]">
+            <div className="w-20 h-20 bg-primary/10 text-primary flex items-center justify-center mb-4">
+              <Tag className="w-10 h-10" />
+            </div>
+            <h2 className="text-2xl font-heading font-black text-zinc-950 mb-2">No active deals right now</h2>
+            <p className="text-muted-foreground text-sm max-w-md mb-6">
+              We update our special combos and event deals regularly. Browse our full menu in the meantime!
+            </p>
+            <Button asChild className="h-12 px-6 font-bold uppercase tracking-wider bg-primary hover:bg-primary/90 text-white rounded-none">
+              <Link href="/menu">
+                Explore Full Menu <ArrowRight className="w-4 h-4 ml-2" />
+              </Link>
+            </Button>
+          </div>
+        ) : (
+          <div>
+            <div className="flex items-center justify-between mb-6 pb-3 border-b border-zinc-200">
+              <h2 className="text-xl font-heading font-black text-zinc-950 tracking-tight flex items-center gap-2">
+                <Tag className="w-5 h-5 text-primary" /> Active Deals ({activeDeals.length})
+              </h2>
+              <span className="text-xs text-zinc-500 font-semibold uppercase tracking-wider">
+                Select a deal to configure & order
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+              {activeDeals.map((deal) => (
+                <DealCard key={deal.id} deal={deal} />
+              ))}
+            </div>
+          </div>
+        )}
+
+      </div>
     </div>
   );
 }

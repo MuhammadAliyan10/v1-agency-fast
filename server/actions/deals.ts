@@ -17,8 +17,25 @@ export async function getPublicDeals() {
       with: {
         slots: {
           with: {
-            menuItem: true,
-            category: true,
+            menuItem: {
+              with: {
+                variants: {
+                  where: (v: any, { eq }: any) => eq(v.isAvailable, true),
+                }
+              }
+            },
+            category: {
+              with: {
+                menuItems: {
+                  where: (item: any, { eq }: any) => eq(item.isAvailable, true),
+                  with: {
+                    variants: {
+                      where: (v: any, { eq }: any) => eq(v.isAvailable, true),
+                    }
+                  }
+                }
+              }
+            },
           }
         }
       },
