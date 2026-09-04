@@ -1,6 +1,6 @@
 // app/waiter/layout.tsx
 import { verifySessionOrRedirect } from "@/lib/auth/verify-session";
-import { LogOut } from "lucide-react";
+import { LogOut, UtensilsCrossed } from "lucide-react";
 import { logoutStaff } from "@/server/actions/auth";
 
 async function LogoutButton() {
@@ -26,20 +26,19 @@ export default async function WaiterLayout({ children }: { children: React.React
   const session = await verifySessionOrRedirect(["waiter", "admin"]);
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="flex h-14 items-center justify-between border-b px-6 bg-card">
-        <div className="flex items-center gap-3">
-          <div className="h-7 w-7 rounded bg-primary flex items-center justify-center">
-            <span className="text-xs font-black text-primary-foreground">CC</span>
-          </div>
-          <div>
-            <p className="text-sm font-bold leading-tight">Classy Crave</p>
-            <p className="text-[10px] text-muted-foreground">Floor Staff · {session.name}</p>
-          </div>
+    <div className="min-h-screen bg-background flex flex-col">
+      {/* Slim header */}
+      <header className="flex h-11 items-center justify-between border-b px-4 bg-card shrink-0">
+        <div className="flex items-center gap-2">
+          <UtensilsCrossed className="w-4 h-4 text-primary" />
+          <span className="text-sm font-black tracking-tight">Floor Map</span>
+          <span className="text-xs text-muted-foreground">·</span>
+          <span className="text-xs font-semibold text-muted-foreground">{session.name}</span>
         </div>
         <LogoutButton />
       </header>
-      <main className="p-4 max-w-2xl mx-auto">{children}</main>
+      {/* Full-width content — no max-width constraint */}
+      <main className="flex-1 p-3 sm:p-4 overflow-auto">{children}</main>
     </div>
   );
 }
