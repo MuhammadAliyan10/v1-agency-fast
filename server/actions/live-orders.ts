@@ -634,9 +634,9 @@ export async function createManualOrder(payload: z.infer<typeof manualOrderSchem
         customerName: finalCustomerName,
         customerPhone: finalCustomerPhone,
         orderType: validated.orderType,
-        tableId: validated.tableId ?? null,
-        tableNumber: validated.tableNumber ?? null,
-        waiterId: finalWaiterId,
+        tableId: (validated.tableId && validated.tableId.trim() !== "") ? validated.tableId : null,
+        tableNumber: (validated.tableNumber && validated.tableNumber.trim() !== "") ? validated.tableNumber : null,
+        waiterId: (finalWaiterId && finalWaiterId.trim() !== "") ? finalWaiterId : null,
         waiterName: null, // Legacy field kept for backward compat
         createdById: session.id,
         deliveryAddress: validated.deliveryAddress ?? null,

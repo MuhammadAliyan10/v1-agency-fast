@@ -490,8 +490,9 @@ export const KanbanCard = React.memo(function KanbanCard({
                   )}
                 </div>
 
-                {/* ── Rider Assignment (delivery only) ── */}
-                {order.orderType === "delivery" && !isKitchen && (
+                {/* ── Rider Assignment (delivery only, from ready_for_pickup onwards) ── */}
+                {order.orderType === "delivery" && !isKitchen &&
+                  ["ready_for_pickup", "out_for_delivery", "delivered"].includes(order.status) && (
                   <div className="pb-5 border-b border-dashed space-y-2">
                     <div className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider flex items-center gap-1.5">
                       <Bike className="w-3 h-3" /> Rider Assignment
@@ -819,7 +820,7 @@ export const KanbanCard = React.memo(function KanbanCard({
                     <span className="text-muted-foreground font-normal mx-1">•</span>
                     <span className="text-foreground">{order.waiterName || "Unassigned"}</span>
                   </div>
-                  {order.customerName && (
+                  {(order.customerName && order.customerName !== "Walk-in Guest") && (
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
                       <User className="h-3 w-3 text-primary/70 shrink-0" />
                       <span className="capitalize line-clamp-1">{order.customerName}</span>
@@ -985,7 +986,7 @@ export const KanbanCard = React.memo(function KanbanCard({
       <div id={`receipt-${order.id}`} style={{ display: "none" }}>
         {/* HEADER */}
         <div style={{ textAlign: "center", marginBottom: "4px" }}>
-          <img src="/Logo.png" className="logo" alt="Logo" />
+          <img src={`${typeof window !== "undefined" ? window.location.origin : ""}/Logo.png`} className="logo" alt="Logo" style={{ width: "52px", height: "52px", display: "block", margin: "0 auto 4px" }} />
           <div className="bold xl center" style={{ letterSpacing: "1px" }}>CLASSY CRAVE</div>
           <div className="sm center" style={{ letterSpacing: "3px", marginBottom: "6px" }}>SOPHISTICATION IN EVERY BITE</div>
           <div className="dash" />
@@ -1011,7 +1012,7 @@ export const KanbanCard = React.memo(function KanbanCard({
           <div style={{ marginBottom: "6px" }}>
             {order.customerName && <div className="delivery-detail bold">{order.customerName}</div>}
             {order.customerPhone && <div className="delivery-detail bold">{formatPhone(order.customerPhone)}</div>}
-            {order.deliveryAddress && <div className="delivery-detail-sm">{order.deliveryAddress}</div>}
+            {order.deliveryAddress && <div className="delivery-detail bold" style={{ fontSize: "14px" }}>{order.deliveryAddress}</div>}
             {order.rider && <div className="delivery-detail-sm bold" style={{ marginTop: "4px" }}>Rider: {order.rider.name}</div>}
           </div>
         )}
@@ -1042,8 +1043,8 @@ export const KanbanCard = React.memo(function KanbanCard({
                 <div className="row">
                   <div className="qty">{item.quantity}x</div>
                   <div className="iname">
-                    {item.itemName}
-                    {item.variantName && <span style={{ fontWeight: "normal", fontSize: "11px" }}> ({item.variantName})</span>}
+                    {item.itemName.replace(/^\[DEAL\]\s*/, "")}
+                    {item.variantName && item.variantName !== "Combo Deal" && <span style={{ fontWeight: "normal", fontSize: "11px" }}> ({item.variantName})</span>}
                   </div>
                   <div className="iprice">Rs.{item.subtotal}</div>
                 </div>

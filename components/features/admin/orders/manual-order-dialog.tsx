@@ -24,7 +24,10 @@ import { cn } from "@/lib/utils";
 
 const manualOrderSchema = z.object({
   orderType: z.enum(["delivery", "pickup", "dine_in"]),
-  customerPhone: z.string().optional(),
+  customerPhone: z.string().optional().refine(
+    (val) => !val || val.trim() === "" || /^03[0-9]{9}$/.test(val.trim()),
+    { message: "Phone must be in format 03XXXXXXXXX (11 digits)" }
+  ),
   customerName: z.string().optional(),
   deliveryAddress: z.string().optional(),
   deliveryNotes: z.string().optional(),
@@ -271,11 +274,12 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
     if (orderType === "dine_in") {
       return (tableId?.trim() || "") !== "" && (waiterId?.trim() || "") !== "" && (customerName?.trim() || "") !== "";
     }
+    const isValidPhone = !!customerPhone && /^03[0-9]{9}$/.test(customerPhone.trim());
     if (orderType === "delivery") {
-      return (customerName?.trim() || "") !== "" && (customerPhone?.trim() || "") !== "" && (deliveryAddress?.trim() || "") !== "";
+      return (customerName?.trim() || "") !== "" && isValidPhone && (deliveryAddress?.trim() || "") !== "";
     }
     if (orderType === "pickup") {
-      return (customerName?.trim() || "") !== "" && (customerPhone?.trim() || "") !== "";
+      return (customerName?.trim() || "") !== "" && isValidPhone;
     }
     return false;
   }, [orderType, tableId, waiterId, customerName, customerPhone, deliveryAddress]);
@@ -671,7 +675,26 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                       <Label>Customer Phone {orderType !== "dine_in" && <span className="text-destructive">*</span>}</Label>
-                      <Input value={customerPhone} onChange={e => form.setValue("customerPhone", e.target.value)} placeholder="03XXXXXXXXX" className="h-10 w-full bg-background shadow-none" disabled={!!existingOrder} />
+                      <Input
+                        value={customerPhone}
+                        onChange={e => {
+                          const v = e.target.value.replace(/[^0-9]/g, "").slice(0, 11);
+                          form.setValue("customerPhone", v);
+                        }}
+                        placeholder="03XXXXXXXXX"
+                        className={cn(
+                          "h-10 w-full bg-background shadow-none",
+                          customerPhone && customerPhone.length > 0 && !/^03[0-9]{9}$/.test(customerPhone)
+                            ? "border-rose-400 focus-visible:ring-rose-400"
+                            : ""
+                        )}
+                        disabled={!!existingOrder}
+                        maxLength={11}
+                        inputMode="numeric"
+                      />
+                      {customerPhone && customerPhone.length > 0 && !/^03[0-9]{9}$/.test(customerPhone) && (
+                        <p className="text-[10px] text-rose-500 font-semibold mt-0.5">Must start with 03 and be 11 digits</p>
+                      )}
                     </div>
                     <div className="space-y-1.5">
                       <Label>Customer Name {orderType !== "dine_in" && <span className="text-destructive">*</span>}</Label>
@@ -1023,7 +1046,16 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
                         key={item.id}
                         type="button"
                         className="group flex flex-col text-left bg-background border overflow-hidden shadow-sm hover:shadow-md hover:border-primary transition-all active:scale-95 relative h-[240px] w-full rounded-none"
-                        onClick={() => openItemConfig(item)}
+                        onClick={() => {
+                          const itemVariants = menuData?.variants.filter(v => v.menuItemId === item.id) || [];
+                          const itemAddOns = menuData?.addOns.filter(a => a.menuItemId === item.id) || [];
+                          if (itemVariants.length === 0 && itemAddOns.length === 0) {
+                            // No config needed — add directly with quantity 1, no modal
+                            addToCart(item.id, item.name, item.basePrice, null, [], undefined, item.imageUrl);
+                          } else {
+                            openItemConfig(item);
+                          }
+                        }}
                       >
                         <div className="w-full h-[120px] bg-muted relative shrink-0">
                           {item.imageUrl ? (
