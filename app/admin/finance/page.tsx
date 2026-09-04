@@ -11,7 +11,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { getSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/rbac";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Calculator, ArrowRight } from "lucide-react";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
@@ -103,6 +104,28 @@ export default async function FinancePage({
       <Suspense fallback={<KPISkeleton />}>
         <FinanceKPIs stats={data.stats} lostRevenue={data.lostRevenue} />
       </Suspense>
+
+      {/* Daily Register banner — quick access */}
+      <Link
+        href="/admin/finance/register"
+        className="group flex items-center justify-between gap-4 border border-primary/25 bg-primary/5 hover:bg-primary/10 px-5 py-4 transition-colors print:hidden"
+      >
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-primary/15 text-primary">
+            <Calculator className="w-4 h-4" />
+          </div>
+          <div>
+            <p className="font-black text-sm">Daily Register</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Close today&apos;s register — verify cash, rider collections, waiter reconciliation, and credit orders
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5 text-primary text-xs font-bold shrink-0">
+          Open Register
+          <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+        </div>
+      </Link>
 
       {/* Charts */}
       <div className="print:hidden">
