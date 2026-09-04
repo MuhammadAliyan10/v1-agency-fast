@@ -2,7 +2,7 @@
 
 import crypto from "crypto";
 import { db } from "@/database/db";
-import { orders, orderItems, users, menuItems, itemVariants, itemAddOns } from "@/database/schema";
+import { orders, orderItems, users, menuItems, itemVariants, itemAddOns, restaurantTables } from "@/database/schema";
 import { inArray, notInArray, eq, asc, desc, and, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { registerShifts } from "@/database/schema";
@@ -52,6 +52,7 @@ export type LiveOrderProjection = {
   paymentStatus: string;
   estimatedReadyAt: Date | null;
   waiterName: string | null;
+  tableHallType: "general" | "family" | null;
   rider: { name: string; phone: string } | null;
   items: {
     id: string;
@@ -115,11 +116,13 @@ export async function getLiveOrders() {
         waiter: {
           name: waitersAlias.name,
         },
+        tableHallType: restaurantTables.hallType,
       })
       .from(orders)
       .leftJoin(users, eq(orders.customerId, users.id))
       .leftJoin(ridersAlias, eq(orders.riderId, ridersAlias.id))
       .leftJoin(waitersAlias, eq(orders.waiterId, waitersAlias.id))
+      .leftJoin(restaurantTables, eq(orders.tableId, restaurantTables.id))
       .where(notInArray(orders.status, ["delivered", "cancelled", "rejected"]))
       .orderBy(desc(orders.createdAt));
 
@@ -173,6 +176,7 @@ export async function getLiveOrders() {
         paymentStatus: row.paymentStatus,
         estimatedReadyAt: row.estimatedReadyAt,
         waiterName: row.waiter?.name || null,
+        tableHallType: (row.tableHallType as "general" | "family" | null) ?? null,
         rider: row.rider?.id ? { name: row.rider.name, phone: row.rider.phone } : null,
         items,
       };
@@ -198,6 +202,11 @@ export async function updateLiveOrderStatus(
 
     if (!canTransition(currentOrder.status, newStatus)) {
       throw new Error(`INVALID_STATE_TRANSITION: Cannot transition from ${currentOrder.status} to ${newStatus}`);
+    }
+
+    // Delivery orders must have a rider assigned before dispatching
+    if (newStatus === "out_for_delivery" && currentOrder.orderType === "delivery" && !currentOrder.riderId) {
+      throw new Error("RIDER_REQUIRED: Assign a rider before dispatching this delivery order.");
     }
 
     const updatePayload: Partial<typeof orders.$inferInsert> = {
@@ -707,7 +716,18 @@ export async function addItemsToExistingOrder(data: z.infer<typeof addItemsSchem
       specialInstructions: string | null;
       subtotal: number;
       status: "pending";
+      roundNumber: number;
     }[] = [];
+
+    // Compute next round number from existing items
+    const existingItems = await db
+      .select({ roundNumber: orderItems.roundNumber })
+      .from(orderItems)
+      .where(eq(orderItems.orderId, validated.orderId));
+    const maxRound = existingItems.length > 0
+      ? Math.max(...existingItems.map(i => i.roundNumber ?? 1))
+      : 0;
+    const newRoundNumber = maxRound + 1;
     
     for (const item of validated.items) {
       const dbItem = dbItems.find(i => i.id === item.menuItemId);
@@ -753,6 +773,7 @@ export async function addItemsToExistingOrder(data: z.infer<typeof addItemsSchem
         specialInstructions: item.specialInstructions || null,
         subtotal: itemSubtotal,
         status: "pending" as const,
+        roundNumber: newRoundNumber,
       });
     }
     

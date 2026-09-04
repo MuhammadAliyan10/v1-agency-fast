@@ -107,7 +107,7 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
       deliveryFee: 50,
       discountAmount: 0,
       paymentMethod: "Cash",
-      paymentStatus: "paid",
+      paymentStatus: "unpaid",
       items: [],
     }
   });
@@ -175,7 +175,7 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
         deliveryFee: 50,
         discountAmount: 0,
         paymentMethod: "Cash",
-        paymentStatus: "paid",
+        paymentStatus: "unpaid",
         items: [],
       });
     } else {
@@ -190,7 +190,7 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
         deliveryFee: 50,
         discountAmount: 0,
         paymentMethod: "Cash",
-        paymentStatus: "paid",
+        paymentStatus: "unpaid",
         items: [],
       });
     }
@@ -484,7 +484,7 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
       form.setValue("paymentStatus", "unpaid");
     } else {
       form.setValue("paymentMethod", "Cash");
-      form.setValue("paymentStatus", "paid");
+      form.setValue("paymentStatus", "unpaid");
     }
     setCashTendered("");
   }, [orderType, form]);
@@ -505,10 +505,10 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
           if (form.getValues("items").length > 0) e.preventDefault();
         }}
       >
-        <DialogHeader className="px-6 py-4 border-b shrink-0 flex-row justify-between items-center">
+        <DialogHeader className="px-4 py-2.5 border-b shrink-0 flex-row justify-between items-center">
           <div>
-            <DialogTitle className="text-2xl font-bold">{existingOrder ? `Append to Order #${existingOrder.id}` : "New POS Order"}</DialogTitle>
-            <DialogDescription>{existingOrder ? "Add new rounds/items to this existing order." : "Quickly construct manual orders for walk-ins and direct calls."}</DialogDescription>
+            <DialogTitle className="text-lg font-bold leading-tight">{existingOrder ? `Append to #${existingOrder.id}` : "New POS Order"}</DialogTitle>
+            <DialogDescription className="text-xs mt-0">{existingOrder ? "Add new rounds/items to this existing order." : "Walk-ins and direct calls."}</DialogDescription>
           </div>
           {items.length > 0 && (
             <Button
@@ -532,9 +532,9 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
           {/* LEFT PANEL: Cart & Form */}
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="w-[40%] xl:w-[35%] flex flex-col bg-background border-r">
-              <div className="flex-1 p-5 border-b overflow-y-auto">
-                <div className="mb-6 space-y-3">
-                  <Label className="text-base font-bold">Order Type</Label>
+              <div className="flex-1 p-3 border-b overflow-y-auto">
+                <div className="mb-4 space-y-2">
+                  <Label className="text-sm font-bold">Order Type</Label>
                   <Tabs value={orderType} onValueChange={(v) => form.setValue("orderType", v as any)}>
                     <TabsList className="w-full justify-start h-auto p-0 bg-transparent rounded-none border-b">
                       {existingOrder ? (
@@ -570,7 +570,7 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
                   </Tabs>
                 </div>
 
-                <div className="space-y-4 mb-8 bg-muted/30 p-4 border">
+                <div className="space-y-3 mb-4 bg-muted/30 p-3 border">
                   {orderType === "dine_in" && (
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1.5">
@@ -586,7 +586,9 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
                           <SelectContent>
                             {tablesData?.map(table => (
                               <SelectItem key={table.id} value={table.id}>
-                                {table.name} {table.isOccupied ? "🔴 (Occupied)" : ""}
+                                {table.name}
+                                {table.hallType === "family" ? " — Family Hall" : ""}
+                                {table.isOccupied ? " 🔴" : ""}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -613,6 +615,16 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
                       </div>
                     </div>
                   )}
+                  {/* Hall type badge — shown when a table is selected */}
+                  {orderType === "dine_in" && tableId && (() => {
+                    const selectedTable = tablesData?.find(t => t.id === tableId);
+                    if (!selectedTable || selectedTable.hallType !== "family") return null;
+                    return (
+                      <div className="flex items-center gap-1.5 px-2 py-1 bg-amber-50 border border-amber-200 text-amber-700 text-xs font-bold w-fit">
+                        <span>★</span> Family Hall
+                      </div>
+                    );
+                  })()}
                   
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
@@ -674,14 +686,14 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
                     <div className="py-10 text-center text-muted-foreground text-sm">Cart is empty. Select items from the menu.</div>
                   ) : (
                     items.map((item, idx) => (
-                      <div key={item.hash || idx} className="flex gap-3 items-start justify-between bg-background p-3 border shadow-sm rounded-none group relative">
+                      <div key={item.hash || idx} className="flex gap-2 items-start justify-between bg-background p-2.5 border shadow-sm rounded-none group relative">
                         {item.imageUrl ? (
-                          <div className="w-16 h-16 shrink-0 bg-muted rounded-none overflow-hidden border">
+                          <div className="w-12 h-12 shrink-0 bg-muted rounded-none overflow-hidden border">
                             <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
                           </div>
                         ) : (
-                          <div className="w-16 h-16 shrink-0 bg-muted flex items-center justify-center rounded-none border">
-                            <ShoppingBag className="w-6 h-6 text-muted-foreground/30" />
+                          <div className="w-12 h-12 shrink-0 bg-muted flex items-center justify-center rounded-none border">
+                            <ShoppingBag className="w-5 h-5 text-muted-foreground/30" />
                           </div>
                         )}
                         
@@ -698,17 +710,27 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
                           </div>
                           
                           {item.variantName && <div className="text-xs text-muted-foreground mt-0.5">{item.variantName}</div>}
-                          {item.specialInstructions && !(item.specialInstructions.startsWith("[DEAL:") && item.specialInstructions.endsWith("]")) && (
-                            <div className="text-[10px] text-amber-600 font-bold mt-1 border border-amber-200 bg-amber-50/50 px-1.5 py-0.5 inline-block rounded-none">
-                              ⚠️ {item.specialInstructions}
-                            </div>
-                          )}
-                          <div className="flex items-center justify-between mt-2">
-                            <div className="text-primary font-black text-sm">Rs. {item.unitPrice}</div>
-                            <div className="flex items-center bg-muted/50 border rounded-none h-7">
-                              <Button type="button" variant="ghost" size="icon" className="h-full w-7 rounded-none hover:bg-muted" onClick={() => updateQuantity(item.hash || "", -1)}><Minus className="h-3 w-3" /></Button>
-                              <span className="text-xs font-bold w-6 text-center select-none">{item.quantity}</span>
-                              <Button type="button" variant="ghost" size="icon" className="h-full w-7 rounded-none hover:bg-muted" onClick={() => updateQuantity(item.hash || "", 1)}><Plus className="h-3 w-3" /></Button>
+                          {/* Inline special instructions input */}
+                          <Input
+                            type="text"
+                            placeholder="Note (e.g. no onions)..."
+                            value={item.specialInstructions && !(item.specialInstructions.startsWith("[DEAL:") && item.specialInstructions.endsWith("]")) ? item.specialInstructions : ""}
+                            onChange={e => {
+                              const currentItems = form.getValues("items");
+                              const cartIdx = currentItems.findIndex(p => p.hash === item.hash);
+                              if (cartIdx !== -1) {
+                                const updated = { ...currentItems[cartIdx], specialInstructions: e.target.value || undefined };
+                                update(cartIdx, updated);
+                              }
+                            }}
+                            className="h-6 text-xs shadow-none border-dashed mt-1.5 px-2 rounded-none placeholder:text-muted-foreground/50"
+                          />
+                          <div className="flex items-center justify-between mt-1.5">
+                            <div className="text-primary font-black text-xs">Rs. {item.unitPrice}</div>
+                            <div className="flex items-center bg-muted/50 border rounded-none h-6">
+                              <Button type="button" variant="ghost" size="icon" className="h-full w-6 rounded-none hover:bg-muted" onClick={() => updateQuantity(item.hash || "", -1)}><Minus className="h-2.5 w-2.5" /></Button>
+                              <span className="text-xs font-bold w-5 text-center select-none">{item.quantity}</span>
+                              <Button type="button" variant="ghost" size="icon" className="h-full w-6 rounded-none hover:bg-muted" onClick={() => updateQuantity(item.hash || "", 1)}><Plus className="h-2.5 w-2.5" /></Button>
                             </div>
                           </div>
                         </div>
@@ -719,7 +741,7 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
               </div>
 
               {/* Total Footer */}
-              <div className="p-5 bg-muted/20 shrink-0">
+              <div className="p-3 bg-muted/20 shrink-0">
                 <div className="space-y-2 mb-4">
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Subtotal</span>
@@ -790,7 +812,7 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
                     </Label>
                     {/* Quick-select preset amounts */}
                     <div className="flex gap-1.5">
-                      {([500, 1000, 2000, 5000] as const).map((amount) => (
+                      {([500, 1000, 5000] as const).map((amount) => (
                         <Button
                           key={amount}
                           type="button"

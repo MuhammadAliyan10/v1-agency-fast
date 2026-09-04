@@ -10,6 +10,7 @@ export type TableStatus = {
   name: string;
   capacity: number;
   isActive: boolean;
+  hallType: "general" | "family";
   isOccupied: boolean;
   activeOrderIds: string[];
 };
@@ -34,6 +35,7 @@ export async function getTablesWithStatus(): Promise<{ success: boolean; data?: 
         name: table.name,
         capacity: table.capacity,
         isActive: table.isActive,
+        hallType: table.hallType,
         isOccupied: ordersForTable.length > 0,
         activeOrderIds: ordersForTable.map(o => o.id),
       };

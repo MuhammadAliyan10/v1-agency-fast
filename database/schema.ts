@@ -368,11 +368,14 @@ export const coupons = pgTable(
 // -----------------------------------------------------------------------------
 // Restaurant Tables
 // -----------------------------------------------------------------------------
+export const hallTypeEnum = pgEnum("hall_type", ["general", "family"]);
+
 export const restaurantTables = pgTable("restaurant_tables", {
   id:       uuid("id").defaultRandom().primaryKey(),
   name:     varchar("name", { length: 50 }).notNull(),
   capacity: integer("capacity").default(4).notNull(),
   isActive: boolean("is_active").default(true).notNull(),
+  hallType: hallTypeEnum("hall_type").default("general").notNull(),
 });
 
 // -----------------------------------------------------------------------------
