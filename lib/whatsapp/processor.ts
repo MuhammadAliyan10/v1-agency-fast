@@ -823,6 +823,29 @@ async function handleActiveOrderMenu(
     await sendWhatsAppText(phone, lang === "ur"
       ? "Cancel nahi ho saka. Restaurant ko call karein: " + STORE_CONSTANTS.PHONE_NUMBER
       : "Could not cancel. Please call us: " + STORE_CONSTANTS.PHONE_NUMBER);
+    return;
+  }
+
+  // Unrecognised input in active_order_menu — re-show the buttons
+  const fallbackOrder = await db.query.orders.findFirst({ where: eq(orders.id, td.activeOrderId ?? "") });
+  if (fallbackOrder) {
+    const statusLabel = fallbackOrder.status.replace(/_/g, " ").toUpperCase();
+    const trackUrl = `${BASE_URL}/track/${fallbackOrder.id}`;
+    const buttons: { id: string; title: string }[] = [
+      { id: "active_track", title: lang === "ur" ? "Track Karein" : "Track Order" },
+      { id: "active_new", title: lang === "ur" ? "Naya Order" : "New Order" },
+    ];
+    if (fallbackOrder.status === "pending") {
+      buttons.push({ id: "active_cancel", title: lang === "ur" ? "Cancel" : "Cancel Order" });
+    }
+    await sendWhatsAppInteractiveButtons(phone,
+      lang === "ur"
+        ? `Order *#${fallbackOrder.id}* — Status: *${statusLabel}*\n\nTrack: ${trackUrl}`
+        : `Order *#${fallbackOrder.id}* — Status: *${statusLabel}*\n\nTrack: ${trackUrl}`,
+      buttons
+    );
+  } else {
+    return handleGreeting(phone, session, false, false);
   }
 }
 
@@ -854,6 +877,17 @@ async function handleReorderMenu(
   if (input === "reorder_no") {
     return handleGreeting(phone, { ...session, cart: [], tempData: {} } as AppSession, false, false);
   }
+
+  // Unrecognised input — re-show the repeat/menu choice
+  await sendWhatsAppInteractiveButtons(phone,
+    lang === "ur"
+      ? "Baraye meharbani ek option chunein:"
+      : "Please choose an option:",
+    [
+      { id: "reorder_yes", title: lang === "ur" ? "Wahi Order" : "Repeat Order" },
+      { id: "reorder_no", title: lang === "ur" ? "Naya Menu" : "See Menu" },
+    ]
+  );
 }
 
 // ─── handlePreviousDetailsPrompt ──────────────────────────────────────────────
@@ -889,6 +923,25 @@ async function handlePreviousDetailsPrompt(
       : "Please type your delivery address or share your location pin.");
     return updateSessionState(session.id, "address_input", cart, td);
   }
+
+  // Unrecognised — re-show the use_prev / use_new choice
+  const prevOrder = td.previousOrder as Record<string, unknown> | undefined;
+  if (prevOrder) {
+    await sendWhatsAppInteractiveButtons(phone,
+      lang === "ur"
+        ? `Pichli details use karein ya nayi dalein?\nNaam: *${prevOrder.customerName}*\nAddress: *${prevOrder.deliveryAddress}*`
+        : `Use previous details or enter new ones?\nName: *${prevOrder.customerName}*\nAddress: *${prevOrder.deliveryAddress}*`,
+      [
+        { id: "use_prev", title: lang === "ur" ? "Haan, Yahi" : "Yes, use these" },
+        { id: "use_new", title: lang === "ur" ? "Nayi Details" : "Enter new" },
+      ]
+    );
+  } else {
+    await sendWhatsAppText(phone, lang === "ur"
+      ? "Apna delivery address likhein ya location pin share karein."
+      : "Please type your delivery address or share your location pin.");
+    return updateSessionState(session.id, "address_input", cart, td);
+  }
 }
 
 // ─── handleSessionResetConfirm ────────────────────────────────────────────────
@@ -918,6 +971,18 @@ async function handleSessionResetConfirm(
     await sendWhatsAppText(phone, lang === "ur" ? "Naya session shuru." : "Starting fresh.");
     return handleGreeting(phone, { ...session, cart: [], tempData: {} } as AppSession, false, false);
   }
+
+  // Unrecognised — re-show continue/fresh choice
+  const cartCount = cart.length;
+  await sendWhatsAppInteractiveButtons(phone,
+    lang === "ur"
+      ? `Aapka session chal raha hai${cartCount > 0 ? ` (${cartCount} items)` : ""}. Kya karein?`
+      : `You have an active session${cartCount > 0 ? ` (${cartCount} items)` : ""}. What would you like to do?`,
+    [
+      { id: "session_continue", title: lang === "ur" ? "Continue" : "Continue" },
+      { id: "session_start_new", title: lang === "ur" ? "Naya Start" : "Start Fresh" },
+    ]
+  );
 }
 
 // ─── handleMacroSelection ────────────────────────────────────────────────────
@@ -1091,20 +1156,49 @@ async function handleItemSelection(
     return;
   }
 
-  // "Order Now" button tapped on item card
+  // "Order Now" button tapped on item card — check for variants before proceeding
   if (input.startsWith("view_item_")) {
     const itemId = input.replace("view_item_", "");
+    const dbItemCheck = await db.query.menuItems.findFirst({ where: eq(menuItems.id, itemId) });
+    if (!dbItemCheck) return handleGreeting(phone, session, false, false);
+
+    const variants = await db.select().from(itemVariants).where(eq(itemVariants.menuItemId, itemId));
+    if (variants.length > 0) {
+      // Has variants — show size selection first
+      const newTd: TempData = { ...td, pendingItemId: itemId };
+      if (variants.length <= 3) {
+        await sendWhatsAppInteractiveButtons(
+          phone,
+          `*${dbItemCheck.name}*\n\n${lang === "ur" ? "Size chunein:" : "Please choose a size:"}`,
+          variants.slice(0, 3).map(v => ({ id: `var_${v.id}`, title: `${v.name} — Rs.${v.price}` }))
+        );
+      } else {
+        await sendWhatsAppInteractiveList(
+          phone,
+          `*${dbItemCheck.name}*\n\n${lang === "ur" ? "Size chunein:" : "Please choose a size:"}`,
+          lang === "ur" ? "Size Chunein" : "Choose Size",
+          [{
+            title: lang === "ur" ? "Sizes" : "Sizes",
+            rows: variants.slice(0, 10).map(v => ({ id: `var_${v.id}`, title: v.name.substring(0, 24), description: `Rs. ${v.price}` }))
+          }]
+        );
+      }
+      return updateSessionState(session.id, "item_selection", cart, newTd);
+    }
+    // No variants — go straight to quantity
     return addItemToCartAndProceed(phone, session, itemId, null);
   }
 
   // Item selected from list → show product detail card with real image
+  // The card has a button that sends view_item_{id} when tapped
   if (input.startsWith("item_")) {
     const itemId = input.replace("item_", "");
     const dbItem = await db.query.menuItems.findFirst({ where: eq(menuItems.id, itemId) });
     if (!dbItem) return handleGreeting(phone, session, false, false);
 
     const imageUrl = dbItem.imageUrl ?? `${BASE_URL}/Menu/Items.jpeg`;
-    // Show item card — body has name + description + price with WhatsApp formatting
+    // Card body: name (bold) + description (italic) + price
+    // "Order Now" button sends view_item_{id} — handled above with variant check
     await sendWhatsAppItemCard(
       phone,
       dbItem.name,
@@ -1690,6 +1784,13 @@ async function handleDealBuilder(
     const page = parseInt(parts[1] ?? "1");
     return sendSlotCategoryOptions(phone, session, catId, page);
   }
+
+  // Unrecognised input while in deal builder — re-show current slot prompt
+  const builderFallback = td.deal_builder;
+  if (builderFallback) {
+    return processDealSlot(phone, session);
+  }
+  return handleGreeting(phone, session, false, false);
 }
 
 // ─── processDealSlot ──────────────────────────────────────────────────────────
@@ -1752,6 +1853,10 @@ async function processDealSlot(phone: string, session: AppSession): Promise<void
     await updateSessionState(session.id, "deal_builder", cart, { ...td, deal_builder: builder });
     return sendSlotCategoryOptions(phone, { ...session, tempData: { ...td, deal_builder: builder } } as AppSession, slot.categoryId, 1);
   }
+
+  // Slot has neither a fixed item nor a category — skip it automatically
+  builder.currentIndex++;
+  return processDealSlot(phone, { ...session, tempData: { ...td, deal_builder: builder } } as AppSession);
 }
 
 // ─── sendSlotCategoryOptions ──────────────────────────────────────────────────
