@@ -35,6 +35,7 @@ type OrderStatus =
   | "approved"
   | "preparing"
   | "delayed"
+  | "ready_for_pickup"
   | "out_for_delivery"
   | "delivered"
   | "rejected"

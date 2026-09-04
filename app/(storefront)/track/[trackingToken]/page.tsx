@@ -28,7 +28,7 @@ import { format } from "date-fns";
 import { OrderActions } from "./order-actions";
 import { Skeleton } from "@/components/ui/skeleton";
 
-type OrderStatus = "pending" | "approved" | "preparing" | "delayed" | "out_for_delivery" | "delivered" | "rejected" | "cancelled";
+type OrderStatus = "pending" | "approved" | "preparing" | "delayed" | "ready_for_pickup" | "out_for_delivery" | "delivered" | "rejected" | "cancelled";
 
 interface TrackingData {
   id: string;
@@ -197,11 +197,12 @@ export default function TrackingPage({ params }: { params: Promise<{ trackingTok
   const isPickup = data.orderType === "pickup";
 
   const deliverySteps = [
-    { key: "pending",          label: "Order Placed",   desc: "Waiting for confirmation",  icon: Clock },
-    { key: "approved",         label: "Approved",       desc: "Order confirmed by store",   icon: ThumbsUp },
-    { key: "preparing",        label: "Preparing",      desc: "Chefs are cooking",           icon: ChefHat },
-    { key: "out_for_delivery", label: "Out for Delivery",desc: "Rider is on the way",        icon: Bike },
-    { key: "delivered",        label: "Delivered",      desc: "Enjoy your meal!",            icon: PackageCheck },
+    { key: "pending",          label: "Order Placed",      desc: "Waiting for confirmation", icon: Clock },
+    { key: "approved",         label: "Confirmed",         desc: "Order confirmed by store",  icon: ThumbsUp },
+    { key: "preparing",        label: "Preparing",         desc: "Chefs are cooking",          icon: ChefHat },
+    { key: "ready_for_pickup", label: "Ready to Dispatch", desc: "Packed, assigning rider",    icon: UtensilsCrossed },
+    { key: "out_for_delivery", label: "Out for Delivery",  desc: "Rider is on the way",        icon: Bike },
+    { key: "delivered",        label: "Delivered",         desc: "Enjoy your meal!",           icon: PackageCheck },
   ];
 
   const pickupSteps = [
@@ -310,10 +311,10 @@ export default function TrackingPage({ params }: { params: Promise<{ trackingTok
               {/* Active Progress Line Desktop */}
               <div 
                 className="absolute top-5 left-[12.5%] h-[2px] bg-green-500 transition-all duration-1000 ease-in-out -z-10 hidden md:block"
-                style={{ width: `${(currentStepIndex / (steps.length - 1)) * 75}%` }}
+                style={{ width: `${currentStepIndex <= 0 ? 0 : (currentStepIndex / (steps.length - 1)) * (100 - (100 / steps.length))}%` }}
               />
 
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 md:gap-0">
+              <div className={`grid grid-cols-1 gap-6 md:gap-0 ${steps.length === 6 ? "md:grid-cols-6" : "md:grid-cols-5"}`}>
                 {steps.map((step, index) => {
                   const isCompleted = index <= currentStepIndex;
                   const isCurrent = index === currentStepIndex;
@@ -399,7 +400,7 @@ export default function TrackingPage({ params }: { params: Promise<{ trackingTok
                       )}
                       
                       <div className="pt-1">
-                        <p className="font-bold text-base leading-none mb-1.5">{item.itemName}</p>
+                        <p className="font-bold text-base leading-none mb-1.5">{String(item.itemName || "").replace(/^\[DEAL\]\s*/, "")}</p>
                         {item.variantName && (
                           <p className="text-xs text-muted-foreground">Size: {item.variantName}</p>
                         )}

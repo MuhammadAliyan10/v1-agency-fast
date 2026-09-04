@@ -597,15 +597,15 @@ export const KanbanCard = React.memo(function KanbanCard({
                                     </div>
                                     <div className="flex flex-col min-w-0">
                                       <span className="font-bold text-base leading-tight text-foreground">
-                                        {item.itemName}
-                                        {item.variantName && <span className="font-normal text-muted-foreground ml-1 text-sm">({item.variantName})</span>}
+                                        {item.itemName.replace(/^\[DEAL\]\s*/, "")}
+                                        {item.variantName && item.variantName !== "Combo Deal" && <span className="font-normal text-muted-foreground ml-1 text-sm">({item.variantName})</span>}
                                       </span>
                                       {addOns.length > 0 && (
                                         <span className="text-muted-foreground text-xs font-semibold mt-0.5">
                                           + {addOns.map((a) => String(a.name || "")).join(", ")}
                                         </span>
                                       )}
-                                      {item.specialInstructions && !(item.specialInstructions.startsWith("[DEAL:") && item.specialInstructions.endsWith("]")) && (
+                                      {item.specialInstructions && !item.specialInstructions.startsWith("[DEAL:") && (
                                         <div className="flex items-start gap-1 mt-1 text-rose-500">
                                           <AlertCircle className="w-3 h-3 shrink-0 mt-0.5" />
                                           <span className="text-xs font-bold leading-tight">{item.specialInstructions}</span>
@@ -904,11 +904,11 @@ export const KanbanCard = React.memo(function KanbanCard({
                         <span className={cn("font-black shrink-0", isKitchen ? "text-2xl text-primary" : "text-base text-primary")}>{item.quantity}×</span>
                         <div className="flex flex-col">
                           <span className={cn("font-bold leading-tight", isKitchen ? "text-xl" : "text-[15px]")}>
-                            {item.itemName}
-                            {item.variantName && <span className="font-normal text-muted-foreground ml-1">({item.variantName})</span>}
+                            {item.itemName.replace(/^\[DEAL\]\s*/, "")}
+                            {item.variantName && item.variantName !== "Combo Deal" && <span className="font-normal text-muted-foreground ml-1">({item.variantName})</span>}
                           </span>
                           {addOns.length > 0 && <span className={cn("text-muted-foreground font-medium mt-0.5", isKitchen ? "text-base" : "text-xs")}>+ {addOns.map((a) => String(a.name || "")).join(", ")}</span>}
-                          {item.specialInstructions && !(item.specialInstructions.startsWith("[DEAL:") && item.specialInstructions.endsWith("]")) && (
+                          {item.specialInstructions && !item.specialInstructions.startsWith("[DEAL:") && (
                             <span className={cn("text-red-500 font-bold mt-0.5", isKitchen ? "text-base" : "text-xs")}>*** {item.specialInstructions}</span>
                           )}
                         </div>
@@ -1037,7 +1037,7 @@ export const KanbanCard = React.memo(function KanbanCard({
         <div style={{ margin: "5px 0" }}>
           {order.items.map((item, idx) => {
             const addOns = Array.isArray(item.selectedAddOns) ? (item.selectedAddOns as { name: string }[]) : [];
-            const hasNote = item.specialInstructions && !(item.specialInstructions.startsWith("[DEAL:") && item.specialInstructions.endsWith("]"));
+            const hasNote = item.specialInstructions && !item.specialInstructions.startsWith("[DEAL:");
             return (
               <div key={idx} style={{ marginBottom: "5px" }}>
                 <div className="row">
@@ -1113,6 +1113,7 @@ export const KanbanCard = React.memo(function KanbanCard({
     prevProps.order.updatedAt?.getTime() === nextProps.order.updatedAt?.getTime() &&
     prevProps.order.items.length === nextProps.order.items.length &&
     prevProps.order.rider?.name === nextProps.order.rider?.name &&
+    prevProps.order.tableHallType === nextProps.order.tableHallType &&
     prevProps.isOverlay === nextProps.isOverlay &&
     prevProps.role === nextProps.role &&
     prevProps.borderColor === nextProps.borderColor
