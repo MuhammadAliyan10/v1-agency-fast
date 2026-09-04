@@ -307,6 +307,7 @@ export const KanbanCard = React.memo(function KanbanCard({
       <div
         ref={setNodeRef}
         style={style}
+        data-kanban-card=""
         {...attributes}
         {...listeners}
         className={cn(
@@ -724,12 +725,6 @@ export const KanbanCard = React.memo(function KanbanCard({
                         <Banknote className="w-4 h-4 mr-2" /> Mark as Paid
                       </Button>
                     )}
-                    {/* Print slip for delivery at ready_for_pickup (rider needs the slip) */}
-                    {order.orderType === "delivery" && order.status === "ready_for_pickup" && (
-                      <Button variant="outline" className="w-full h-10 font-semibold text-sm border-amber-300 text-amber-700 hover:bg-amber-50" onClick={(e) => { e.stopPropagation(); printReceipt(); }}>
-                        <Printer className="w-4 h-4 mr-2" /> Print Delivery Slip
-                      </Button>
-                    )}
                     {nextAction && (
                       <Button
                         className="w-full h-10 font-bold text-sm shadow-md transition-all"
@@ -742,12 +737,22 @@ export const KanbanCard = React.memo(function KanbanCard({
                         {isDeliveryReadyNoRider && <span className="ml-2 text-[10px] opacity-70">(assign rider first)</span>}
                       </Button>
                     )}
-                    {(
-                      (order.orderType === "pickup" && (order.status === "ready_for_pickup" || order.status === "delivered")) ||
-                      (order.orderType === "delivery" && order.status === "delivered")
-                    ) && (
-                      <Button variant="outline" className="w-full h-10 font-semibold text-sm shadow-sm" onClick={(e) => { e.stopPropagation(); printReceipt(); }}>
-                        <Printer className="w-4 h-4 mr-2" /> Print Receipt
+                    {/* Print slip — available at every state for delivery and pickup orders */}
+                    {order.orderType !== "dine_in" && (
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full h-10 font-semibold text-sm shadow-sm",
+                          order.orderType === "delivery" && order.status === "ready_for_pickup"
+                            ? "border-amber-300 text-amber-700 hover:bg-amber-50"
+                            : ""
+                        )}
+                        onClick={(e) => { e.stopPropagation(); printReceipt(); }}
+                      >
+                        <Printer className="w-4 h-4 mr-2" />
+                        {order.orderType === "delivery" && order.status === "ready_for_pickup"
+                          ? "Print Delivery Slip"
+                          : "Print Slip"}
                       </Button>
                     )}
                     {prevAction && (

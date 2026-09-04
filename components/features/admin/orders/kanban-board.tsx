@@ -51,7 +51,15 @@ export function LiveOrdersBoard({ role }: LiveOrdersBoardProps) {
   
   const queryClient = useQueryClient();
   const [activeOrder, setActiveOrder] = useState<LiveOrderProjection | null>(null);
-  const [isMuted, setIsMuted] = useState(false);
+  const [isMuted, setIsMuted] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("orders-alerts-muted") === "true";
+  });
+
+  // Persist muted preference
+  useEffect(() => {
+    localStorage.setItem("orders-alerts-muted", String(isMuted));
+  }, [isMuted]);
   const [etaDialog, setEtaDialog] = useState<{ isOpen: boolean; orderId: string | null; newStatus: OrderStatus | null; minutes: string }>({
     isOpen: false,
     orderId: null,
@@ -238,6 +246,33 @@ export function LiveOrdersBoard({ role }: LiveOrdersBoardProps) {
     }
   };
 
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const isDraggingScroll = useRef(false);
+  const dragStartX = useRef(0);
+  const dragStartScrollLeft = useRef(0);
+
+  const handleScrollMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    // Only activate on the container itself or column headers, not on cards
+    if ((e.target as HTMLElement).closest("[data-kanban-card]")) return;
+    isDraggingScroll.current = true;
+    dragStartX.current = e.pageX - (scrollContainerRef.current?.offsetLeft ?? 0);
+    dragStartScrollLeft.current = scrollContainerRef.current?.scrollLeft ?? 0;
+    if (scrollContainerRef.current) scrollContainerRef.current.style.cursor = "grabbing";
+  };
+
+  const handleScrollMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isDraggingScroll.current || !scrollContainerRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - (scrollContainerRef.current.offsetLeft ?? 0);
+    const walk = (x - dragStartX.current) * 1.2;
+    scrollContainerRef.current.scrollLeft = dragStartScrollLeft.current - walk;
+  };
+
+  const handleScrollMouseUpOrLeave = () => {
+    isDraggingScroll.current = false;
+    if (scrollContainerRef.current) scrollContainerRef.current.style.cursor = "";
+  };
+
   if (isLoading) {
     return (
       <div className="h-full flex items-center justify-center min-h-[400px]">
@@ -316,7 +351,14 @@ export function LiveOrdersBoard({ role }: LiveOrdersBoardProps) {
       </div>
 
       <div className="flex-1 relative">
-        <div className="absolute inset-0 overflow-auto pb-8 pt-2">
+        <div
+          ref={scrollContainerRef}
+          className="absolute inset-0 overflow-auto pb-8 pt-2 select-none"
+          onMouseDown={handleScrollMouseDown}
+          onMouseMove={handleScrollMouseMove}
+          onMouseUp={handleScrollMouseUpOrLeave}
+          onMouseLeave={handleScrollMouseUpOrLeave}
+        >
           <DndContext
             sensors={sensors}
             collisionDetection={closestCorners}

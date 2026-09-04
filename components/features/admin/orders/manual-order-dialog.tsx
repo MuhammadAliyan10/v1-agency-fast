@@ -20,6 +20,7 @@ import { useSession } from "@/lib/auth/session-context";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { cn } from "@/lib/utils";
 
 const manualOrderSchema = z.object({
   orderType: z.enum(["delivery", "pickup", "dine_in"]),
@@ -132,6 +133,7 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [rightTab, setRightTab] = useState<"menu" | "deals">("menu");
+  const [hallFilter, setHallFilter] = useState<"all" | "general" | "family">("all");
 
   const [pendingTableId, setPendingTableId] = useState<string | null>(null);
   const [splitCheckModalOpen, setSplitCheckModalOpen] = useState(false);
@@ -193,6 +195,7 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
         paymentStatus: "unpaid",
         items: [],
       });
+      setHallFilter("all");
     }
   }, [isOpen, existingOrder, defaultTableId, defaultTableNumber, form]);
 
@@ -584,10 +587,12 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
                             <SelectValue placeholder="Select Table" />
                           </SelectTrigger>
                           <SelectContent>
-                            {tablesData?.map(table => (
+                            {(hallFilter === "all"
+                              ? tablesData
+                              : tablesData?.filter(t => t.hallType === hallFilter)
+                            )?.map(table => (
                               <SelectItem key={table.id} value={table.id}>
                                 {table.name}
-                                {table.hallType === "family" ? " — Family Hall" : ""}
                                 {table.isOccupied ? " 🔴" : ""}
                               </SelectItem>
                             ))}
@@ -615,16 +620,53 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
                       </div>
                     </div>
                   )}
-                  {/* Hall type badge — shown when a table is selected */}
-                  {orderType === "dine_in" && tableId && (() => {
-                    const selectedTable = tablesData?.find(t => t.id === tableId);
-                    if (!selectedTable || selectedTable.hallType !== "family") return null;
-                    return (
-                      <div className="flex items-center gap-1.5 px-2 py-1 bg-amber-50 border border-amber-200 text-amber-700 text-xs font-bold w-fit">
-                        <span>★</span> Family Hall
+                  {/* Hall type selector — only when dine_in and not append mode */}
+                  {orderType === "dine_in" && !existingOrder && (
+                    <div className="space-y-1.5">
+                      <Label>Hall</Label>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            // filter tables by general hall and clear tableId if current table is family
+                            const currentTable = tablesData?.find(t => t.id === tableId);
+                            if (currentTable?.hallType === "family") {
+                              form.setValue("tableId", "");
+                              form.setValue("tableNumber", "");
+                            }
+                            setHallFilter("general");
+                          }}
+                          className={cn(
+                            "flex-1 h-9 text-sm font-semibold border transition-all",
+                            hallFilter === "general"
+                              ? "bg-foreground text-background border-foreground"
+                              : "bg-background text-muted-foreground border-border hover:border-foreground/40"
+                          )}
+                        >
+                          General Hall
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const currentTable = tablesData?.find(t => t.id === tableId);
+                            if (currentTable?.hallType === "general") {
+                              form.setValue("tableId", "");
+                              form.setValue("tableNumber", "");
+                            }
+                            setHallFilter("family");
+                          }}
+                          className={cn(
+                            "flex-1 h-9 text-sm font-semibold border transition-all",
+                            hallFilter === "family"
+                              ? "bg-amber-600 text-white border-amber-600"
+                              : "bg-amber-50 text-amber-700 border-amber-200 hover:border-amber-400"
+                          )}
+                        >
+                          Family Hall
+                        </button>
                       </div>
-                    );
-                  })()}
+                    </div>
+                  )}
                   
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
