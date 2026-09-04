@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Plus, Minus, Check, ShoppingBag, Loader2 } from "lucide-react";
+import { Search, Plus, Minus, Check, ShoppingBag, Loader2, X, AlertCircle } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getPOSMenuData } from "@/server/actions/menu";
 import { getPublicDeals } from "@/server/actions/deals";
@@ -150,12 +150,21 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
 
   // Deal Config State
   const [configDeal, setConfigDeal] = useState<any | null>(null);
+  // Cash tendered calculator state
+  const [cashTendered, setCashTendered] = useState<string>("");
   const [dealSlotSelections, setDealSlotSelections] = useState<Record<string, { menuItemId: string; name: string; variantId: string | null; variantName: string | null }>>({});
   const [dealQuantity, setDealQuantity] = useState(1);
 
-  // Initialize from existingOrder if provided
+  // Initialize form when dialog opens.
+  // If the cart already has items (user accidentally closed), preserve them — don't wipe.
   useEffect(() => {
-    if (isOpen && existingOrder) {
+    if (!isOpen) return;
+
+    const currentItems = form.getValues("items");
+    // Only reset if the cart is empty (first open or after a successful submit)
+    if (currentItems.length > 0) return;
+
+    if (existingOrder) {
       form.reset({
         orderType: "dine_in",
         customerName: existingOrder.customerName || "",
@@ -167,9 +176,9 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
         discountAmount: 0,
         paymentMethod: "Cash",
         paymentStatus: "paid",
-        items: []
+        items: [],
       });
-    } else if (isOpen && !existingOrder) {
+    } else {
       form.reset({
         orderType: "dine_in",
         customerName: "",
@@ -182,7 +191,7 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
         discountAmount: 0,
         paymentMethod: "Cash",
         paymentStatus: "paid",
-        items: []
+        items: [],
       });
     }
   }, [isOpen, existingOrder, defaultTableId, defaultTableNumber, form]);
@@ -457,12 +466,13 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
         
         queryClient.invalidateQueries({ queryKey: ["live-orders"] });
         setIsOpen(false);
-        
+
         toast.success(existingOrder ? "Items Added to Order" : "Order Placed Successfully", {
           duration: 5000,
         });
-        
+
         form.reset();
+        setCashTendered("");
       } catch (err: any) {
         toast.error(err.message || "Failed to place order");
       }
@@ -476,6 +486,7 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
       form.setValue("paymentMethod", "Cash");
       form.setValue("paymentStatus", "paid");
     }
+    setCashTendered("");
   }, [orderType, form]);
 
   return (
@@ -484,12 +495,37 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
       <DialogTrigger asChild>
         {children}
       </DialogTrigger>
-      <DialogContent className="!max-w-[95vw] w-full h-[95vh] p-0 flex flex-col overflow-hidden bg-background">
+      <DialogContent
+        className="!max-w-[95vw] w-full h-[95vh] p-0 flex flex-col overflow-hidden bg-background"
+        onInteractOutside={(e) => {
+          // Prevent accidental close when the cart has unsaved items
+          if (form.getValues("items").length > 0) e.preventDefault();
+        }}
+        onEscapeKeyDown={(e) => {
+          if (form.getValues("items").length > 0) e.preventDefault();
+        }}
+      >
         <DialogHeader className="px-6 py-4 border-b shrink-0 flex-row justify-between items-center">
           <div>
             <DialogTitle className="text-2xl font-bold">{existingOrder ? `Append to Order #${existingOrder.id}` : "New POS Order"}</DialogTitle>
             <DialogDescription>{existingOrder ? "Add new rounds/items to this existing order." : "Quickly construct manual orders for walk-ins and direct calls."}</DialogDescription>
           </div>
+          {items.length > 0 && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground hover:text-destructive gap-1.5 shrink-0"
+              onClick={() => {
+                form.reset();
+                setCashTendered("");
+                setIsOpen(false);
+              }}
+            >
+              <X className="h-4 w-4" />
+              Discard &amp; Close
+            </Button>
+          )}
         </DialogHeader>
 
         <div className="flex-1 flex overflow-hidden">
@@ -743,6 +779,64 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
                   <span className="text-2xl font-bold">Total</span>
                   <span className="text-3xl font-black text-primary">Rs. {grandTotal}</span>
                 </div>
+
+                {/* Cash Tendered / Change Calculator
+                    Shown only when payment is Cash/COD and marked paid */}
+                {(paymentMethod === "Cash" || paymentMethod === "COD") &&
+                  paymentStatus === "paid" && (
+                  <div className="mb-4 p-3 bg-muted/50 border space-y-2.5">
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground block">
+                      Cash Received from Customer
+                    </Label>
+                    {/* Quick-select preset amounts */}
+                    <div className="flex gap-1.5">
+                      {([500, 1000, 2000, 5000] as const).map((amount) => (
+                        <Button
+                          key={amount}
+                          type="button"
+                          variant={Number(cashTendered) === amount ? "default" : "outline"}
+                          size="sm"
+                          className="h-8 flex-1 text-xs font-bold rounded-none px-1"
+                          onClick={() => setCashTendered(String(amount))}
+                        >
+                          {amount}
+                        </Button>
+                      ))}
+                    </div>
+                    <Input
+                      type="number"
+                      placeholder={`Min Rs. ${grandTotal}`}
+                      value={cashTendered}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                        setCashTendered(e.target.value)
+                      }
+                      className="h-12 text-xl font-black text-right shadow-none rounded-none"
+                      min={grandTotal}
+                    />
+                    {/* Change due */}
+                    {cashTendered !== "" && Number(cashTendered) >= grandTotal && (
+                      <div className="flex justify-between items-center pt-2 border-t border-dashed">
+                        <span className="text-sm font-bold text-muted-foreground">
+                          Change to Return
+                        </span>
+                        <span className="text-2xl font-black text-emerald-600">
+                          Rs.{" "}
+                          {(Number(cashTendered) - grandTotal).toLocaleString()}
+                        </span>
+                      </div>
+                    )}
+                    {/* Short payment warning */}
+                    {cashTendered !== "" &&
+                      Number(cashTendered) > 0 &&
+                      Number(cashTendered) < grandTotal && (
+                      <div className="flex items-center gap-1.5 text-destructive text-xs font-semibold pt-1">
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                        Short by Rs.{" "}
+                        {(grandTotal - Number(cashTendered)).toLocaleString()}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-3 mb-4">
                    <div className="space-y-1">

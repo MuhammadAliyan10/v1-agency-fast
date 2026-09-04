@@ -22,6 +22,7 @@ import { MoreVertical, Trash2, ArrowRightLeft } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { VoidReasonDialog } from "./void-reason-dialog";
 
 interface KanbanCardProps {
@@ -66,6 +67,8 @@ export const KanbanCard = React.memo(function KanbanCard({ order, role, isOverla
   const [selectedTransferTableId, setSelectedTransferTableId] = useState("");
   const [isVoidDialogOpen, setIsVoidDialogOpen] = useState(false);
   const [voidTarget, setVoidTarget] = useState<{ type: "order" | "item", itemId?: string } | null>(null);
+  // Cash tendered calculator for the order detail sheet
+  const [cashTendered, setCashTendered] = useState<string>("");
 
   const queryClient = useQueryClient();
 
@@ -409,6 +412,11 @@ export const KanbanCard = React.memo(function KanbanCard({ order, role, isOverla
                 <Badge variant="outline" className={cn("uppercase font-black tracking-widest text-[9px] px-1.5 py-0 border", borderColor)}>
                   {order.status.replace(/_/g, " ")}
                 </Badge>
+                {isDineIn && Object.keys(rounds).length > 1 && (
+                  <Badge className="uppercase font-black tracking-widest text-[9px] px-1.5 py-0 bg-amber-500 hover:bg-amber-500 text-white border-0">
+                    ✏ Updated — {Object.keys(rounds).length} Rounds
+                  </Badge>
+                )}
               </div>
 
               <SheetDescription className="text-[11px] font-semibold mt-0.5 text-muted-foreground flex flex-wrap items-center gap-1.5 uppercase tracking-wider">
@@ -542,88 +550,142 @@ export const KanbanCard = React.memo(function KanbanCard({ order, role, isOverla
             
             {/* Order Items */}
             <div className="space-y-4">
-              <h3 className="font-bold text-sm flex items-center gap-2">
-                <Receipt className="w-4 h-4 text-muted-foreground" /> 
-                Order Details
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold text-sm flex items-center gap-2">
+                  <Receipt className="w-4 h-4 text-muted-foreground" />
+                  Order Details
+                </h3>
                 <Badge variant="secondary" className="ml-auto bg-muted font-bold text-[10px]">
                   {order.items.length} items
                 </Badge>
-              </h3>
-              
+              </div>
+
+              {/* Edit-lock notice for dine-in orders already in the kitchen */}
+              {isDineIn && ["preparing", "ready_for_pickup", "out_for_delivery", "delivered"].includes(order.status) && (
+                <div className="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-2">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  Kitchen has this order — items cannot be removed. You can still add new items.
+                </div>
+              )}
+
               <div className="space-y-4">
-                {Object.entries(rounds).map(([roundNum, items]) => (
-                  <div key={roundNum} className="space-y-2">
-                    {Object.keys(rounds).length > 1 && (
-                      <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest pb-1 border-b">
-                        Round {roundNum}
-                      </div>
-                    )}
-                    
-                    <div className="flex flex-col gap-3">
-                      {items.map((item) => (
-                        <div key={item.id} className="flex justify-between items-start">
-                          <div className="flex gap-3">
-                            <div className="text-foreground font-bold text-xs h-6 w-6 rounded border flex items-center justify-center shrink-0">
-                              {item.quantity}x
-                            </div>
-                            <div className="flex flex-col">
-                              <span className="font-bold text-sm leading-tight text-foreground">
-                                {item.itemName} {item.variantName ? <span className="text-muted-foreground">({item.variantName})</span> : ""}
-                              </span>
-                              {Array.isArray(item.selectedAddOns) && item.selectedAddOns.length > 0 && (
-                                <span className="text-muted-foreground text-[10px] font-semibold mt-0.5">
-                                  + {(item.selectedAddOns as any[]).map((a: any) => String(a.name || "")).join(", ")}
-                                </span>
-                              )}
-                              {item.specialInstructions && !(item.specialInstructions.startsWith("[DEAL:") && item.specialInstructions.endsWith("]")) && (
-                                <div className="flex items-start gap-1 mt-1 text-rose-500">
-                                  <AlertCircle className="w-3 h-3 shrink-0 mt-0.5" />
-                                  <span className="text-[11px] font-bold leading-tight">
-                                    {item.specialInstructions}
+                {Object.entries(rounds).map(([roundNum, roundItems]) => {
+                  const addedRound = Number(roundNum) > 1;
+                  return (
+                    <div key={roundNum} className="space-y-2">
+                      {Object.keys(rounds).length > 1 && (
+                        <div className={cn(
+                          "text-[10px] uppercase font-bold tracking-widest pb-1 border-b flex items-center gap-2",
+                          addedRound
+                            ? "text-amber-700 border-amber-200"
+                            : "text-muted-foreground border-border"
+                        )}>
+                          Round {roundNum}
+                          {addedRound && (
+                            <span className="bg-amber-100 text-amber-700 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider">
+                              Added Later
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="flex flex-col gap-3">
+                        {roundItems.map((item) => {
+                          const addOns = Array.isArray(item.selectedAddOns)
+                            ? (item.selectedAddOns as { name: string; price?: number }[])
+                            : [];
+                          // Items can only be voided before the kitchen has the order
+                          const canVoid =
+                            !isKitchen &&
+                            !["preparing", "ready_for_pickup", "out_for_delivery", "delivered"].includes(
+                              order.status
+                            );
+
+                          return (
+                            <div key={item.id} className="flex justify-between items-start">
+                              <div className="flex gap-3 flex-1 min-w-0">
+                                {/* Quantity badge — larger and prominent */}
+                                <div className="text-foreground font-black text-sm h-8 w-8 rounded border border-primary/30 bg-primary/5 flex items-center justify-center shrink-0">
+                                  {item.quantity}×
+                                </div>
+                                <div className="flex flex-col min-w-0">
+                                  <span className="font-bold text-base leading-tight text-foreground">
+                                    {item.itemName}
+                                    {item.variantName && (
+                                      <span className="font-normal text-muted-foreground ml-1 text-sm">
+                                        ({item.variantName})
+                                      </span>
+                                    )}
+                                  </span>
+                                  {addOns.length > 0 && (
+                                    <span className="text-muted-foreground text-xs font-semibold mt-0.5">
+                                      + {addOns.map((a) => String(a.name || "")).join(", ")}
+                                    </span>
+                                  )}
+                                  {item.specialInstructions &&
+                                    !(item.specialInstructions.startsWith("[DEAL:") &&
+                                      item.specialInstructions.endsWith("]")) && (
+                                    <div className="flex items-start gap-1 mt-1 text-rose-500">
+                                      <AlertCircle className="w-3 h-3 shrink-0 mt-0.5" />
+                                      <span className="text-xs font-bold leading-tight">
+                                        {item.specialInstructions}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                              {!isKitchen && (
+                                <div className="flex items-center gap-2 ml-4 shrink-0">
+                                  {canVoid ? (
+                                    <AlertDialog>
+                                      <AlertDialogTrigger asChild>
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-7 w-7 text-muted-foreground hover:text-rose-600 hover:bg-rose-50"
+                                          aria-label={`Void ${item.itemName}`}
+                                        >
+                                          <Trash2 className="h-3.5 w-3.5" />
+                                        </Button>
+                                      </AlertDialogTrigger>
+                                      <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                          <AlertDialogTitle>Void this item?</AlertDialogTitle>
+                                          <AlertDialogDescription>
+                                            This will remove &quot;{item.itemName}&quot; from the order and automatically
+                                            recalculate the bill total.
+                                          </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                          <AlertDialogAction
+                                            className="bg-rose-600 hover:bg-rose-700 text-white"
+                                            onClick={() => {
+                                              setVoidTarget({ type: "item", itemId: item.id });
+                                              setIsVoidDialogOpen(true);
+                                            }}
+                                          >
+                                            Void Item
+                                          </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                      </AlertDialogContent>
+                                    </AlertDialog>
+                                  ) : (
+                                    /* Locked placeholder so price column aligns */
+                                    <div className="w-7" />
+                                  )}
+                                  <span className="font-bold text-base text-right min-w-[60px]">
+                                    Rs. {String(item.subtotal)}
                                   </span>
                                 </div>
                               )}
                             </div>
-                          </div>
-                          {!isKitchen && (
-                            <div className="flex items-center gap-2 ml-4 shrink-0">
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-rose-600 hover:bg-rose-50">
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                  </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>Void this item?</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      This will remove "{item.itemName}" from the order and automatically recalculate the bill total.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction 
-                                      className="bg-rose-600 hover:bg-rose-700 text-white"
-                                      onClick={() => {
-                                        setVoidTarget({ type: "item", itemId: item.id });
-                                        setIsVoidDialogOpen(true);
-                                      }}
-                                    >
-                                      Void Item
-                                    </AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                              <span className="font-bold text-sm text-right min-w-[50px]">
-                                Rs. {String(item.subtotal)}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      ))}
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -639,18 +701,79 @@ export const KanbanCard = React.memo(function KanbanCard({ order, role, isOverla
                     <span>Rs. {order.deliveryFee.toLocaleString()}</span>
                   </div>
                 )}
-                <div className="flex justify-between items-end mt-1">
+                {(order.discountAmount ?? 0) > 0 && (
+                  <div className="flex justify-between items-center text-emerald-600 text-xs font-semibold">
+                    <span>Discount</span>
+                    <span>− Rs. {order.discountAmount.toLocaleString()}</span>
+                  </div>
+                )}
+                <div className="flex justify-between items-end mt-1 pt-1 border-t border-dashed">
                   <div className="flex items-center gap-2">
-                    <span className="text-base font-bold">Total Bill</span>
+                    <span className="text-lg font-black">Total Bill</span>
                     <Badge variant="outline" className="text-[9px] uppercase font-bold text-muted-foreground flex items-center gap-1 py-0 px-1.5 h-4">
                       <Banknote className="w-3 h-3" /> {order.paymentMethod || "Cash"}
                     </Badge>
                   </div>
-                  <span className="text-2xl font-black text-primary tracking-tight">
+                  <span className="text-3xl font-black text-primary tracking-tight">
                     Rs. {order.totalAmount.toLocaleString()}
                   </span>
                 </div>
               </div>
+
+              {/* Cash Tendered / Change Calculator
+                  Only shown for Cash/COD payments that are marked paid */}
+              {(order.paymentMethod === "Cash" || order.paymentMethod === "COD") &&
+                order.paymentStatus === "paid" && (
+                <div className="mb-4 p-3 bg-muted/50 border space-y-2.5">
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground block">
+                    Cash Received
+                  </Label>
+                  <div className="flex gap-1.5">
+                    {([500, 1000, 2000, 5000] as const).map((amount) => (
+                      <Button
+                        key={amount}
+                        type="button"
+                        variant={Number(cashTendered) === amount ? "default" : "outline"}
+                        size="sm"
+                        className="h-8 flex-1 text-xs font-bold rounded-none px-1"
+                        onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                          e.stopPropagation();
+                          setCashTendered(String(amount));
+                        }}
+                      >
+                        {amount}
+                      </Button>
+                    ))}
+                  </div>
+                  <Input
+                    type="number"
+                    placeholder={`Min Rs. ${order.totalAmount}`}
+                    value={cashTendered}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      setCashTendered(e.target.value)
+                    }
+                    className="h-12 text-xl font-black text-right shadow-none rounded-none"
+                    min={order.totalAmount}
+                    onClick={(e: React.MouseEvent<HTMLInputElement>) => e.stopPropagation()}
+                  />
+                  {cashTendered !== "" && Number(cashTendered) >= order.totalAmount && (
+                    <div className="flex justify-between items-center pt-2 border-t border-dashed">
+                      <span className="text-sm font-bold text-muted-foreground">Change to Return</span>
+                      <span className="text-2xl font-black text-emerald-600">
+                        Rs. {(Number(cashTendered) - order.totalAmount).toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+                  {cashTendered !== "" &&
+                    Number(cashTendered) > 0 &&
+                    Number(cashTendered) < order.totalAmount && (
+                    <div className="flex items-center gap-1.5 text-destructive text-xs font-semibold pt-1">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      Short by Rs. {(order.totalAmount - Number(cashTendered)).toLocaleString()}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Actions */}
               <div className="flex flex-col gap-2">
@@ -708,29 +831,43 @@ export const KanbanCard = React.memo(function KanbanCard({ order, role, isOverla
 
       <div className="p-0">
         {/* Header */}
-        <div className="flex justify-between items-start mb-2">
-          <div className="flex flex-col gap-1.5">
-            <span className={cn("font-black tracking-tight", isKitchen ? "text-2xl" : "text-xl")}>
+        <div className="flex justify-between items-start mb-3">
+          <div className="flex flex-col gap-2">
+            <span className={cn("font-black tracking-tight", isKitchen ? "text-3xl" : "text-2xl")}>
               #{order.id}
             </span>
-            <div className="flex items-center gap-1.5 shrink-0">
-              <Badge className={cn("text-[9px] uppercase font-bold tracking-wider px-1.5 py-0 text-white hover:text-white border-0 shadow-sm whitespace-nowrap", getBgColor(borderColor))}>
+            <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+              {/* Status badge — larger so it is readable from across the room */}
+              <Badge className={cn(
+                "text-[11px] uppercase font-black tracking-wider px-2.5 py-0.5 text-white hover:text-white border-0 shadow-sm whitespace-nowrap",
+                getBgColor(borderColor)
+              )}>
                 {order.status.replace(/_/g, " ")}
               </Badge>
-              <Badge variant="outline" className={cn("text-[9px] uppercase font-bold tracking-wider px-1.5 py-0 shadow-sm whitespace-nowrap", getOrderTypeColor(order.orderType))}>
+              {/* Order type badge */}
+              <Badge variant="outline" className={cn(
+                "text-[11px] uppercase font-black tracking-wider px-2.5 py-0.5 shadow-sm whitespace-nowrap",
+                getOrderTypeColor(order.orderType)
+              )}>
                 {order.orderType.replace(/_/g, " ")}
               </Badge>
+              {/* "Updated" badge — shown when dine-in has had items added after the first round */}
+              {isDineIn && Object.keys(rounds).length > 1 && (
+                <Badge className="text-[11px] uppercase font-black tracking-wider px-2.5 py-0.5 bg-amber-500 hover:bg-amber-500 text-white border-0 shadow-sm whitespace-nowrap">
+                  ✏ Updated
+                </Badge>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-1.5 self-start">
-            <div className="text-[11px] font-bold bg-muted/80 text-muted-foreground border border-black/5 dark:border-white/5 px-2 py-0.5 rounded whitespace-nowrap shadow-sm tracking-tight">
+            <div className="text-xs font-bold bg-muted/80 text-muted-foreground border border-black/5 dark:border-white/5 px-2 py-0.5 rounded whitespace-nowrap shadow-sm tracking-tight">
               <LiveTime date={order.createdAt || new Date()} /> ago
             </div>
             {order.estimatedReadyAt && (
               <div className={cn(
-                "text-[11px] font-bold px-2 py-0.5 rounded whitespace-nowrap shadow-sm border tracking-tight",
-                new Date(order.estimatedReadyAt) < new Date() 
-                  ? "bg-red-500/10 text-red-600 border-red-500/20" 
+                "text-xs font-bold px-2 py-0.5 rounded whitespace-nowrap shadow-sm border tracking-tight",
+                new Date(order.estimatedReadyAt) < new Date()
+                  ? "bg-red-500/10 text-red-600 border-red-500/20"
                   : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20"
               )}>
                 {new Date(order.estimatedReadyAt) < new Date() ? "Overdue" : format(new Date(order.estimatedReadyAt), "h:mm a")}
@@ -816,48 +953,65 @@ export const KanbanCard = React.memo(function KanbanCard({ order, role, isOverla
 
         {/* Order Items (KOT Grouping) */}
         <div className="space-y-2 mt-2 border-t border-dashed pt-3">
-          {Object.entries(rounds).map(([roundNum, items]) => (
+          {Object.entries(rounds).map(([roundNum, roundItems]) => (
             <div key={roundNum} className="space-y-1.5">
               {Object.keys(rounds).length > 1 && (
-                <div className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider mb-1">
-                  Round {roundNum}
+                <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-1 flex items-center gap-1.5">
+                  <span>Round {roundNum}</span>
+                  {Number(roundNum) > 1 && (
+                    <span className="bg-amber-100 text-amber-700 text-[9px] font-black px-1.5 py-0.5 uppercase tracking-wider">
+                      Added
+                    </span>
+                  )}
                 </div>
               )}
-              {items.map((item) => (
-                <div 
-                  key={item.id} 
-                  className={cn(
-                    "flex justify-between items-start",
-                    item.status === "served" && isKitchen ? "opacity-30 line-through" : ""
-                  )}
-                >
-                  <div className="flex gap-2">
-                    <span className={cn("font-bold", isKitchen ? "text-xl text-primary" : "text-[13px]")}>
-                      {item.quantity}x
-                    </span>
-                    <div className="flex flex-col">
-                      <span className={cn("font-semibold", isKitchen ? "text-xl leading-tight" : "text-[13px] leading-tight")}>
-                        {item.itemName} {item.variantName ? `(${item.variantName})` : ""}
+              {roundItems.map((item) => {
+                const addOns = Array.isArray(item.selectedAddOns)
+                  ? (item.selectedAddOns as { name: string; price?: number }[])
+                  : [];
+                return (
+                  <div
+                    key={item.id}
+                    className={cn(
+                      "flex justify-between items-start",
+                      item.status === "served" && isKitchen ? "opacity-30 line-through" : ""
+                    )}
+                  >
+                    <div className="flex gap-2">
+                      <span className={cn("font-black shrink-0", isKitchen ? "text-2xl text-primary" : "text-base text-primary")}>
+                        {item.quantity}×
                       </span>
-                      {Array.isArray(item.selectedAddOns) && item.selectedAddOns.length > 0 && (
-                        <span className={cn("text-muted-foreground", isKitchen ? "text-base font-medium mt-0.5" : "text-[11px] leading-tight")}>
-                          + {(item.selectedAddOns as any[]).map((a: any) => String(a.name || "")).join(", ")}
+                      <div className="flex flex-col">
+                        <span className={cn("font-bold leading-tight", isKitchen ? "text-xl" : "text-[15px]")}>
+                          {item.itemName}
+                          {item.variantName && (
+                            <span className="font-normal text-muted-foreground ml-1">
+                              ({item.variantName})
+                            </span>
+                          )}
                         </span>
-                      )}
-                      {item.specialInstructions && !(item.specialInstructions.startsWith("[DEAL:") && item.specialInstructions.endsWith("]")) && (
-                        <span className={cn("text-red-500 font-semibold", isKitchen ? "text-base mt-0.5" : "text-[11px] leading-tight")}>
-                          *** {item.specialInstructions}
-                        </span>
-                      )}
+                        {addOns.length > 0 && (
+                          <span className={cn("text-muted-foreground font-medium mt-0.5", isKitchen ? "text-base" : "text-xs")}>
+                            + {addOns.map((a) => String(a.name || "")).join(", ")}
+                          </span>
+                        )}
+                        {item.specialInstructions &&
+                          !(item.specialInstructions.startsWith("[DEAL:") &&
+                            item.specialInstructions.endsWith("]")) && (
+                          <span className={cn("text-red-500 font-bold mt-0.5", isKitchen ? "text-base" : "text-xs")}>
+                            *** {item.specialInstructions}
+                          </span>
+                        )}
+                      </div>
                     </div>
+                    {!isKitchen && (
+                      <span className="text-base font-black text-muted-foreground whitespace-nowrap ml-2">
+                        Rs. {String(item.subtotal)}
+                      </span>
+                    )}
                   </div>
-                  {!isKitchen && (
-                    <span className="text-[13px] font-bold text-muted-foreground whitespace-nowrap ml-2">
-                      Rs. {String(item.subtotal)}
-                    </span>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           ))}
         </div>
@@ -866,14 +1020,14 @@ export const KanbanCard = React.memo(function KanbanCard({ order, role, isOverla
         {!isKitchen && (
           <div className="mt-3 pt-3 border-t border-dashed flex flex-col gap-1.5">
             {(order.deliveryFee ?? 0) > 0 && (
-              <div className="flex justify-between items-center text-[12px] text-muted-foreground font-medium">
+              <div className="flex justify-between items-center text-xs text-muted-foreground font-medium">
                 <span>Delivery</span>
                 <span>Rs. {order.deliveryFee.toLocaleString()}</span>
               </div>
             )}
             <div className="flex justify-between items-center font-bold">
-              <span className="text-sm">Total</span>
-              <span className="font-black text-base text-primary">Rs. {order.totalAmount.toLocaleString()}</span>
+              <span className="text-base font-bold">Total</span>
+              <span className="font-black text-xl text-primary">Rs. {order.totalAmount.toLocaleString()}</span>
             </div>
             
             {/* Dine-In Actions */}
@@ -941,6 +1095,11 @@ export const KanbanCard = React.memo(function KanbanCard({ order, role, isOverla
         <div className="uppercase my-1 text-lg font-bold border-b pb-2">
           {order.orderType.replace("_", " ")}
         </div>
+        {Object.keys(rounds).length > 1 && (
+          <div className="font-bold text-center uppercase text-sm border border-amber-400 bg-amber-50 text-amber-800 px-2 py-1 my-2">
+            ★ UPDATED ORDER — {Object.keys(rounds).length} ROUNDS
+          </div>
+        )}
       </div>
       
       <div className="mb-2 pb-2 border-b">
