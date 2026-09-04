@@ -322,6 +322,11 @@
   .animate-slide-up-d3 {
     animation: slideUp 0.7s ease-out 0.3s both;
   }
+  /* Footer marquee — pure CSS, no JS/framer-motion needed */
+  .animate-marquee {
+    animation: marquee 30s linear infinite;
+    will-change: transform;
+  }
 }
 
 @keyframes fadeIn {
@@ -334,12 +339,18 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-fade-in,
   .animate-slide-up,
   .animate-slide-up-d1,
   .animate-slide-up-d2,
-  .animate-slide-up-d3 {
+  .animate-slide-up-d3,
+  .animate-marquee {
     animation: none;
   }
 }

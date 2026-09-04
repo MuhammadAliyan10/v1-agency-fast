@@ -86,7 +86,6 @@ export function ProductDialog({ isOpen, onClose, item }: ProductDialogProps) {
       addOns: selectedAddOnsData.length > 0 ? selectedAddOnsData : undefined,
       quantity,
       unitPrice: currentPrice,
-      subtotal: totalPrice,
       imageUrl: item.imageUrl || fallbackImage,
     });
     

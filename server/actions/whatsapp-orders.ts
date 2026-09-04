@@ -3,6 +3,8 @@ import crypto from "crypto";
 import { Client } from "@upstash/qstash";
 import { orders, orderItems, menuItems, whatsappSessions, orderStatusHistory, itemVariants, outboundMessages } from "@/database/schema";
 import { eq, inArray, sql } from "drizzle-orm";
+import { revalidatePath } from "next/cache";
+import { STORE_CONSTANTS } from "@/lib/constants";
 
 const qstashClient = new Client({ token: process.env.QSTASH_TOKEN || "" });
 
@@ -98,7 +100,7 @@ export async function createOrderFromWhatsApp(phone: string, restaurantId: strin
       });
     }
 
-    const deliveryFee = 150; // Fixed delivery fee for MVP
+    const deliveryFee = STORE_CONSTANTS.WHATSAPP_DELIVERY_FEE;
     const totalAmount = subtotal + deliveryFee;
     finalTotalAmount = totalAmount;
 
@@ -201,6 +203,10 @@ export async function createOrderFromWhatsApp(phone: string, restaurantId: strin
   } catch (e) {
     console.error("Failed to trigger outbox processing directly. Cron will pick it up.", e);
   }
+
+  // Notify Next.js to invalidate the admin orders cache so the new WhatsApp
+  // order appears immediately on the Live Orders board without waiting for polling.
+  revalidatePath("/admin/orders");
 
   return { orderId, totalAmount: finalTotalAmount, deliveryAddress: finalDeliveryAddress, customerName };
 }

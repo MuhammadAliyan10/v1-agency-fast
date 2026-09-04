@@ -68,11 +68,15 @@ export function ProductOrderForm({ item, globalAddons = [] }: ProductOrderFormPr
     }));
   };
 
-  // Pricing calculations
-  const mainItemPrice = (selectedVariant ? selectedVariant.price : item.basePrice) + 
+  // ── Pricing calculations ────────────────────────────────────────────────
+  // All prices are coerced through Number() with a 0 fallback to prevent NaN
+  // from propagating into the cart total if a menu item has a null/undefined price.
+  const basePrice = Number(selectedVariant ? selectedVariant.price : item.basePrice) || 0;
+  const mainItemPrice =
+    basePrice +
     selectedAddOns.reduce((sum, id) => {
-      const addon = addOns.find((a: any) => a.id === id);
-      return addon ? sum + addon.price : sum;
+      const addon = addOns.find((a: { id: string; price: number }) => a.id === id);
+      return sum + (Number(addon?.price) || 0);
     }, 0);
 
   const mainItemTotal = mainItemPrice * quantity;
@@ -83,11 +87,14 @@ export function ProductOrderForm({ item, globalAddons = [] }: ProductOrderFormPr
     cat.items.forEach(crossItem => {
       const qty = crossSellQuantities[crossItem.id] || 0;
       if (qty > 0) {
-        let price = crossItem.basePrice;
+        let price = Number(crossItem.basePrice) || 0;
         if (crossItem.variants?.length > 0) {
-          const selectedVariantId = crossSellVariantSelections[crossItem.id] || crossItem.variants[0].id;
-          const variant = crossItem.variants.find((v: any) => v.id === selectedVariantId);
-          if (variant) price = variant.price;
+          const selectedVariantId =
+            crossSellVariantSelections[crossItem.id] ?? crossItem.variants[0].id;
+          const variant = crossItem.variants.find(
+            (v: { id: string; price: number }) => v.id === selectedVariantId
+          );
+          if (variant) price = Number(variant.price) || 0;
         }
         crossSellsTotal += price * qty;
       }
@@ -104,16 +111,14 @@ export function ProductOrderForm({ item, globalAddons = [] }: ProductOrderFormPr
     }).filter(Boolean) as { name: string; price: number }[];
 
     addItemStore({
-      id: `${item.id}-${selectedVariant?.id || "base"}-${Date.now()}`,
+      menuItemId: item.id,
       name: item.name,
-      price: mainItemPrice,
+      unitPrice: mainItemPrice,
       quantity,
-      options: {
-        imageUrl: item.imageUrl || null,
-        variant: selectedVariant ? selectedVariant.name : undefined,
-        addOns: selectedAddOnsData,
-        specialInstructions: specialInstructions.trim() !== "" ? specialInstructions.trim() : undefined,
-      },
+      variantName: selectedVariant ? selectedVariant.name : undefined,
+      addOns: selectedAddOnsData.length > 0 ? selectedAddOnsData : undefined,
+      specialInstructions: specialInstructions.trim() !== "" ? specialInstructions.trim() : undefined,
+      imageUrl: item.imageUrl ?? null,
     });
 
     let addedCount = quantity;
@@ -123,27 +128,28 @@ export function ProductOrderForm({ item, globalAddons = [] }: ProductOrderFormPr
       cat.items.forEach(crossItem => {
         const qty = crossSellQuantities[crossItem.id] || 0;
         if (qty > 0) {
-          let variantName = undefined;
-          let unitPrice = crossItem.basePrice;
+          let variantName: string | undefined = undefined;
+          let unitPrice = Number(crossItem.basePrice) || 0;
 
           if (crossItem.variants?.length > 0) {
-            const selectedVariantId = crossSellVariantSelections[crossItem.id] || crossItem.variants[0].id;
-            const variant = crossItem.variants.find((v: any) => v.id === selectedVariantId);
+            const selectedVariantId =
+              crossSellVariantSelections[crossItem.id] ?? crossItem.variants[0].id;
+            const variant = crossItem.variants.find(
+              (v: { id: string; name: string; price: number }) => v.id === selectedVariantId
+            );
             if (variant) {
               variantName = variant.name;
-              unitPrice = variant.price;
+              unitPrice = Number(variant.price) || 0;
             }
           }
 
           addItemStore({
-            id: `${crossItem.id}-${Date.now()}`,
+            menuItemId: crossItem.id,
             name: crossItem.name,
-            price: unitPrice,
+            unitPrice,
             quantity: qty,
-            options: {
-              imageUrl: crossItem.imageUrl || null,
-              variant: variantName,
-            },
+            variantName,
+            imageUrl: crossItem.imageUrl ?? null,
           });
           
           addedCount += qty;
@@ -254,10 +260,12 @@ export function ProductOrderForm({ item, globalAddons = [] }: ProductOrderFormPr
                   const hasVariants = crossItem.variants?.length > 0;
                   const selectedVariantId = crossSellVariantSelections[crossItem.id] || (hasVariants ? crossItem.variants[0].id : null);
                   
-                  let displayPrice = crossItem.basePrice;
+                  let displayPrice = Number(crossItem.basePrice) || 0;
                   if (hasVariants && selectedVariantId) {
-                    const v = crossItem.variants.find((v:any) => v.id === selectedVariantId);
-                    if (v) displayPrice = v.price;
+                    const v = crossItem.variants.find(
+                      (v: { id: string; price: number }) => v.id === selectedVariantId
+                    );
+                    if (v) displayPrice = Number(v.price) || 0;
                   }
 
                   return (

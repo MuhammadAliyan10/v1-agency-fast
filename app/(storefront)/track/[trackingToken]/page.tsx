@@ -501,11 +501,20 @@ export default function TrackingPage({ params }: { params: Promise<{ trackingTok
                 <div className="w-12 h-12 bg-primary/20 text-primary flex items-center justify-center shrink-0">
                   <Bike className="w-6 h-6" />
                 </div>
-                <div>
+                <div className="flex-1 min-w-0">
                   <h3 className="font-bold text-[10px] uppercase tracking-wider text-primary mb-0.5">Your Rider</h3>
                   <p className="font-bold text-base text-foreground leading-none mb-1">{data.rider.name}</p>
                   <p className="text-xs text-muted-foreground">{data.rider.phone}</p>
                 </div>
+                {/* tel: link — one tap to call rider on mobile */}
+                <a
+                  href={`tel:${data.rider.phone}`}
+                  className="shrink-0 w-12 h-12 bg-primary text-primary-foreground flex items-center justify-center hover:bg-primary/90 active:scale-95 transition-transform"
+                  aria-label={`Call rider ${data.rider.name}`}
+                  title={`Call ${data.rider.name}`}
+                >
+                  <Phone className="w-5 h-5" />
+                </a>
               </div>
             )}
 

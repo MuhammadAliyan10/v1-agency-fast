@@ -226,7 +226,10 @@ export async function updateLiveOrderStatus(
     return { success: true };
   } catch (error) {
     console.error("Error updating order status:", error);
-    return { success: false, message: "Failed to update status" };
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "Failed to update status",
+    };
   }
 }
 
@@ -246,7 +249,10 @@ export async function updateOrderItemStatus(
     return { success: true };
   } catch (error) {
     console.error("Error updating item status:", error);
-    return { success: false, message: "Failed to update item status" };
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "Failed to update item status",
+    };
   }
 }
 
@@ -323,7 +329,10 @@ export async function appendItemsToOrder(
     return { success: true };
   } catch (error) {
     console.error("Error appending items:", error);
-    return { success: false, message: "Failed to append items to order" };
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "Failed to append items to order",
+    };
   }
 }
 
@@ -342,7 +351,10 @@ export async function markOrderPaid(orderId: string, currentVersion: number) {
     return { success: true };
   } catch (error) {
     console.error("Error marking order paid:", error);
-    return { success: false, error: "Failed to mark order as paid" };
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to mark order as paid",
+    };
   }
 }
 
@@ -389,7 +401,10 @@ export async function assignRiderToOrder(orderId: string, currentVersion: number
     return { success: true, riderPhone: rider?.phone ?? null, riderName: rider?.name ?? null };
   } catch (error) {
     console.error("Error assigning rider to order:", error);
-    return { success: false, error: "Failed to assign rider" };
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to assign rider",
+    };
   }
 }
 
@@ -506,7 +521,18 @@ export async function createManualOrder(payload: z.infer<typeof manualOrderSchem
     const addOnsList = await db.select().from(itemAddOns);
     
     let subtotal = 0;
-    const orderItemsToInsert = [];
+    const orderItemsToInsert: {
+      menuItemId: string;
+      variantId: string | null;
+      itemName: string;
+      variantName: string | null;
+      quantity: number;
+      unitPrice: number;
+      selectedAddOns: { id: string; name: string; price: number }[] | null;
+      specialInstructions: string | null;
+      subtotal: number;
+      status: "pending";
+    }[] = [];
     
     for (const item of validated.items) {
       const dbItem = menuItemsList.find(m => m.id === item.menuItemId);
@@ -525,7 +551,7 @@ export async function createManualOrder(payload: z.infer<typeof manualOrderSchem
       }
       
       let addOnPriceTotal = 0;
-      const selectedAddOnObjects = [];
+      const selectedAddOnObjects: { id: string; name: string; price: number }[] = [];
       if (item.selectedAddOns && item.selectedAddOns.length > 0) {
         for (const addOnId of item.selectedAddOns) {
           const dbAddOn = addOnsList.find(a => a.id === addOnId);
@@ -591,37 +617,40 @@ export async function createManualOrder(payload: z.infer<typeof manualOrderSchem
       finalWaiterId = session.id;
     }
 
-    await db.insert(orders).values({
-      id: orderId,
-      trackingToken: crypto.randomUUID(),
-      customerId,
-      customerName: finalCustomerName,
-      customerPhone: finalCustomerPhone,
-      orderType: validated.orderType,
-      tableId: validated.tableId || null,
-      tableNumber: validated.tableNumber || null,
-      waiterId: finalWaiterId,
-      waiterName: null, // Legacy, can be left null
-      createdById: session.id,
-      deliveryAddress: validated.deliveryAddress || null,
-      deliveryNotes: validated.deliveryNotes || null,
-      status: "pending",
-      source: "admin",
-      paymentMethod: validated.paymentMethod,
-      paymentStatus: validated.paymentStatus,
-      subtotal,
-      deliveryFee: validated.deliveryFee,
-      discountAmount: validated.discountAmount,
-      totalAmount: Math.max(0, totalAmount),
-    });
-    
-    for (const oi of orderItemsToInsert) {
-      await db.insert(orderItems).values({
-        orderId,
-        ...oi,
+    await db.transaction(async (tx) => {
+      await tx.insert(orders).values({
+        id: orderId,
+        trackingToken: crypto.randomUUID(),
+        customerId,
+        customerName: finalCustomerName,
+        customerPhone: finalCustomerPhone,
+        orderType: validated.orderType,
+        tableId: validated.tableId ?? null,
+        tableNumber: validated.tableNumber ?? null,
+        waiterId: finalWaiterId,
+        waiterName: null, // Legacy field kept for backward compat
+        createdById: session.id,
+        deliveryAddress: validated.deliveryAddress ?? null,
+        deliveryNotes: validated.deliveryNotes ?? null,
+        status: "pending",
+        source: "admin",
+        paymentMethod: validated.paymentMethod,
+        paymentStatus: validated.paymentStatus,
+        subtotal,
+        deliveryFee: validated.deliveryFee,
+        discountAmount: validated.discountAmount,
+        totalAmount: Math.max(0, totalAmount),
       });
-    }
-    
+
+      // Insert all order items atomically with the order header.
+      // If any item insert fails the entire order is rolled back — no phantom headers.
+      if (orderItemsToInsert.length > 0) {
+        await tx.insert(orderItems).values(
+          orderItemsToInsert.map((oi) => ({ orderId, ...oi }))
+        );
+      }
+    });
+
     revalidatePath("/admin/orders");
     return { success: true, orderId };
     
@@ -666,7 +695,19 @@ export async function addItemsToExistingOrder(data: z.infer<typeof addItemsSchem
     ]);
 
     let newSubtotal = 0;
-    const orderItemsToInsert = [];
+    const orderItemsToInsert: {
+      orderId: string;
+      menuItemId: string;
+      variantId: string | null;
+      itemName: string;
+      variantName: string | null;
+      quantity: number;
+      unitPrice: number;
+      selectedAddOns: { id: string; name: string; price: number }[] | null;
+      specialInstructions: string | null;
+      subtotal: number;
+      status: "pending";
+    }[] = [];
     
     for (const item of validated.items) {
       const dbItem = dbItems.find(i => i.id === item.menuItemId);
@@ -684,7 +725,7 @@ export async function addItemsToExistingOrder(data: z.infer<typeof addItemsSchem
         }
       }
       
-      const selectedAddOnObjects = [];
+      const selectedAddOnObjects: { id: string; name: string; price: number }[] = [];
       let addOnPriceTotal = 0;
       
       if (item.selectedAddOns && item.selectedAddOns.length > 0) {
@@ -715,24 +756,44 @@ export async function addItemsToExistingOrder(data: z.infer<typeof addItemsSchem
       });
     }
     
-    for (const oi of orderItemsToInsert) {
-      await db.insert(orderItems).values(oi);
-    }
-    
-    const result = await db.update(orders)
-      .set({ 
-        subtotal: existingOrder.subtotal + newSubtotal,
-        totalAmount: existingOrder.totalAmount + newSubtotal,
-        updatedAt: new Date(),
-        orderVersion: sql`${orders.orderVersion} + 1` as any
-      })
-      .where(and(eq(orders.id, validated.orderId), eq(orders.orderVersion, validated.currentVersion)))
-      .returning();
-      
-    if (result.length === 0) {
-      throw new Error("CONCURRENCY_CONFLICT: This order was modified by another user. Please refresh.");
-    }
-      
+    await db.transaction(async (tx) => {
+      // ── OCC check FIRST — verify version before writing anything ──────────
+      // Using FOR UPDATE to pessimistically lock the row inside the transaction,
+      // preventing another concurrent tx from modifying between our read and write.
+      const lockedRows = await tx
+        .select({ id: orders.id })
+        .from(orders)
+        .where(
+          and(
+            eq(orders.id, validated.orderId),
+            eq(orders.orderVersion, validated.currentVersion)
+          )
+        )
+        .for("update");
+
+      if (lockedRows.length === 0) {
+        throw new Error(
+          "CONCURRENCY_CONFLICT: This order was modified by another user. Please refresh."
+        );
+      }
+
+      // ── Safe to insert — version is confirmed and row is locked ───────────
+      if (orderItemsToInsert.length > 0) {
+        await tx.insert(orderItems).values(orderItemsToInsert);
+      }
+
+      // ── Bump version and update totals atomically ─────────────────────────
+      await tx
+        .update(orders)
+        .set({
+          subtotal: existingOrder.subtotal + newSubtotal,
+          totalAmount: existingOrder.totalAmount + newSubtotal,
+          updatedAt: new Date(),
+          orderVersion: sql`${orders.orderVersion} + 1` as any,
+        })
+        .where(eq(orders.id, validated.orderId));
+    });
+
     revalidatePath("/admin/orders");
     return { success: true, orderId: validated.orderId };
     
@@ -770,7 +831,10 @@ export async function cancelLiveOrder(orderId: string, currentVersion: number, v
     return { success: true };
   } catch (error) {
     console.error("Error cancelling order:", error);
-    return { success: false, error: "Failed to cancel order" };
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to cancel order",
+    };
   }
 }
 
@@ -790,7 +854,10 @@ export async function updateTableNumber(orderId: string, currentVersion: number,
     return { success: true };
   } catch (error) {
     console.error("Error updating table number:", error);
-    return { success: false, error: "Failed to update table number" };
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to update table number",
+    };
   }
 }
 

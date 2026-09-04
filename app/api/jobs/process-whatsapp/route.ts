@@ -2,8 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifySignatureAppRouter } from "@upstash/qstash/nextjs";
 import { db } from "@/database/db";
 import { whatsappSessions } from "@/database/schema";
-import { eq, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { processWhatsAppMessage } from "@/lib/whatsapp/processor";
+
+/** Helper — releases the conversation lock unconditionally. */
+async function releaseLock(restaurantId: string, phone: string): Promise<void> {
+  await db
+    .update(whatsappSessions)
+    .set({ lockedAt: null })
+    .where(
+      sql`${whatsappSessions.restaurantId} = ${restaurantId}
+          AND ${whatsappSessions.phone} = ${phone}`
+    );
+}
 
 async function handler(req: NextRequest) {
   const body = await req.json();
@@ -13,56 +24,84 @@ async function handler(req: NextRequest) {
     return new NextResponse("Invalid Payload", { status: 400 });
   }
 
-  // 1. Serialization Lock
-  // Attempt to acquire a lock for this phone conversation.
-  // We check if lockedAt is null OR if the lock has expired (e.g., stuck for > 10 seconds)
   const now = new Date();
-  const lockExpiry = new Date(now.getTime() - 10000); // 10 seconds max lock duration
+  // Locks older than 10 s are considered stale (worker crashed without releasing).
+  const lockExpiry = new Date(now.getTime() - 10_000);
 
-  // The below is a simplistic way to lock using PostgreSQL's returning clause
-  // In a high contention environment, standard Redis locks are better. 
-  const lockAcquired = await db.update(whatsappSessions)
+  // ─── Step 1: Try to acquire the lock on an EXISTING session ──────────────
+  // The UPDATE only matches rows whose lock is NULL or expired, so it is
+  // inherently atomic at the DB level.
+  const lockAcquired = await db
+    .update(whatsappSessions)
     .set({ lockedAt: now })
     .where(
-      sql`${whatsappSessions.restaurantId} = ${restaurantId} 
-          AND ${whatsappSessions.phone} = ${phone} 
-          AND (${whatsappSessions.lockedAt} IS NULL OR ${whatsappSessions.lockedAt} < ${lockExpiry})`
+      sql`${whatsappSessions.restaurantId} = ${restaurantId}
+          AND ${whatsappSessions.phone} = ${phone}
+          AND (${whatsappSessions.lockedAt} IS NULL
+               OR ${whatsappSessions.lockedAt} < ${lockExpiry})`
     )
     .returning({ id: whatsappSessions.id });
 
-  // If the session exists but we couldn't acquire the lock, it means another message is currently being processed.
   if (lockAcquired.length === 0) {
-    // Check if session actually exists to ensure we aren't failing on first-time users.
+    // The UPDATE matched 0 rows — either:
+    //   (a) Session exists and is held by another worker  →  requeue
+    //   (b) Session doesn't exist yet (brand-new user)    →  upsert + race-win check below
+
     const sessionExists = await db.query.whatsappSessions.findFirst({
-      where: sql`${whatsappSessions.restaurantId} = ${restaurantId} AND ${whatsappSessions.phone} = ${phone}`
+      where: sql`${whatsappSessions.restaurantId} = ${restaurantId}
+                 AND ${whatsappSessions.phone} = ${phone}`,
     });
 
     if (sessionExists) {
+      // Case (a) — actively locked by another worker; let QStash retry with backoff.
       console.log(`[QStash Worker] Conversation for ${phone} is locked. Requeuing...`);
-      // Returning 409 Conflict will cause QStash to use its exponential backoff and retry later.
+      return new NextResponse("Conversation Locked - Retry Later", { status: 409 });
+    }
+
+    // ─── Step 2: New user — INSERT with lock held, guarding the race ─────
+    // ON CONFLICT DO NOTHING ensures only one concurrent worker wins.
+    // The unique constraint is (restaurantId, phone) — see schema.
+    await db
+      .insert(whatsappSessions)
+      .values({
+        restaurantId,
+        phone,
+        state: "language_selection",
+        cart: [],
+        tempData: {},
+        language: "en",
+        lockedAt: now,
+      })
+      .onConflictDoNothing();
+
+    // Verify we actually won the race by confirming our exact lockedAt timestamp
+    // was persisted. If another worker beat us here, wonRace will be null.
+    const wonRace = await db.query.whatsappSessions.findFirst({
+      where: sql`${whatsappSessions.restaurantId} = ${restaurantId}
+                 AND ${whatsappSessions.phone} = ${phone}
+                 AND ${whatsappSessions.lockedAt} = ${now}`,
+    });
+
+    if (!wonRace) {
+      // Another worker beat us — let QStash retry this message.
+      console.log(`[QStash Worker] Lost new-session race for ${phone}. Requeuing...`);
       return new NextResponse("Conversation Locked - Retry Later", { status: 409 });
     }
   }
 
+  // ─── Step 3: Process the message (lock is held) ──────────────────────────
   try {
-    // 2. Process Message
-    // This will create the session if it doesn't exist.
     await processWhatsAppMessage(phone, message, contact);
   } catch (error) {
     console.error("[QStash Worker] Error processing message:", error);
-    // Important: Release lock even on error!
-    await db.update(whatsappSessions)
-      .set({ lockedAt: null })
-      .where(sql`${whatsappSessions.restaurantId} = ${restaurantId} AND ${whatsappSessions.phone} = ${phone}`);
-      
-    // Throwing 500 will make QStash retry.
+    // Always release the lock on failure so subsequent retries aren't blocked.
+    await releaseLock(restaurantId, phone);
+    // 500 causes QStash to retry with exponential backoff.
     return new NextResponse("Processing Error", { status: 500 });
   }
 
-  // 3. Release Lock
-  await db.update(whatsappSessions)
-    .set({ lockedAt: null })
-    .where(sql`${whatsappSessions.restaurantId} = ${restaurantId} AND ${whatsappSessions.phone} = ${phone}`);
+  // ─── Step 4: Release lock on success ─────────────────────────────────────
+  await releaseLock(restaurantId, phone);
 
   return new NextResponse("OK", { status: 200 });
 }

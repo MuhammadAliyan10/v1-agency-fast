@@ -1,5 +1,6 @@
 export const STORE_CONSTANTS = {
-  DELIVERY_FEE: 50, // Base fee
+  DELIVERY_FEE: 50, // Base fee (website orders with zone pricing)
+  WHATSAPP_DELIVERY_FEE: 150, // Fixed delivery fee for all WhatsApp orders — single source of truth
   DELIVERY_ZONES: [
     { id: "z1", name: "City Sillanwali", fee: 50 },
     { id: "z2", name: "Zafraabad", fee: 50 },

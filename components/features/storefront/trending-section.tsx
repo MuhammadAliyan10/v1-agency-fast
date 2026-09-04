@@ -37,11 +37,11 @@ export function TrendingSection({ categories, title = "Bestsellers" }: TrendingS
 
   const handleQuickAdd = (item: any) => {
     addItem({
-      id: item.id,
+      menuItemId: item.id,
       name: item.name,
-      price: item.basePrice || item.price,
+      unitPrice: Number(item.basePrice ?? item.price) || 0,
       quantity: 1,
-      options: { imageUrl: item.imageUrl }
+      imageUrl: item.imageUrl ?? null,
     });
     toast.success(`${item.name} added to cart!`);
   };

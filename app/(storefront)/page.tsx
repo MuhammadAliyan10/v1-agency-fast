@@ -2,6 +2,7 @@ import { getPublicMenu } from "@/server/actions/storefront";
 import { CategoryBento } from "@/components/features/storefront/category-bento";
 import { TrendingSection } from "@/components/features/storefront/trending-section";
 import { SpecialItemSection } from "@/components/features/storefront/special-item-section";
+import { HowItWorks } from "@/components/features/storefront/how-it-works";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -41,6 +42,9 @@ export default async function StorefrontPage() {
           priority
         />
       </section>
+
+      {/* How It Works — trust builder for first-time Pakistani COD users */}
+      <HowItWorks />
 
       {categories.length > 0 && (
         <>

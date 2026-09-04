@@ -80,11 +80,11 @@ export function MenuClient({ categories, isStoreOpen = true }: MenuClientProps) 
 
   const handleQuickAdd = (item: any) => {
     addItem({
-      id: item.id,
+      menuItemId: item.id,
       name: item.name,
-      price: item.basePrice || item.price,
+      unitPrice: Number(item.basePrice ?? item.price) || 0,
       quantity: 1,
-      options: { imageUrl: item.imageUrl }
+      imageUrl: item.imageUrl ?? null,
     });
     toast.success("Added to cart");
   };
@@ -174,7 +174,7 @@ export function MenuClient({ categories, isStoreOpen = true }: MenuClientProps) 
               <div className="bg-muted/30 px-4 py-3 border-b border-border">
                 <h2 className="font-bold text-lg text-foreground tracking-tight">{category.name}</h2>
               </div>
-              <div className="flex flex-col gap-3 p-3 bg-muted/10">
+              <div className="grid grid-cols-2 gap-3 p-3 bg-muted/10 md:grid-cols-3 lg:grid-cols-4">
                 {category.items.map((item) => (
                   <MenuItemCard
                     key={item.id}

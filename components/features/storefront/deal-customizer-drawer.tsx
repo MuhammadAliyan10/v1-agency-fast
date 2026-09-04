@@ -9,7 +9,6 @@ import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { STORE_CONSTANTS } from "@/lib/constants";
 import { useCartStore } from "@/lib/store/cart-store";
-import { useCart } from "@/store/use-cart";
 import { toast } from "sonner";
 import {
   ShoppingBag, CheckCircle2, Minus, Plus, Sparkles, Utensils,
@@ -418,16 +417,14 @@ export function DealCard({ deal }: { deal: DealItem }) {
     });
 
     addItemStore({
-      id: `deal-${deal.id}-${Date.now()}`,
+      menuItemId: deal.id,
       name: `[DEAL] ${deal.name}`,
-      price: deal.dealPrice,
+      unitPrice: deal.dealPrice,
       quantity,
-      options: {
-        imageUrl: deal.imageUrl || null,
-        variant: deal.eventLabel || "Combo Offer",
-        addOns: addOnsList,
-        specialInstructions: instructionsText,
-      },
+      variantName: deal.eventLabel ?? "Combo Offer",
+      addOns: addOnsList,
+      specialInstructions: instructionsText,
+      imageUrl: deal.imageUrl ?? null,
     });
 
     toast.success(`${quantity}× "${deal.name}" added to cart!`);

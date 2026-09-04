@@ -20,7 +20,6 @@ import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AppDrawer } from "@/components/ui/app-drawer";
-import { useCart } from "@/store/use-cart";
 import { useCartStore } from "@/lib/store/cart-store";
 import { CheckoutDrawer } from "./checkout-drawer";
 import { cn } from "@/lib/utils";

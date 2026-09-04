@@ -4,6 +4,8 @@ import { eq, sql, inArray } from "drizzle-orm";
 import { sendWhatsAppText, sendWhatsAppInteractiveList, sendWhatsAppInteractiveButtons, sendWhatsAppImage, downloadWhatsAppMedia, sendWhatsAppItemCard } from "./client";
 import { transcribeVoiceNote } from "./ai-helper";
 import { createOrderFromWhatsApp } from "@/server/actions/whatsapp-orders";
+import { cancelLiveOrder } from "@/server/actions/live-orders";
+import { STORE_CONSTANTS } from "@/lib/constants";
 
 
 function getPaginatedRows(items: any[], page: number, prefix: string, mapFn: (item: any) => any) {
@@ -185,24 +187,50 @@ export async function processWhatsAppMessage(phone: string, message: any, contac
     input = "location_payload";
   }
 
-  // Handle Audio Voice Notes
+  // ── Handle Audio Voice Notes ───────────────────────────────────────────────
   if (message.type === "audio" && message.audio?.id) {
     const audioBuffer = await downloadWhatsAppMedia(message.audio.id);
-    if (audioBuffer) {
-      const transcription = await transcribeVoiceNote(audioBuffer);
-      if (transcription) {
-        input = transcription.trim().toLowerCase();
-      } else {
-        await sendWhatsAppText(phone, "Sorry, I couldn't process your voice note clearly. Please try typing instead.");
-        return;
-      }
-    } else {
-      await sendWhatsAppText(phone, "Sorry, I couldn't download your voice note right now.");
+
+    if (!audioBuffer) {
+      // Touch updatedAt so the session timeout clock doesn't reset mid-order
+      await db.update(whatsappSessions)
+        .set({ updatedAt: new Date() })
+        .where(eq(whatsappSessions.id, session.id));
+      await sendWhatsAppText(
+        phone,
+        "Sorry, I couldn't download your voice note right now. Please type your message instead."
+      );
       return;
     }
+
+    const transcription = await transcribeVoiceNote(audioBuffer);
+    if (!transcription) {
+      await db.update(whatsappSessions)
+        .set({ updatedAt: new Date() })
+        .where(eq(whatsappSessions.id, session.id));
+      await sendWhatsAppText(
+        phone,
+        "Sorry, I couldn't process your voice note clearly. Please type your message instead."
+      );
+      return;
+    }
+
+    input = transcription.trim().toLowerCase();
   }
 
-  if (!input) return; // unsupported message type (image, video, etc)
+  // ── Unsupported message types (image, video, sticker, document, reaction) ──
+  // Touching updatedAt prevents the 2-hour session timeout from firing mid-order
+  // just because the customer sent a sticker.
+  if (!input) {
+    await db.update(whatsappSessions)
+      .set({ updatedAt: new Date() })
+      .where(eq(whatsappSessions.id, session.id));
+    await sendWhatsAppText(
+      phone,
+      "I can only process text messages, voice notes, and location pins. Please type your message or select an option from the menu."
+    );
+    return;
+  }
 
   // 3. Human Handoff Check
   if (input === "human" || input === "agent" || input === "talk to staff") {
@@ -401,14 +429,56 @@ export async function processWhatsAppMessage(phone: string, message: any, contac
           session.tempData = {};
           return handleGreeting(phone, session, true);
         } else if (input === "active_cancel") {
-          const activeOrderId = (session.tempData as any).activeOrderId;
-          const activeOrder = await db.query.orders.findFirst({ where: eq(orders.id, activeOrderId) });
-          if (activeOrder && activeOrder.status === "pending") {
-            await db.update(orders).set({ status: "cancelled" }).where(eq(orders.id, activeOrder.id));
-            await sendWhatsAppText(phone, t("Order cancelled. Type 'Hi' anytime to start over and order again.", session.language));
+          const activeOrderId = (session.tempData as any).activeOrderId as string | undefined;
+
+          if (!activeOrderId) {
+            await sendWhatsAppText(phone, "No active order found to cancel.");
+            return updateSessionState(session.id, "greeting", [], {});
+          }
+
+          // Always fetch fresh — never trust cached tempData.activeOrderStatus
+          const freshOrder = await db.query.orders.findFirst({ where: eq(orders.id, activeOrderId) });
+
+          if (!freshOrder) {
+            await sendWhatsAppText(phone, "Order not found.");
+            return updateSessionState(session.id, "greeting", [], {});
+          }
+
+          if (freshOrder.status !== "pending") {
+            // Already moved past pending — cannot self-cancel
+            await sendWhatsAppText(
+              phone,
+              t(
+                "Sorry, your order has already been accepted by the kitchen and cannot be cancelled via WhatsApp. Please call the restaurant.",
+                session.language
+              )
+            );
+            return;
+          }
+
+          // Use the FSM-aware cancel: validates transition + bumps orderVersion
+          // so the Admin panel does not get a false CONCURRENCY_CONFLICT on the next action.
+          const cancelResult = await cancelLiveOrder(
+            activeOrderId,
+            freshOrder.orderVersion,
+            "Customer cancelled via WhatsApp"
+          );
+
+          if (cancelResult.success) {
+            await sendWhatsAppText(
+              phone,
+              t("Order cancelled. Type 'Hi' anytime to start over and order again.", session.language)
+            );
             return updateSessionState(session.id, "cancelled", [], {});
           } else {
-            await sendWhatsAppText(phone, t("Sorry, your order has already been accepted by the kitchen and cannot be cancelled via WhatsApp. Please call the restaurant.", session.language));
+            // Most likely a concurrent Admin action moved the order — inform the customer
+            await sendWhatsAppText(
+              phone,
+              t(
+                "Sorry, your order has already been accepted by the kitchen and cannot be cancelled via WhatsApp. Please call the restaurant.",
+                session.language
+              )
+            );
             return;
           }
         }
@@ -932,41 +1002,46 @@ async function handleNameInput(phone: string, session: any, input: string) {
 }
 
 async function handleInstructionsInput(phone: string, session: any, input: string) {
-  // Generate idempotency key for this checkout attempt
-  const checkoutSessionId = "chk_" + Date.now() + "_" + Math.random().toString(36).substring(7);
+  // ── P2-4: Preserve the existing checkoutSessionId if one is already set. ──
+  // Regenerating on every cart edit opens a new duplicate-order window. We only
+  // mint a fresh ID when the customer first reaches the summary screen.
+  const existingCheckoutSessionId = (session.tempData as any)?.checkoutSessionId as string | undefined;
+  const checkoutSessionId =
+    existingCheckoutSessionId ?? `chk_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+
   const newTemp = { ...(session.tempData as any), instructions: input, checkoutSessionId };
 
   // Calculate summary (approximate for display)
-  const cart = session.cart as any[];
-  const itemIds = cart.map(c => c.menuItemId);
+  const cart = session.cart as CartItem[];
+  const itemIds = cart.map(c => c.menuItemId).filter(Boolean) as string[];
   const dbItems = await db.select().from(menuItems).where(inArray(menuItems.id, itemIds));
 
   let summary = `*Order Summary*\nName: ${newTemp.name}\nAddress: ${newTemp.address}\nAlt Phone: ${newTemp.altPhone}\nInstructions: ${input}\n\n*Items:*\n`;
   let total = 0;
 
-  const dealGroups: Record<string, { items: string[], price: number }> = {};
+  const dealGroups: Record<string, { items: string[]; price: number }> = {};
   const standardItems: string[] = [];
 
-  cart.forEach((c: CartItem) => {
+  cart.forEach((c) => {
     const dbItem = dbItems.find(i => i.id === c.menuItemId);
-    const itemName = c.name || dbItem?.name || "Item";
-    const itemPrice = c.price || dbItem?.basePrice || 0;
+    const itemName = c.name ?? dbItem?.name ?? "Item";
+    const itemPrice = c.price ?? dbItem?.basePrice ?? 0;
 
     if (c.isDeal && itemName.startsWith("[DEAL:")) {
-       const dealMatch = itemName.match(/\[DEAL: (.*?)\] (.*)/);
-       if (dealMatch) {
-         const dealName = dealMatch[1];
-         const slotName = dealMatch[2];
-         if (!dealGroups[dealName]) dealGroups[dealName] = { items: [], price: 0 };
-         dealGroups[dealName].items.push(`- ${c.quantity}x ${slotName}`);
-         dealGroups[dealName].price += (itemPrice * c.quantity);
-       } else {
-         standardItems.push(`${c.quantity}x ${itemName} (Rs. ${itemPrice})`);
-         total += itemPrice * c.quantity;
-       }
+      const dealMatch = itemName.match(/\[DEAL: (.*?)\] (.*)/);
+      if (dealMatch) {
+        const dealName = dealMatch[1];
+        const slotName = dealMatch[2];
+        if (!dealGroups[dealName]) dealGroups[dealName] = { items: [], price: 0 };
+        dealGroups[dealName].items.push(`- ${c.quantity}x ${slotName}`);
+        dealGroups[dealName].price += itemPrice * c.quantity;
+      } else {
+        standardItems.push(`${c.quantity}x ${itemName} (Rs. ${itemPrice})`);
+        total += itemPrice * c.quantity;
+      }
     } else {
-       standardItems.push(`${c.quantity}x ${itemName} (Rs. ${itemPrice})`);
-       total += itemPrice * c.quantity;
+      standardItems.push(`${c.quantity}x ${itemName} (Rs. ${itemPrice})`);
+      total += itemPrice * c.quantity;
     }
   });
 
@@ -977,7 +1052,9 @@ async function handleInstructionsInput(phone: string, session: any, input: strin
   }
   summary += standardItems.join("\n") + (standardItems.length > 0 ? "\n" : "");
 
-  summary += `\nDelivery: Rs. 150\n*Total: Rs. ${total + 150}*\n_Payment: Cash on Delivery_\n\nIs this correct?`;
+  // ── P1-3: Use the single-source-of-truth constant — matches whatsapp-orders.ts ──
+  const deliveryFee = STORE_CONSTANTS.WHATSAPP_DELIVERY_FEE;
+  summary += `\nDelivery: Rs. ${deliveryFee}\n*Total: Rs. ${total + deliveryFee}*\n_Payment: Cash on Delivery_\n\nIs this correct?`;
 
   await sendWhatsAppInteractiveButtons(phone, summary, [
     { id: "confirm_yes", title: t("Yes, Confirm", session.language) },
@@ -1044,14 +1121,14 @@ async function handleConfirmation(phone: string, session: any, input: string) {
     await sendWhatsAppInteractiveList(phone, "Select an item to remove from your cart:", "Remove Items", [{ title: "Cart Items", rows }]);
     return updateSessionState(session.id, "cart_edit", session.cart, session.tempData);
   } else {
-    const checkoutSessionId = "chk_" + Date.now() + "_" + Math.random().toString(36).substring(7);
-    const newTemp = { ...(session.tempData as any), checkoutSessionId };
+    // Unrecognised input at order_confirmation — re-prompt without rotating the
+    // checkoutSessionId, so the existing duplicate-order guard stays in place.
     await sendWhatsAppInteractiveButtons(phone, t("Please confirm your order.", session.language), [
       { id: "confirm_yes", title: t("Yes, Confirm", session.language) },
       { id: "edit_cart", title: t("Edit/Remove Items", session.language) },
       { id: "confirm_no", title: t("Cancel Order", session.language) }
     ]);
-    return updateSessionState(session.id, "order_confirmation", session.cart, newTemp);
+    return updateSessionState(session.id, "order_confirmation", session.cart, session.tempData);
   }
 }
 

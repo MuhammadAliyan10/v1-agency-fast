@@ -48,8 +48,7 @@ export function DealAddToCart({ deal }: { deal: Deal }) {
           name: `[DEAL: ${deal.name}] ${slot.slotName}`,
           quantity: slot.quantity,
           unitPrice: pricePerSlot,
-          subtotal: pricePerSlot * slot.quantity,
-          specialInstructions: `[DEAL: ${deal.name}]`
+          specialInstructions: `[DEAL: ${deal.name}]`,
         });
       }
     });

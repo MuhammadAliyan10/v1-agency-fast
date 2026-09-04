@@ -84,17 +84,16 @@ export function OrderActions({ orderId, status, items }: OrderActionsProps) {
 
     items.forEach((item) => {
       addItem({
-        menuItemId: item.menuItem?.id || item.menuItemId || item.itemName,
+        menuItemId: item.menuItem?.id ?? item.menuItemId ?? null,
         name: item.itemName,
-        variantName: item.variantName || undefined,
+        variantName: item.variantName ?? undefined,
         addOns:
           item.selectedAddOns && item.selectedAddOns.length > 0
             ? item.selectedAddOns
             : undefined,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
-        subtotal: item.subtotal,
-        imageUrl: item.menuItem?.imageUrl || undefined,
+        imageUrl: item.menuItem?.imageUrl ?? undefined,
       });
     });
 

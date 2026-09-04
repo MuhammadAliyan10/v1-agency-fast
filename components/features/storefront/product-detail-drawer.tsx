@@ -75,15 +75,13 @@ export function ProductDetailDrawer({ isOpen, onClose, item }: ProductDetailDraw
     }).filter(Boolean);
 
     addItem({
-      id: `${item.id}-${selectedVariant?.id || 'base'}-${selectedAddOns.sort().join('-')}`,
+      menuItemId: item.id,
       name: item.name,
-      price: currentPrice,
+      variantName: selectedVariant?.name,
+      addOns: selectedAddOnsData.length > 0 ? selectedAddOnsData : undefined,
       quantity,
-      options: {
-        variant: selectedVariant?.name,
-        addOns: selectedAddOnsData,
-        imageUrl: item.imageUrl
-      }
+      unitPrice: currentPrice,
+      imageUrl: item.imageUrl,
     });
     
     toast.success("Added to cart");

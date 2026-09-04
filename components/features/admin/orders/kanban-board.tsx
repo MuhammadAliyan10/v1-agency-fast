@@ -159,33 +159,56 @@ export function LiveOrdersBoard({ role }: LiveOrdersBoardProps) {
     useSensor(KeyboardSensor)
   );
 
-  const handleStatusChange = useCallback((orderId: string, newStatus: OrderStatus) => {
-    const order = orders.find(o => o.id === orderId);
-    if (!order) return;
+  const handleStatusChange = useCallback(
+    (orderId: string, newStatus: OrderStatus) => {
+      // ── P2-3: Read orderVersion from the query cache, not from the `orders`
+      // closure. During an in-flight optimistic update the closure holds a
+      // stale/mutated version; the cache always reflects the last server-confirmed
+      // value, preventing a self-inflicted false CONCURRENCY_CONFLICT.
+      const cached = queryClient.getQueryData<{ success: boolean; data: LiveOrderProjection[] }>(
+        ["live-orders"]
+      );
+      const order = cached?.data?.find((o) => o.id === orderId);
+      if (!order) return;
 
-    // Prompt for ETA if moving from pending to approved or preparing
-    if (order.status === "pending" && (newStatus === "approved" || newStatus === "preparing")) {
-      setEtaDialog({ isOpen: true, orderId, newStatus, minutes: "30" });
-      return;
-    }
+      // Prompt for ETA when moving from pending → approved or preparing
+      if (
+        order.status === "pending" &&
+        (newStatus === "approved" || newStatus === "preparing")
+      ) {
+        setEtaDialog({ isOpen: true, orderId, newStatus, minutes: "30" });
+        return;
+      }
 
-    updateStatusMutation.mutate({ id: orderId, currentVersion: order.orderVersion, status: newStatus });
-  }, [orders, updateStatusMutation]);
+      updateStatusMutation.mutate({
+        id: orderId,
+        currentVersion: order.orderVersion,
+        status: newStatus,
+      });
+    },
+    // queryClient is stable; updateStatusMutation identity changes only when the
+    // mutation state changes — neither triggers a stale orderVersion read.
+    [queryClient, updateStatusMutation]
+  );
 
   const submitEtaDialog = () => {
     if (!etaDialog.orderId || !etaDialog.newStatus) return;
     const mins = parseInt(etaDialog.minutes, 10);
-    
-    const order = orders.find(o => o.id === etaDialog.orderId);
+
+    // ── P2-3: Same cache-read pattern — bypass optimistic state ──────────
+    const cached = queryClient.getQueryData<{ success: boolean; data: LiveOrderProjection[] }>(
+      ["live-orders"]
+    );
+    const order = cached?.data?.find((o) => o.id === etaDialog.orderId);
     if (!order) return;
 
-    updateStatusMutation.mutate({ 
-      id: etaDialog.orderId, 
+    updateStatusMutation.mutate({
+      id: etaDialog.orderId,
       currentVersion: order.orderVersion,
-      status: etaDialog.newStatus, 
-      etaMinutes: isNaN(mins) ? undefined : mins 
+      status: etaDialog.newStatus,
+      etaMinutes: isNaN(mins) ? undefined : mins,
     });
-    
+
     setEtaDialog({ isOpen: false, orderId: null, newStatus: null, minutes: "30" });
   };
 

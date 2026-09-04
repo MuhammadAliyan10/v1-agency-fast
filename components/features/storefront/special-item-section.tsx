@@ -32,11 +32,11 @@ export function SpecialItemSection({ categories }: SpecialItemSectionProps) {
       return;
     }
     addItem({
-      id: specialItem.id,
+      menuItemId: specialItem.id,
       name: specialItem.name,
-      price: specialItem.basePrice || specialItem.price,
+      unitPrice: Number(specialItem.basePrice ?? specialItem.price) || 0,
       quantity: 1,
-      options: { imageUrl: specialItem.imageUrl },
+      imageUrl: specialItem.imageUrl ?? null,
     });
     toast.success(`${specialItem.name} added to cart!`);
   };
