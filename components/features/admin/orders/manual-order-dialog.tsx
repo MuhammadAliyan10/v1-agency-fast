@@ -136,7 +136,7 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [rightTab, setRightTab] = useState<"menu" | "deals">("menu");
-  const [hallFilter, setHallFilter] = useState<"all" | "general" | "family">("all");
+  const [hallFilter, setHallFilter] = useState<"all" | "general" | "family">("general");
 
   const [pendingTableId, setPendingTableId] = useState<string | null>(null);
   const [splitCheckModalOpen, setSplitCheckModalOpen] = useState(false);
@@ -198,7 +198,7 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
         paymentStatus: "unpaid",
         items: [],
       });
-      setHallFilter("all");
+      setHallFilter("general");
     }
   }, [isOpen, existingOrder, defaultTableId, defaultTableNumber, form]);
 
