@@ -276,7 +276,7 @@ export function KDSBoard() {
       if (!res.success) throw new Error(res.error);
       return res.data;
     },
-    refetchInterval: 3_000, // Fast polling for real-time KDS
+    refetchInterval: 8_000, // 8s is more than fast enough for kitchen staff
   });
 
   // New-order sound alert
