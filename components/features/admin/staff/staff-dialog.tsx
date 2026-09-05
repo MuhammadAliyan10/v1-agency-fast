@@ -242,7 +242,7 @@ export function StaffDialog({
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
 
-      <DialogContent className="w-full max-w-2xl p-0 flex flex-col max-h-[92vh] overflow-hidden">
+      <DialogContent className="w-[95vw] max-w-4xl p-0 flex flex-col max-h-[92vh] overflow-hidden">
         {/* ── Header ── */}
         <DialogHeader className="px-6 pt-5 pb-4 border-b shrink-0">
           <div className="flex items-center gap-2">
