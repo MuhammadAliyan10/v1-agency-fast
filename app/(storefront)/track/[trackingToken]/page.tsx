@@ -79,6 +79,23 @@ export default function TrackingPage({ params }: { params: Promise<{ trackingTok
     retry: 1,
   });
 
+  // When an order reaches a terminal state, prune it from localStorage
+  // so it no longer appears in the "recent orders" list on the track page.
+  useEffect(() => {
+    if (!data?.id) return;
+    const terminal = ["delivered", "cancelled", "rejected"];
+    if (terminal.includes(data.status)) {
+      try {
+        const STORAGE_KEY = "cc_recent_orders";
+        const existing: { id: string; placedAt: number }[] = JSON.parse(
+          localStorage.getItem(STORAGE_KEY) ?? "[]"
+        );
+        const pruned = existing.filter((o) => o.id !== data.id);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(pruned));
+      } catch { /* ignore */ }
+    }
+  }, [data?.id, data?.status]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-white pb-44 pt-6 px-4 md:px-8 font-sans">

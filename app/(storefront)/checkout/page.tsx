@@ -213,6 +213,20 @@ export default function CheckoutPage() {
         toast.success("Order placed successfully!");
         clearCart();
         setSuccessOrderId(result.orderId);
+        // Persist order to localStorage so the tracking page can surface it
+        // without the user needing to remember the ID.
+        try {
+          const STORAGE_KEY = "cc_recent_orders";
+          const existing: { id: string; placedAt: number }[] = JSON.parse(
+            localStorage.getItem(STORAGE_KEY) ?? "[]"
+          );
+          // Prepend new order, keep max 10, no duplicates
+          const updated = [
+            { id: result.orderId, placedAt: Date.now() },
+            ...existing.filter((o) => o.id !== result.orderId),
+          ].slice(0, 10);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+        } catch { /* localStorage unavailable — silently skip */ }
       } else {
         toast.error(result.error ?? "Failed to place order. Please try again.");
         setIsSubmitting(false);
