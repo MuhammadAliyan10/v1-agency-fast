@@ -12,7 +12,9 @@ import {
   index,
   real,
   unique,
+  check,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { relations } from "drizzle-orm";
 
 // -----------------------------------------------------------------------------
@@ -458,6 +460,10 @@ export const orderItems = pgTable(
   (table) => ({
     orderIdIdx:    index("order_items_order_id_idx").on(table.orderId),
     menuItemIdIdx: index("order_items_menu_item_id_idx").on(table.menuItemId),
+    // Enforce positive quantity and price at DB level — Zod is the first gate,
+    // this check constraint is the final safety net against any bypass.
+    qtyCheck:   check("order_items_qty_positive",   sql`"quantity" > 0`),
+    priceCheck: check("order_items_price_nonneg",   sql`"unit_price" >= 0`),
   })
 );
 export const storeSettings = pgTable("store_settings", {

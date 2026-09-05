@@ -524,10 +524,13 @@ export async function createManualOrder(payload: z.infer<typeof manualOrderSchem
 
     const validated = manualOrderSchema.parse(payload);
     
-    // Fetch live menu prices for security
-    const menuItemsList = await db.select().from(menuItems);
-    const variantsList = await db.select().from(itemVariants);
-    const addOnsList = await db.select().from(itemAddOns);
+    // Fetch live menu prices for security — scoped to items in the order only
+    const orderedMenuIds = validated.items.map(i => i.menuItemId);
+    const [menuItemsList, variantsList, addOnsList] = await Promise.all([
+      db.select().from(menuItems).where(inArray(menuItems.id, orderedMenuIds)),
+      db.select().from(itemVariants).where(inArray(itemVariants.menuItemId, orderedMenuIds)),
+      db.select().from(itemAddOns).where(inArray(itemAddOns.menuItemId, orderedMenuIds)),
+    ]);
     
     let subtotal = 0;
     const orderItemsToInsert: {
@@ -697,10 +700,11 @@ export async function addItemsToExistingOrder(data: z.infer<typeof addItemsSchem
       throw new Error("UNAUTHORIZED: Managers cannot edit orders that are already preparing or dispatched.");
     }
     
+    const menuItemIds = validated.items.map(i => i.menuItemId);
     const [dbItems, dbVariants, dbAddOns] = await Promise.all([
-      db.select().from(menuItems).where(inArray(menuItems.id, validated.items.map(i => i.menuItemId))),
-      db.select().from(itemVariants),
-      db.select().from(itemAddOns),
+      db.select().from(menuItems).where(inArray(menuItems.id, menuItemIds)),
+      db.select().from(itemVariants).where(inArray(itemVariants.menuItemId, menuItemIds)),
+      db.select().from(itemAddOns).where(inArray(itemAddOns.menuItemId, menuItemIds)),
     ]);
 
     let newSubtotal = 0;

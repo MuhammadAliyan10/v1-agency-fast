@@ -1,0 +1,2 @@
+ALTER TABLE "order_items" ADD CONSTRAINT "order_items_qty_positive" CHECK ("quantity" > 0);--> statement-breakpoint
+ALTER TABLE "order_items" ADD CONSTRAINT "order_items_price_nonneg" CHECK ("unit_price" >= 0);
