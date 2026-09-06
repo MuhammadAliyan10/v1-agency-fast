@@ -130,7 +130,17 @@ export async function createStaff(data: CreateStaffInput) {
 
       // Only admin can configure manager permissions
       if (data.role === "manager" && session.role === "admin") {
-        const parsedMatrix = RBACMatrixSchema.catch(DEFAULT_RBAC_MATRIX).parse(data.permissions ?? {});
+        // If no permissions provided, apply Floor Manager preset (orders + menu read/update)
+        const basePerms = data.permissions ?? {
+          orders:    { read: true,  create: true,  update: true,  delete: true  },
+          menu:      { read: true,  create: false, update: true,  delete: false },
+          coupons:   { read: true,  create: false, update: false, delete: false },
+          finance:   { read: false, create: false, update: false, delete: false },
+          inventory: { read: false, create: false, update: false, delete: false },
+          staff:     { read: false, create: false, update: false, delete: false },
+          whatsapp:  { read: false, create: false, update: false, delete: false },
+        };
+        const parsedMatrix = RBACMatrixSchema.catch(DEFAULT_RBAC_MATRIX).parse(basePerms);
         await tx.insert(staffPermissions).values({
           userId: newUser.id,
           permissions: parsedMatrix,
@@ -177,7 +187,17 @@ export async function updateStaffPermissions(userId: string, data: CreateStaffIn
 
       if (data.role === "manager" && session.role === "admin") {
         // Upsert permissions for manager role
-        const parsedMatrix = RBACMatrixSchema.catch(DEFAULT_RBAC_MATRIX).parse(data.permissions ?? {});
+        // If no permissions provided, apply Floor Manager preset
+        const basePerms = data.permissions ?? {
+          orders:    { read: true,  create: true,  update: true,  delete: true  },
+          menu:      { read: true,  create: false, update: true,  delete: false },
+          coupons:   { read: true,  create: false, update: false, delete: false },
+          finance:   { read: false, create: false, update: false, delete: false },
+          inventory: { read: false, create: false, update: false, delete: false },
+          staff:     { read: false, create: false, update: false, delete: false },
+          whatsapp:  { read: false, create: false, update: false, delete: false },
+        };
+        const parsedMatrix = RBACMatrixSchema.catch(DEFAULT_RBAC_MATRIX).parse(basePerms);
         const existing = await tx.query.staffPermissions.findFirst({
           where: eq(staffPermissions.userId, userId),
         });
@@ -213,5 +233,56 @@ export async function updateStaffPermissions(userId: string, data: CreateStaffIn
       return { success: false, error: "A user with this phone or email already exists." };
     }
     return { success: false, error: "Failed to update staff member." };
+  }
+}
+
+export async function repairManagerPermissions() {
+  const session = await requireManagerPermission("staff", "update");
+  if (session.role !== "admin") return { success: false, error: "Only admins can repair permissions." };
+  
+  try {
+    const defaultFloorManagerPerms = {
+      orders:    { read: true,  create: true,  update: true,  delete: true  },
+      menu:      { read: true,  create: false, update: true,  delete: false },
+      coupons:   { read: true,  create: false, update: false, delete: false },
+      finance:   { read: false, create: false, update: false, delete: false },
+      inventory: { read: false, create: false, update: false, delete: false },
+      staff:     { read: false, create: false, update: false, delete: false },
+      whatsapp:  { read: false, create: false, update: false, delete: false },
+    };
+    
+    // Find all managers
+    const managers = await db.query.users.findMany({
+      where: eq(users.role, "manager"),
+      with: { staffPermissions: true },
+    });
+    
+    let repaired = 0;
+    for (const mgr of managers) {
+      const perms = mgr.staffPermissions?.permissions as any;
+      // Check if permissions are all false/empty
+      const isEmpty = !perms || !perms.orders?.read;
+      
+      if (isEmpty) {
+        // Upsert with Floor Manager defaults
+        await db
+          .insert(staffPermissions)
+          .values({
+            userId: mgr.id,
+            permissions: defaultFloorManagerPerms,
+            maxDiscountPercentage: 0,
+          })
+          .onConflictDoUpdate({
+            target: staffPermissions.userId,
+            set: { permissions: defaultFloorManagerPerms, updatedAt: new Date() },
+          });
+        repaired++;
+      }
+    }
+    
+    return { success: true, message: `Repaired permissions for ${repaired} managers.` };
+  } catch (error: any) {
+    console.error("Failed to repair manager permissions:", error);
+    return { success: false, error: "Failed to repair permissions." };
   }
 }
