@@ -9,19 +9,44 @@ import { formatDistanceToNow } from "date-fns";
 
 const STORAGE_KEY = "cc_recent_orders";
 
-type RecentOrder = { id: string; placedAt: number };
+// Support both legacy {id, placedAt} and new {id, token, placedAt}
+type RecentOrder = { id: string; token: string; placedAt: number };
 
 function useRecentOrders() {
   const [orders, setOrders] = useState<RecentOrder[]>([]);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     try {
-      const stored: RecentOrder[] = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]");
-      // Auto-expire orders older than 7 days
-      const fresh = stored.filter(
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      const parsed: unknown[] = JSON.parse(raw);
+
+      const normalised: RecentOrder[] = parsed
+        .map((entry): RecentOrder | null => {
+          if (typeof entry === "string") {
+            return { id: entry, token: entry, placedAt: Date.now() };
+          }
+          if (entry && typeof entry === "object") {
+            const e = entry as Record<string, unknown>;
+            if (typeof e.id === "string") {
+              return {
+                id: e.id,
+                token: typeof e.token === "string" ? e.token : e.id,
+                placedAt: typeof e.placedAt === "number" ? e.placedAt : Date.now(),
+              };
+            }
+          }
+          return null;
+        })
+        .filter((e): e is RecentOrder => e !== null);
+
+      // Auto-expire after 7 days
+      const fresh = normalised.filter(
         (o) => Date.now() - o.placedAt < 7 * 24 * 60 * 60 * 1000
       );
-      if (fresh.length !== stored.length) {
+      if (fresh.length !== normalised.length) {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(fresh));
       }
       setOrders(fresh);
@@ -45,17 +70,17 @@ function useRecentOrders() {
     } catch {}
   };
 
-  return { orders, remove, clear };
+  return { orders, remove, clear, mounted };
 }
 
 export default function TrackSearchPage() {
   const router = useRouter();
-  const [orderId, setOrderId] = useState("");
+  const [input, setInput] = useState("");
   const [isSearching, setIsSearching] = useState(false);
-  const { orders: recentOrders, remove, clear } = useRecentOrders();
+  const { orders: recentOrders, remove, clear, mounted } = useRecentOrders();
 
   const navigate = (token: string) => {
-    const clean = token.replace(/^#/, "").trim().toUpperCase();
+    const clean = token.replace(/^#/, "").trim();
     if (!clean) return;
     setIsSearching(true);
     router.push(`/track/${encodeURIComponent(clean)}`);
@@ -63,12 +88,12 @@ export default function TrackSearchPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    navigate(orderId);
+    navigate(input.toUpperCase());
   };
 
   return (
     <div className="min-h-screen bg-white font-sans pb-24">
-      <div className="max-w-sm mx-auto pt-12 px-4 space-y-10">
+      <div className="max-w-sm mx-auto pt-12 px-4 space-y-8">
 
         {/* Title */}
         <div className="text-center space-y-1.5">
@@ -86,8 +111,8 @@ export default function TrackSearchPage() {
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
             <Input
               placeholder="e.g. CC-1234AB or tracking token..."
-              value={orderId}
-              onChange={(e) => setOrderId(e.target.value)}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
               className="pl-10 h-11 text-sm bg-white border-zinc-300 focus-visible:ring-1 focus-visible:ring-primary focus-visible:border-primary rounded-none font-mono"
               autoFocus
               autoComplete="off"
@@ -97,7 +122,7 @@ export default function TrackSearchPage() {
           </div>
           <Button
             type="submit"
-            disabled={!orderId.trim() || isSearching}
+            disabled={!input.trim() || isSearching}
             className="h-11 text-sm font-semibold w-full rounded-none"
           >
             {isSearching
@@ -110,17 +135,18 @@ export default function TrackSearchPage() {
           Your tracking token is in your WhatsApp or SMS confirmation.
         </p>
 
-        {/* Recent orders */}
-        {recentOrders.length > 0 && (
-          <div className="space-y-3">
+        {/* Recent orders — only render after mount to avoid SSR mismatch */}
+        {mounted && recentOrders.length > 0 && (
+          <div className="space-y-3 pt-2">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-zinc-600 uppercase tracking-wider">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-zinc-500 uppercase tracking-wider">
                 <Clock className="w-3.5 h-3.5" />
-                Recent Orders
+                My Recent Orders
               </div>
               <button
+                type="button"
                 onClick={clear}
-                className="text-[10px] text-zinc-400 hover:text-zinc-600 font-medium transition-colors"
+                className="text-[10px] text-zinc-400 hover:text-zinc-600 font-medium transition-colors underline-offset-2 hover:underline"
               >
                 Clear all
               </button>
@@ -130,35 +156,39 @@ export default function TrackSearchPage() {
               {recentOrders.map((order) => (
                 <div
                   key={order.id}
-                  className="group flex items-center justify-between bg-zinc-50 border border-zinc-200 px-4 py-3 hover:border-primary/40 hover:bg-primary/5 transition-all cursor-pointer"
-                  onClick={() => navigate(order.id)}
+                  className="group relative flex items-center justify-between bg-zinc-50 border border-zinc-200 px-4 py-3.5 hover:border-primary/40 hover:bg-primary/[0.03] transition-all cursor-pointer active:scale-[0.99]"
+                  onClick={() => navigate(order.token)}
                   role="button"
                   tabIndex={0}
-                  onKeyDown={(e) => e.key === "Enter" && navigate(order.id)}
+                  onKeyDown={(e) => e.key === "Enter" && navigate(order.token)}
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-7 h-7 bg-white border border-zinc-200 flex items-center justify-center shrink-0 group-hover:border-primary/30 transition-colors">
-                      <Package className="w-3.5 h-3.5 text-zinc-400 group-hover:text-primary transition-colors" />
+                    <div className="w-8 h-8 bg-white border border-zinc-200 flex items-center justify-center shrink-0 group-hover:border-primary/30 transition-colors">
+                      <Package className="w-4 h-4 text-zinc-400 group-hover:text-primary transition-colors" />
                     </div>
                     <div className="min-w-0">
-                      <p className="font-mono font-bold text-sm text-zinc-900 leading-none">
+                      <p className="font-mono font-bold text-sm text-zinc-900 leading-none tracking-wide">
                         {order.id}
                       </p>
-                      <p className="text-[10px] text-zinc-400 mt-0.5">
-                        Placed {formatDistanceToNow(new Date(order.placedAt), { addSuffix: true })}
+                      <p className="text-[11px] text-zinc-400 mt-1">
+                        {formatDistanceToNow(new Date(order.placedAt), { addSuffix: true })}
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1.5 shrink-0">
+                  <div className="flex items-center gap-1 shrink-0 ml-2">
+                    <span className="text-[10px] font-bold text-primary hidden group-hover:block">
+                      Track
+                    </span>
                     <ChevronRight className="w-4 h-4 text-zinc-300 group-hover:text-primary transition-colors" />
                     <button
+                      type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         remove(order.id);
                       }}
-                      className="p-1 text-zinc-300 hover:text-rose-500 transition-colors rounded"
-                      aria-label={`Remove ${order.id} from recent orders`}
+                      className="p-1 text-zinc-300 hover:text-rose-500 transition-colors ml-1"
+                      aria-label={`Remove order ${order.id}`}
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
@@ -168,10 +198,11 @@ export default function TrackSearchPage() {
             </div>
 
             <p className="text-[10px] text-zinc-400 text-center">
-              Orders are automatically removed once delivered.
+              Removed automatically when your order is delivered.
             </p>
           </div>
         )}
+
       </div>
     </div>
   );

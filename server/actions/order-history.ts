@@ -1,10 +1,10 @@
 "use server";
 
 import { db } from "@/database/db";
-import { orders } from "@/database/schema";
+import { orders, users } from "@/database/schema";
 import { requireAdmin } from "@/lib/auth/session";
 import { desc, eq, or, ilike, sql, and, gte, lte } from "drizzle-orm";
-import { orderItems } from "@/database/schema";
+import { orderItems, users as usersTable } from "@/database/schema";
 
 export interface GetOrderHistoryParams {
   page?: number;
@@ -50,9 +50,40 @@ export async function getOrderHistory({ page = 1, search = "", status = "all", d
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
+    const { alias } = await import("drizzle-orm/pg-core");
+    const creatorAlias = alias(users, "creatorAlias");
     const [data, totalCountResult] = await Promise.all([
-      db.select()
+      db.select({
+        id: orders.id,
+        customerName: orders.customerName,
+        customerPhone: orders.customerPhone,
+        orderType: orders.orderType,
+        status: orders.status,
+        paymentStatus: orders.paymentStatus,
+        paymentMethod: orders.paymentMethod,
+        source: orders.source,
+        subtotal: orders.subtotal,
+        deliveryFee: orders.deliveryFee,
+        discountAmount: orders.discountAmount,
+        totalAmount: orders.totalAmount,
+        tableId: orders.tableId,
+        tableNumber: orders.tableNumber,
+        deliveryAddress: orders.deliveryAddress,
+        deliveryNotes: orders.deliveryNotes,
+        createdAt: orders.createdAt,
+        updatedAt: orders.updatedAt,
+        riderId: orders.riderId,
+        waiterId: orders.waiterId,
+        waiterName: orders.waiterName,
+        voidReason: orders.voidReason,
+        rejectionReason: orders.rejectionReason,
+        delayReason: orders.delayReason,
+        createdById: orders.createdById,
+        creatorRole: creatorAlias.role,
+        creatorName: creatorAlias.name,
+      })
         .from(orders)
+        .leftJoin(creatorAlias, eq(orders.createdById, creatorAlias.id))
         .where(whereClause)
         .orderBy(desc(orders.createdAt))
         .limit(limit)
@@ -97,5 +128,21 @@ export async function getOrderDetails(orderId: string) {
   } catch (error) {
     console.error("Failed to fetch order details:", error);
     return { success: false, error: "Failed to fetch order details." };
+  }
+}
+
+export async function markOrderPaidFromHistory(orderId: string) {
+  await requireAdmin();
+  try {
+    const result = await db
+      .update(orders)
+      .set({ paymentStatus: "paid", updatedAt: new Date() })
+      .where(eq(orders.id, orderId))
+      .returning({ id: orders.id });
+    if (result.length === 0) return { success: false, error: "Order not found." };
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to mark order paid:", error);
+    return { success: false, error: "Failed to mark as paid." };
   }
 }

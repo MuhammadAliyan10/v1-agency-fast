@@ -1,5 +1,73 @@
 "use client";
 
+// FSM-correct action button — only shows valid next transitions per status + orderType
+function OrderActionButton({
+  order,
+  isUpdating,
+  isPending,
+  onUpdate,
+}: {
+  order: import("@/types/analytics").RecentOrderSummary;
+  isUpdating: boolean;
+  isPending: boolean;
+  onUpdate: (id: string, v: number, s: OrderStatus) => void;
+}) {
+  const busy = isUpdating || isPending;
+  const stop = (e: React.MouseEvent) => e.stopPropagation();
+  const go = (e: React.MouseEvent, s: OrderStatus) => { stop(e); onUpdate(order.id, order.orderVersion, s); };
+
+  // Terminal states — no actions
+  if (["delivered", "cancelled", "rejected"].includes(order.status)) return null;
+
+  // Pending → Accept
+  if (order.status === "pending") {
+    return (
+      <Button size="sm" variant="default" className="h-8 gap-1" disabled={busy}
+        onClick={(e) => go(e, "approved")}>
+        {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+        Accept
+      </Button>
+    );
+  }
+
+  // Build next actions respecting FSM + orderType
+  const nextOptions: { label: string; status: OrderStatus }[] = [];
+  if (order.status === "approved")          nextOptions.push({ label: "Start Preparing",   status: "preparing" });
+  if (order.status === "preparing")         nextOptions.push({ label: "Mark Ready",         status: "ready_for_pickup" });
+  if (order.status === "ready_for_pickup") {
+    if (order.orderType === "delivery")     nextOptions.push({ label: "Out for Delivery ⚠ (assign rider in Live Orders)", status: "out_for_delivery" });
+    else                                    nextOptions.push({ label: "Mark Delivered",      status: "delivered" });
+  }
+  if (order.status === "out_for_delivery") nextOptions.push({ label: "Mark Delivered",      status: "delivered" });
+
+  if (nextOptions.length === 0) return null;
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" className="h-8 w-8 p-0" disabled={busy} onClick={stop}>
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreHorizontal className="h-4 w-4" />}
+          <span className="sr-only">Actions</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuLabel>Quick Update</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {nextOptions.map((opt) => (
+          <DropdownMenuItem
+            key={opt.status}
+            disabled={busy}
+            onClick={(e) => go(e as any, opt.status)}
+          >
+            {opt.label}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+
 import { useRouter } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
 import { ShoppingBag } from "lucide-react";
@@ -30,7 +98,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { useTransition } from "react";
+import { useTransition, useState } from "react";
 import { updateLiveOrderStatus, type OrderStatus } from "@/server/actions/live-orders";
 import type { RecentOrderSummary } from "@/types/analytics";
 
@@ -51,6 +119,22 @@ const statusConfig: Record<string, { label: string; className: string }> = {
 
 export function RecentOrdersTable({ data }: RecentOrdersTableProps) {
   const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+
+  const handleUpdateStatus = (orderId: string, orderVersion: number, newStatus: OrderStatus) => {
+    setUpdatingId(orderId);
+    startTransition(async () => {
+      const result = await updateLiveOrderStatus(orderId, orderVersion, newStatus);
+      if (result.success) {
+        toast.success(`Order updated to ${newStatus.replace(/_/g, " ")}`);
+        router.refresh();
+      } else {
+        toast.error(result.message || "Failed to update status");
+      }
+      setUpdatingId(null);
+    });
+  };
 
   return (
     <Card className="col-span-full xl:col-span-2 border-border shadow-sm">
@@ -86,20 +170,6 @@ export function RecentOrdersTable({ data }: RecentOrdersTableProps) {
             </TableHeader>
             <TableBody>
               {data.map((order) => {
-                const [isPending, startTransition] = useTransition();
-
-                const handleUpdateStatus = (newStatus: OrderStatus) => {
-                  startTransition(async () => {
-                    const result = await updateLiveOrderStatus(order.id, order.orderVersion, newStatus);
-                    if (result.success) {
-                      toast.success(`Order #${order.id} marked as ${newStatus}`);
-                      router.refresh();
-                    } else {
-                      toast.error(result.message || "Failed to update status");
-                    }
-                  });
-                };
-
                 return (
                   <TableRow 
                     key={order.id} 
@@ -148,37 +218,12 @@ export function RecentOrdersTable({ data }: RecentOrdersTableProps) {
                       {formatDistanceToNow(new Date(order.createdAt), { addSuffix: true })}
                     </TableCell>
                     <TableCell className="text-right">
-                      {order.status === "pending" ? (
-                        <Button 
-                          size="sm" 
-                          variant="default"
-                          className="h-8 gap-1"
-                          disabled={isPending}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleUpdateStatus("approved");
-                          }}
-                        >
-                          {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-                          Accept
-                        </Button>
-                      ) : (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0" onClick={(e) => e.stopPropagation()}>
-                              <span className="sr-only">Open menu</span>
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>Quick Update</DropdownMenuLabel>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleUpdateStatus("preparing"); }}>Mark Preparing</DropdownMenuItem>
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleUpdateStatus("out_for_delivery"); }}>Mark Out for Delivery</DropdownMenuItem>
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleUpdateStatus("delivered"); }}>Mark Delivered</DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      )}
+                      <OrderActionButton
+                        order={order}
+                        isUpdating={updatingId === order.id}
+                        isPending={isPending}
+                        onUpdate={handleUpdateStatus}
+                      />
                     </TableCell>
                   </TableRow>
                 );

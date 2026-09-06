@@ -280,7 +280,9 @@ export function OrderHistoryTable({ orders, totalCount, totalPages, currentPage 
                             </Badge>
                           </div>
                           <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
-                            Taken By: {order.source === 'admin' ? 'Admin/Manager' : order.source}
+                            {order.source === 'admin' || order.source === 'system'
+                              ? `Via: ${order.creatorRole ? (order.creatorRole.charAt(0).toUpperCase() + order.creatorRole.slice(1)) : 'Admin'} (${order.creatorName || 'POS'})`
+                              : `Via: ${order.source.charAt(0).toUpperCase() + order.source.slice(1)}`}
                           </span>
                         </div>
                       </TableCell>

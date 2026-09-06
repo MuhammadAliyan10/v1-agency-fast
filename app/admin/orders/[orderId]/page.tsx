@@ -8,7 +8,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { PrintInvoiceButton } from "@/components/features/admin/orders/print-invoice-button";
+import { PrintInvoiceButton, MarkOrderPaidButton } from "@/components/features/admin/orders/print-invoice-button";
 
 export const dynamic = "force-dynamic";
 

@@ -37,6 +37,7 @@ export default function CheckoutPage() {
   const [isStoreOpen, setIsStoreOpen] = useState(true);
   const [isCheckingStore, setIsCheckingStore] = useState(true);
   const [successOrderId, setSuccessOrderId] = useState<string | null>(null);
+  const [successToken, setSuccessToken] = useState<string | null>(null);
   const [couponInput, setCouponInput] = useState("");
   const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
   const [appliedCoupon, setAppliedCoupon] = useState<{
@@ -208,25 +209,28 @@ export default function CheckoutPage() {
   const onSubmit = async (data: CheckoutValues) => {
     setIsSubmitting(true);
     try {
-      const result = await submitOrder(data, items, idempotencyKeyRef.current);
+      const result = await submitOrder(data, items, idempotencyKeyRef.current) as any;
       if (result.success && result.orderId) {
         toast.success("Order placed successfully!");
         clearCart();
         setSuccessOrderId(result.orderId);
-        // Persist order to localStorage so the tracking page can surface it
-        // without the user needing to remember the ID.
+        if (result.trackingToken) setSuccessToken(result.trackingToken);
+        // Persist order to localStorage so the track page can surface it
         try {
           const STORAGE_KEY = "cc_recent_orders";
-          const existing: { id: string; placedAt: number }[] = JSON.parse(
+          const existing: { id: string; token: string; placedAt: number }[] = JSON.parse(
             localStorage.getItem(STORAGE_KEY) ?? "[]"
           );
-          // Prepend new order, keep max 10, no duplicates
           const updated = [
-            { id: result.orderId, placedAt: Date.now() },
+            {
+              id: result.orderId,
+              token: result.trackingToken ?? result.orderId,
+              placedAt: Date.now(),
+            },
             ...existing.filter((o) => o.id !== result.orderId),
           ].slice(0, 10);
           localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-        } catch { /* localStorage unavailable — silently skip */ }
+        } catch { /* localStorage unavailable */ }
       } else {
         toast.error(result.error ?? "Failed to place order. Please try again.");
         setIsSubmitting(false);
@@ -285,7 +289,7 @@ export default function CheckoutPage() {
           </div>
           <div className="flex flex-col gap-3 w-full">
             <Button
-              onClick={() => router.push(`/track/${successOrderId}`)}
+              onClick={() => router.push(`/track/${successToken ?? successOrderId}`)}
               className="w-full h-12 text-base font-bold shadow-none rounded-none"
             >
               Track Order Status

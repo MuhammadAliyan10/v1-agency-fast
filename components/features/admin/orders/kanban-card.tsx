@@ -312,11 +312,20 @@ export const KanbanCard = React.memo(function KanbanCard({
         {...listeners}
         className={cn(
           "rounded-[4px] relative cursor-grab active:cursor-grabbing active:scale-105 overflow-hidden transition-all duration-300 p-3.5 sm:p-4 pb-8 sm:pb-8 receipt-bottom",
-          "drop-shadow-md hover:drop-shadow-xl border border-black/5 dark:border-white/5",
-          "bg-white dark:bg-zinc-950 text-stone-950 dark:text-stone-100",
+          "drop-shadow-md hover:drop-shadow-xl border",
+          "text-stone-950 dark:text-stone-100",
+          // Semantic background tinting per status
+          order.status === "pending"          && "bg-amber-50/80 dark:bg-amber-950/20 border-amber-200/60 dark:border-amber-900/40",
+          order.status === "approved"         && "bg-blue-50/80 dark:bg-blue-950/20 border-blue-200/60 dark:border-blue-900/40",
+          order.status === "preparing"        && "bg-yellow-50/80 dark:bg-yellow-950/20 border-yellow-200/60 dark:border-yellow-900/40",
+          order.status === "ready_for_pickup" && "bg-emerald-50/80 dark:bg-emerald-950/20 border-emerald-300/60 dark:border-emerald-800/40",
+          order.status === "out_for_delivery" && "bg-indigo-50/80 dark:bg-indigo-950/20 border-indigo-200/60 dark:border-indigo-900/40",
+          order.status === "delayed"          && "bg-orange-50/80 dark:bg-orange-950/20 border-orange-300/60 dark:border-orange-800/40",
+          // Fallback for other statuses
+          !["pending","approved","preparing","ready_for_pickup","out_for_delivery","delayed"].includes(order.status) && "bg-white dark:bg-zinc-950 border-black/5 dark:border-white/5",
           isDragging && "opacity-50 ring-2 ring-primary shadow-2xl",
           isOverlay && "ring-2 ring-primary shadow-xl rotate-2",
-          order.status === "delayed" && "ring-2 ring-yellow-400",
+          order.status === "delayed" && "ring-2 ring-orange-400",
         )}
         onClick={() => setIsSheetOpen(true)}
       >
@@ -375,7 +384,7 @@ export const KanbanCard = React.memo(function KanbanCard({
                     </Badge>
                     {isUpdated && (
                       <Badge className="uppercase font-black tracking-widest text-[9px] px-1.5 py-0 bg-amber-500 hover:bg-amber-500 text-white border-0">
-                        ✏ Updated — {Object.keys(rounds).length} Rounds
+                        ✏ RECALL — {Object.keys(rounds).length} Rounds
                       </Badge>
                     )}
                     {order.status === "delayed" && (
@@ -782,7 +791,7 @@ export const KanbanCard = React.memo(function KanbanCard({
                 </Badge>
                 {isUpdated && (
                   <Badge className="text-[11px] uppercase font-black tracking-wider px-2.5 py-0.5 bg-amber-500 hover:bg-amber-500 text-white border-0 shadow-sm whitespace-nowrap">
-                    ✏ Updated
+                    ✏ RECALL · Updated
                   </Badge>
                 )}
                 {order.status === "delayed" && (
