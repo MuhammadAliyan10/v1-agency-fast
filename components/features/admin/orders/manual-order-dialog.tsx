@@ -44,6 +44,16 @@ const manualOrderSchema = z.object({
     quantity: z.number().min(1),
     selectedAddOns: z.array(z.string()).optional(),
     specialInstructions: z.string().optional(),
+    dealSelections: z.array(z.object({
+      slotIndex: z.number(),
+      slotId: z.string().optional(),
+      type: z.enum(["fixed_text", "fixed_menu", "variable"]),
+      name: z.string(),
+      menuItemId: z.string().optional(),
+      variantId: z.string().optional(),
+      variantName: z.string().optional(),
+      quantity: z.number(),
+    })).optional().nullable(),
     name: z.string().optional(),
     imageUrl: z.string().optional().nullable(),
     variantName: z.string().optional(),
@@ -328,6 +338,46 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
   };
 
   const addDealToCart = (deal: any) => {
+    // Build dealSelections JSONB array
+    const dealSelectionsArray = deal.slots.map((slot: any, slotIndex: number) => {
+      const sel = dealSlotSelections[slot.id];
+      
+      if (slot.menuItemId && !slot.categoryId && slot.menuItem) {
+        // FIXED_MENU slot type
+        return {
+          slotIndex,
+          slotId: slot.id,
+          type: "fixed_menu" as const,
+          name: `${slot.quantity}× ${slot.menuItem.name}${sel?.variantName ? ` (${sel.variantName})` : ""}`,
+          menuItemId: slot.menuItem.id,
+          variantId: sel?.variantId || undefined,
+          variantName: sel?.variantName || undefined,
+          quantity: slot.quantity,
+        };
+      } else if (slot.categoryId) {
+        // VARIABLE slot type
+        return {
+          slotIndex,
+          slotId: slot.id,
+          type: "variable" as const,
+          name: `${slot.quantity}× ${sel?.name}${sel?.variantName ? ` (${sel.variantName})` : ""}`,
+          menuItemId: sel?.menuItemId,
+          variantId: sel?.variantId || undefined,
+          variantName: sel?.variantName || undefined,
+          quantity: slot.quantity,
+        };
+      } else {
+        // FIXED_TEXT slot type (fallback)
+        return {
+          slotIndex,
+          slotId: slot.id,
+          type: "fixed_text" as const,
+          name: slot.fallbackDisplayName || slot.slotName,
+          quantity: slot.quantity,
+        };
+      }
+    });
+
     const slotSummary = deal.slots.map((slot: any) => {
       const sel = dealSlotSelections[slot.id];
       if (!sel) return null;
@@ -341,7 +391,12 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
     if (existingIdx !== -1) {
       const existing = currentItems[existingIdx];
       const newQty = (existing.quantity || 0) + dealQuantity;
-      update(existingIdx, { ...existing, quantity: newQty, totalPrice: newQty * deal.dealPrice });
+      update(existingIdx, { 
+        ...existing, 
+        quantity: newQty, 
+        totalPrice: newQty * deal.dealPrice,
+        dealSelections: dealSelectionsArray,
+      });
     } else {
       append({
         hash,
@@ -355,6 +410,7 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
         specialInstructions: slotSummary,
         unitPrice: deal.dealPrice,
         totalPrice: deal.dealPrice * dealQuantity,
+        dealSelections: dealSelectionsArray,
       });
     }
 
@@ -452,6 +508,7 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
               quantity: c.quantity,
               selectedAddOns: c.selectedAddOns || [],
               specialInstructions: c.specialInstructions,
+              dealSelections: c.dealSelections || null,
             }))
           };
           const res = await addItemsToExistingOrder(payload);
@@ -469,6 +526,7 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
               quantity: c.quantity,
               selectedAddOns: c.selectedAddOns || [],
               specialInstructions: c.specialInstructions,
+              dealSelections: c.dealSelections || null,
             }))
           };
           

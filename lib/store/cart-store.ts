@@ -19,6 +19,17 @@ export interface CartAddOn {
   price: number;
 }
 
+export interface DealSelection {
+  slotIndex: number;
+  slotId?: string;
+  type: "fixed_text" | "fixed_menu" | "variable";
+  name: string;
+  menuItemId?: string;
+  variantId?: string;
+  variantName?: string;
+  quantity: number;
+}
+
 export interface CartItem {
   /** Stable key used for all mutations — derived from item identity. */
   cartItemId: string;
@@ -34,6 +45,8 @@ export interface CartItem {
   subtotal: number;
   imageUrl?: string | null;
   specialInstructions?: string;
+  /** JSONB snapshot of deal selections (if this is a deal item). */
+  dealSelections?: DealSelection[];
 }
 
 /** Shape accepted by `addItem` — cartItemId is derived automatically. */
@@ -70,7 +83,10 @@ function buildCartItemId(item: CartItemInput): string {
   const instrKey = item.specialInstructions
     ? `|instr:${item.specialInstructions}`
     : "";
-  return `${item.menuItemId ?? "null"}-${item.variantName ?? "base"}-${addOnsKey}${instrKey}`;
+  const dealSelKey = item.dealSelections?.length
+    ? `|deal:${JSON.stringify(item.dealSelections)}`
+    : "";
+  return `${item.menuItemId ?? "null"}-${item.variantName ?? "base"}-${addOnsKey}${instrKey}${dealSelKey}`;
 }
 
 // ---------------------------------------------------------------------------

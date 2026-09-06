@@ -7,7 +7,7 @@ import { STORE_CONSTANTS } from "@/lib/constants";
 import { eq, inArray } from "drizzle-orm";
 import { getStoreStatus } from "@/server/actions/settings";
 import { revalidatePath } from "next/cache";
-import { CartItem } from "@/lib/store/cart-store";
+import { CartItem, DealSelection } from "@/lib/store/cart-store";
 import { randomBytes } from "crypto";
 import { validateCoupon, calculateCouponDiscount, incrementCouponUsage } from "./coupons";
 
@@ -83,6 +83,7 @@ export async function submitOrder(data: CheckoutValues, cartItems: CartItem[], i
       subtotal: number;
       selectedAddOns: { id: string; name: string; price: number }[] | null;
       specialInstructions: string | null;
+      dealSelections: DealSelection[] | null;
     }[] = [];
 
     // Group deal slots by deal name so we can compute per-slot price from total
@@ -147,6 +148,7 @@ export async function submitOrder(data: CheckoutValues, cartItems: CartItem[], i
               ? item.addOns.map((a) => ({ id: "", name: a.name, price: a.price }))
               : null,
           specialInstructions: item.specialInstructions ?? null,
+          dealSelections: item.dealSelections ?? null,
         });
       }
     }
@@ -170,10 +172,15 @@ export async function submitOrder(data: CheckoutValues, cartItems: CartItem[], i
         const dbVariant = dbVariants.find(
           (v) => v.menuItemId === item.menuItemId && v.name === item.variantName
         );
-        if (dbVariant) {
-          unitPrice = dbVariant.price;
-          matchedVariantId = dbVariant.id;
+        if (!dbVariant) {
+          // CRITICAL: Variant no longer exists — reject instead of crashing
+          return {
+            success: false,
+            error: `Invalid variant "${item.variantName}" for "${dbItem.name}". This variant may have been deleted or renamed. Please remove this item and add it again.`,
+          };
         }
+        unitPrice = dbVariant.price;
+        matchedVariantId = dbVariant.id;
       }
 
       const matchedAddOns: { id: string; name: string; price: number }[] = [];
@@ -202,6 +209,7 @@ export async function submitOrder(data: CheckoutValues, cartItems: CartItem[], i
         subtotal: itemSubtotal,
         selectedAddOns: matchedAddOns.length > 0 ? matchedAddOns : null,
         specialInstructions: item.specialInstructions ?? null,
+        dealSelections: null,
       });
     }
 

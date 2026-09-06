@@ -26,8 +26,15 @@ function buildAndPrintFromData(order: any) {
     const addOns = Array.isArray(item.selectedAddOns)
       ? (item.selectedAddOns as { name: string }[]).map(a => a.name).join(", ")
       : "";
+    const isDeal = item.itemName.includes("[DEAL]");
+    const dealSelections = isDeal && item.dealSelections ? item.dealSelections : null;
     const hasNote = item.specialInstructions &&
       !(item.specialInstructions.startsWith("[DEAL:") && item.specialInstructions.endsWith("]"));
+    
+    const dealSelectionsHtml = dealSelections && dealSelections.length > 0
+      ? dealSelections.map((sel: any) => `<div class="addon">• ${sel.name}</div>`).join("")
+      : "";
+    
     return `
       <div style="margin-bottom:5px">
         <div class="row">
@@ -38,7 +45,7 @@ function buildAndPrintFromData(order: any) {
           </div>
           <div class="iprice">Rs.${item.subtotal?.toLocaleString()}</div>
         </div>
-        ${addOns ? `<div class="addon">+ ${addOns}</div>` : ""}
+        ${dealSelectionsHtml || addOns ? `<div>${dealSelectionsHtml}${addOns ? `<div class="addon">+ ${addOns}</div>` : ""}</div>` : ""}
         ${hasNote ? `<div class="inote">*** ${item.specialInstructions}</div>` : ""}
       </div>`;
   }).join("");

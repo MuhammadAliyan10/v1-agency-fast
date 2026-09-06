@@ -21,7 +21,17 @@ import { format } from "date-fns";
 
 interface MenuItem { id: string; name: string; basePrice: number; categoryId: string; }
 interface Category { id: string; name: string; items: MenuItem[]; }
-interface DealSlot { id?: string; slotName: string; quantity: number; menuItemId?: string | null; categoryId?: string | null; requiredVariantName?: string | null; }
+interface DealSlot { 
+  id?: string; 
+  slotName: string; 
+  quantity: number; 
+  menuItemId?: string | null; 
+  categoryId?: string | null; 
+  requiredVariantName?: string | null;
+  isTextOnly?: boolean;
+  fallbackDisplayName?: string | null;
+  fallbackUnitPrice?: number | null;
+}
 interface Deal {
   id: string; name: string; description?: string | null; imageUrl?: string | null;
   dealType: "combo" | "event"; eventLabel?: string | null;
@@ -56,10 +66,17 @@ export function DealsAdmin({ initialDeals, menuItems, categories }: { initialDea
         const qty = parseInt(slot.quantity) || 1;
         let maxItemPrice = 0;
         
-        if (slot.menuItemId && slot.menuItemId !== "none") {
+        // Fixed text slot
+        if (slot.isTextOnly) {
+          maxItemPrice = slot.fallbackUnitPrice ? Number(slot.fallbackUnitPrice) : 0;
+        }
+        // Fixed menu item
+        else if (slot.menuItemId && slot.menuItemId !== "none") {
           const item = menuItems.find(m => m.id === slot.menuItemId);
           if (item) maxItemPrice = item.basePrice;
-        } else if (slot.categoryId && slot.categoryId !== "none") {
+        } 
+        // Variable category
+        else if (slot.categoryId && slot.categoryId !== "none") {
           const cat = categories.find(c => c.id === slot.categoryId);
           if (cat && cat.items) {
             maxItemPrice = Math.max(...cat.items.map(i => i.basePrice), 0);
@@ -105,7 +122,10 @@ export function DealsAdmin({ initialDeals, menuItems, categories }: { initialDea
       quantity: Number(s.quantity),
       menuItemId: s.menuItemId === "none" ? null : s.menuItemId,
       categoryId: s.categoryId === "none" ? null : s.categoryId,
-      requiredVariantName: s.requiredVariantName || null
+      requiredVariantName: s.requiredVariantName || null,
+      isTextOnly: s.isTextOnly === true,
+      fallbackDisplayName: s.fallbackDisplayName || null,
+      fallbackUnitPrice: s.fallbackUnitPrice ? Number(s.fallbackUnitPrice) : null,
     }));
     
     const payload = { 
@@ -355,7 +375,7 @@ export function DealsAdmin({ initialDeals, menuItems, categories }: { initialDea
                       <h3 className="font-bold text-sm">Deal Slots Configuration</h3>
                       <p className="text-[11px] text-muted-foreground font-medium mt-0.5">Add fixed items or category choices to build the combo.</p>
                     </div>
-                    <Button type="button" size="sm" onClick={() => append({ slotName: "", quantity: 1, menuItemId: "none", categoryId: "none", requiredVariantName: "" })} className="h-8 gap-1 font-bold text-xs shadow-sm">
+                    <Button type="button" size="sm" onClick={() => append({ slotName: "", quantity: 1, menuItemId: "none", categoryId: "none", requiredVariantName: "", isTextOnly: false, fallbackDisplayName: "", fallbackUnitPrice: 0 })} className="h-8 gap-1 font-bold text-xs shadow-sm">
                       <Plus className="w-3.5 h-3.5" /> Add Slot
                     </Button>
                   </div>
@@ -393,76 +413,144 @@ export function DealsAdmin({ initialDeals, menuItems, categories }: { initialDea
                               </div>
                             </div>
                             
-                            {/* Assignment Type */}
+                            {/* Assignment Type: 3 Slot Types */}
                             <div className="sm:col-span-12 bg-muted/40 p-3 border border-black/5 space-y-3">
                               <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground uppercase tracking-widest mb-1">
-                                <Info className="w-3.5 h-3.5" /> Slot Assignment (Choose One)
+                                <Info className="w-3.5 h-3.5" /> Slot Type (Choose One)
                               </div>
                               
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                <div className="space-y-1.5">
-                                  <Label className="text-[10px] font-bold uppercase">Fixed Menu Item</Label>
-                                  <Select 
-                                    value={form.watch(`slots.${index}.menuItemId`)} 
-                                    onValueChange={v => {
-                                      form.setValue(`slots.${index}.menuItemId`, v);
-                                      if (v !== "none") form.setValue(`slots.${index}.categoryId`, "none");
-                                    }}
-                                  >
-                                    <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Select specific item" /></SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="none" className="text-muted-foreground italic">None</SelectItem>
-                                      {menuItems.map(m => <SelectItem key={m.id} value={m.id}>{m.name} (Rs. {m.basePrice})</SelectItem>)}
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                                
-                                <div className="space-y-1.5">
-                                  <Label className="text-[10px] font-bold uppercase">OR Category Choice</Label>
-                                  <Select 
-                                    value={form.watch(`slots.${index}.categoryId`)} 
-                                    onValueChange={v => {
-                                      form.setValue(`slots.${index}.categoryId`, v);
-                                      if (v !== "none") form.setValue(`slots.${index}.menuItemId`, "none");
-                                    }}
-                                  >
-                                    <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Select category" /></SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="none" className="text-muted-foreground italic">None</SelectItem>
-                                      {categories.map(c => <SelectItem key={c.id} value={c.id}>Any {c.name}</SelectItem>)}
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                              </div>
-                              
-                              <div className="space-y-1.5 pt-2 border-t border-black/5">
-                                <Label className="text-[10px] font-bold uppercase flex items-center gap-1.5">
-                                  Required Variant Name (Optional)
-                                  <span className="bg-primary/10 text-primary px-1 py-0.5 rounded text-[8px] tracking-widest">ADVANCED</span>
-                                </Label>
-                                <Input {...form.register(`slots.${index}.requiredVariantName`)} placeholder="e.g. Small (only shows items with a 'Small' variant)" className="h-8 text-xs" />
-                                {/* Live count preview */}
-                                {(() => {
-                                  const catId = form.watch(`slots.${index}.categoryId`);
-                                  const variantFilter = form.watch(`slots.${index}.requiredVariantName`)?.trim().toLowerCase();
-                                  if (!catId || catId === "none") return null;
-                                  const cat = categories.find(c => c.id === catId);
-                                  if (!cat) return null;
-                                  const matchingItems = variantFilter
-                                    ? cat.items.filter(i => (i as any).variants?.some((v: any) => v.name.trim().toLowerCase() === variantFilter))
-                                    : cat.items;
-                                  const count = matchingItems.length;
-                                  return (
-                                    <p className={cn("text-[10px] font-bold mt-1 flex items-center gap-1",
-                                      count === 0 ? "text-destructive" : "text-emerald-600"
-                                    )}>
-                                      {count === 0
-                                        ? `⚠ No items match this filter — customers will see an empty slot!`
-                                        : `✓ ${count} item${count !== 1 ? "s" : ""} will be available for customers to choose from`}
-                                    </p>
-                                  );
-                                })()}
-                              </div>
+                              <Tabs 
+                                value={
+                                  form.watch(`slots.${index}.isTextOnly`) ? "text" :
+                                  form.watch(`slots.${index}.menuItemId`) && form.watch(`slots.${index}.menuItemId`) !== "none" ? "fixed" :
+                                  form.watch(`slots.${index}.categoryId`) && form.watch(`slots.${index}.categoryId`) !== "none" ? "variable" :
+                                  "fixed"
+                                }
+                                onValueChange={(val) => {
+                                  if (val === "text") {
+                                    form.setValue(`slots.${index}.isTextOnly`, true);
+                                    form.setValue(`slots.${index}.menuItemId`, "none");
+                                    form.setValue(`slots.${index}.categoryId`, "none");
+                                    form.setValue(`slots.${index}.requiredVariantName`, "");
+                                  } else if (val === "fixed") {
+                                    form.setValue(`slots.${index}.isTextOnly`, false);
+                                    form.setValue(`slots.${index}.categoryId`, "none");
+                                    form.setValue(`slots.${index}.requiredVariantName`, "");
+                                  } else if (val === "variable") {
+                                    form.setValue(`slots.${index}.isTextOnly`, false);
+                                    form.setValue(`slots.${index}.menuItemId`, "none");
+                                    form.setValue(`slots.${index}.requiredVariantName`, "");
+                                  }
+                                }}
+                                className="w-full"
+                              >
+                                <TabsList className="w-full grid grid-cols-3 bg-background/50 p-1 rounded-sm h-8 mb-3">
+                                  <TabsTrigger value="fixed" className="text-[10px] font-bold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">FIXED MENU</TabsTrigger>
+                                  <TabsTrigger value="variable" className="text-[10px] font-bold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">VARIABLE</TabsTrigger>
+                                  <TabsTrigger value="text" className="text-[10px] font-bold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">FIXED TEXT</TabsTrigger>
+                                </TabsList>
+
+                                {/* FIXED MENU TAB */}
+                                <TabsContent value="fixed" className="space-y-2.5 mt-2 focus-visible:outline-none">
+                                  <div className="space-y-1.5">
+                                    <Label className="text-[10px] font-bold uppercase">Select Specific Item</Label>
+                                    <Select 
+                                      value={form.watch(`slots.${index}.menuItemId`) || "none"}
+                                      onValueChange={v => form.setValue(`slots.${index}.menuItemId`, v === "none" ? "none" : v)}
+                                    >
+                                      <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="none" className="text-muted-foreground italic">Choose an item...</SelectItem>
+                                        {menuItems.map(m => <SelectItem key={m.id} value={m.id}>{m.name} — Rs. {m.basePrice}</SelectItem>)}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  
+                                  <div className="space-y-1.5 pt-2 border-t border-black/10">
+                                    <Label className="text-[10px] font-bold uppercase text-muted-foreground">Restrict to Variant? (Optional)</Label>
+                                    <Input 
+                                      {...form.register(`slots.${index}.requiredVariantName`)} 
+                                      placeholder="e.g. Large (leave blank to allow all variants)" 
+                                      className="h-8 text-xs" 
+                                    />
+                                    <p className="text-[9px] text-muted-foreground font-medium">Customer will be forced to pick this variant if specified.</p>
+                                  </div>
+                                </TabsContent>
+
+                                {/* VARIABLE TAB */}
+                                <TabsContent value="variable" className="space-y-2.5 mt-2 focus-visible:outline-none">
+                                  <div className="space-y-1.5">
+                                    <Label className="text-[10px] font-bold uppercase">Category Customers Can Choose From</Label>
+                                    <Select 
+                                      value={form.watch(`slots.${index}.categoryId`) || "none"}
+                                      onValueChange={v => form.setValue(`slots.${index}.categoryId`, v === "none" ? "none" : v)}
+                                    >
+                                      <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="none" className="text-muted-foreground italic">Choose a category...</SelectItem>
+                                        {categories.map(c => <SelectItem key={c.id} value={c.id}>Any {c.name} ({c.items?.length || 0} items)</SelectItem>)}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  
+                                  <div className="space-y-1.5 pt-2 border-t border-black/10">
+                                    <Label className="text-[10px] font-bold uppercase text-muted-foreground">Restrict to Variant? (Optional)</Label>
+                                    <Input 
+                                      {...form.register(`slots.${index}.requiredVariantName`)} 
+                                      placeholder="e.g. Medium (only show items with this variant)" 
+                                      className="h-8 text-xs" 
+                                    />
+                                    {(() => {
+                                      const catId = form.watch(`slots.${index}.categoryId`);
+                                      const variantFilter = form.watch(`slots.${index}.requiredVariantName`)?.trim().toLowerCase();
+                                      if (!catId || catId === "none") return null;
+                                      const cat = categories.find(c => c.id === catId);
+                                      if (!cat) return null;
+                                      const matchingItems = variantFilter
+                                        ? cat.items.filter(i => (i as any).variants?.some((v: any) => v.name.trim().toLowerCase() === variantFilter))
+                                        : cat.items;
+                                      const count = matchingItems.length;
+                                      return (
+                                        <p className={cn("text-[9px] font-bold flex items-center gap-1 mt-1",
+                                          count === 0 ? "text-destructive" : "text-emerald-600"
+                                        )}>
+                                          {count === 0
+                                            ? `⚠ No items match! Customers will see empty slot.`
+                                            : `✓ ${count} item${count !== 1 ? "s" : ""} available`}
+                                        </p>
+                                      );
+                                    })()}
+                                  </div>
+                                </TabsContent>
+
+                                {/* FIXED TEXT TAB */}
+                                <TabsContent value="text" className="space-y-2.5 mt-2 focus-visible:outline-none">
+                                  <div className="space-y-1.5">
+                                    <Label className="text-[10px] font-bold uppercase">Display Name</Label>
+                                    <Input 
+                                      {...form.register(`slots.${index}.fallbackDisplayName`)} 
+                                      placeholder="e.g. 8 Boneless Strips, 1L Coca Cola" 
+                                      className="h-9 text-sm font-semibold" 
+                                    />
+                                    <p className="text-[9px] text-muted-foreground font-medium">What customers will see on their receipt. No menu item needed.</p>
+                                  </div>
+                                  
+                                  <div className="space-y-1.5 pt-2 border-t border-black/10">
+                                    <Label className="text-[10px] font-bold uppercase">Price (Included in Deal)</Label>
+                                    <div className="relative">
+                                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-bold text-xs">Rs.</span>
+                                      <Input 
+                                        type="number"
+                                        min={0}
+                                        {...form.register(`slots.${index}.fallbackUnitPrice`, { valueAsNumber: true })} 
+                                        className="pl-8 h-9 font-bold text-sm" 
+                                        placeholder="0"
+                                      />
+                                    </div>
+                                    <p className="text-[9px] text-muted-foreground font-medium">This value contributes to the Original Price calculation.</p>
+                                  </div>
+                                </TabsContent>
+                              </Tabs>
                             </div>
                           </div>
                         </div>

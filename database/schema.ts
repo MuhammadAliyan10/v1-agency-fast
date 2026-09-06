@@ -334,6 +334,11 @@ export const dealSlots = pgTable(
     // Optional: Required Variant Name (e.g., "Medium" for pizzas, or "1.5 Ltr" for drinks)
     requiredVariantName: varchar("required_variant_name", { length: 100 }),
 
+    // NEW: Support for fixed text-only items (e.g., "8 Boneless Strips" when not in menu)
+    isTextOnly:    boolean("is_text_only").default(false).notNull(),
+    fallbackDisplayName: varchar("fallback_display_name", { length: 150 }),
+    fallbackUnitPrice: integer("fallback_unit_price"), // in cents
+
     createdAt:     timestamp("created_at").defaultNow(),
   },
   (table) => ({
@@ -456,6 +461,17 @@ export const orderItems = pgTable(
     roundNumber:         integer("round_number").default(1).notNull(),
     selectedAddOns:      jsonb("selected_add_ons"),
     specialInstructions: text("special_instructions"),
+    // NEW: Immutable snapshot of deal selections (if this is a deal item)
+    dealSelections:      jsonb("deal_selections").$type<{
+      slotIndex: number;
+      slotId?: string;
+      type: "fixed_text" | "fixed_menu" | "variable";
+      name: string;
+      menuItemId?: string;
+      variantId?: string;
+      variantName?: string;
+      quantity: number;
+    }[]>(),
   },
   (table) => ({
     orderIdIdx:    index("order_items_order_id_idx").on(table.orderId),

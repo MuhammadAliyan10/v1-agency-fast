@@ -40,6 +40,9 @@ export interface DealSlot {
   menuItemId?: string | null;
   categoryId?: string | null;
   requiredVariantName?: string | null;
+  isTextOnly?: boolean | null;
+  fallbackDisplayName?: string | null;
+  fallbackUnitPrice?: number | null;
   menuItem?: (DealMenuItem & { variants?: DealVariant[] }) | null;
   category?: {
     id: string;
@@ -388,33 +391,51 @@ export function DealCard({ deal }: { deal: DealItem }) {
   const handleAddToCart = () => {
     if (!isComplete) return;
 
-    const parts: string[] = [];
-    let stepNum = 1;
-    deal.slots.forEach((slot) => {
+    // Build dealSelections JSONB array: immutable snapshot of user choices
+    const dealSelectionsArray = deal.slots.map((slot, slotIndex) => {
+      const selection = selections[slot.id];
+      
       if (slot.menuItemId && slot.menuItem) {
-        const sel = selections[slot.id];
-        const variantPart = sel?.variantName ? ` (${sel.variantName})` : "";
-        parts.push(`Step ${stepNum}: ${slot.quantity}× ${slot.menuItem.name}${variantPart}`);
+        // FIXED_MENU slot type
+        return {
+          slotIndex,
+          slotId: slot.id,
+          type: "fixed_menu" as const,
+          name: `${slot.quantity}× ${slot.menuItem.name}${selection?.variantName ? ` (${selection.variantName})` : ""}`,
+          menuItemId: slot.menuItem.id,
+          variantId: selection?.variantId || undefined,
+          variantName: selection?.variantName || undefined,
+          quantity: slot.quantity,
+        };
+      } else if (slot.categoryId) {
+        // VARIABLE slot type
+        return {
+          slotIndex,
+          slotId: slot.id,
+          type: "variable" as const,
+          name: `${selection.quantity}× ${selection.itemName}${selection.variantName ? ` (${selection.variantName})` : ""}`,
+          menuItemId: selection.itemId,
+          variantId: selection.variantId || undefined,
+          variantName: selection.variantName || undefined,
+          quantity: selection.quantity,
+        };
       } else {
-        const sel = selections[slot.id];
-        if (sel) {
-          const variantPart = sel.variantName ? ` (${sel.variantName})` : "";
-          parts.push(`Step ${stepNum}: ${sel.quantity}× ${sel.itemName}${variantPart}`);
-        }
+        // FIXED_TEXT slot type (fallback with display name)
+        return {
+          slotIndex,
+          slotId: slot.id,
+          type: "fixed_text" as const,
+          name: slot.fallbackDisplayName || slot.slotName,
+          quantity: slot.quantity,
+        };
       }
-      stepNum++;
     });
-    const instructionsText = `[DEAL: ${deal.name}] - ${parts.join(", ")}`;
 
-    const addOnsList = deal.slots.map((slot) => {
-      if (slot.menuItem) {
-        const sel = selections[slot.id];
-        const variantPart = sel?.variantName ? ` (${sel.variantName})` : "";
-        return { name: `${slot.quantity}× ${slot.menuItem.name}${variantPart}`, price: 0 };
-      }
-      const sel = selections[slot.id];
-      return { name: `${sel.quantity}× ${sel.itemName}${sel.variantName ? ` (${sel.variantName})` : ""}`, price: 0 };
-    });
+    // Display summary for verification
+    const parts = dealSelectionsArray.map((sel, idx) => 
+      `Step ${idx + 1}: ${sel.name}`
+    );
+    const summaryText = `[DEAL: ${deal.name}] - ${parts.join(", ")}`;
 
     addItemStore({
       menuItemId: deal.id,
@@ -422,9 +443,13 @@ export function DealCard({ deal }: { deal: DealItem }) {
       unitPrice: deal.dealPrice,
       quantity,
       variantName: deal.eventLabel ?? "Combo Offer",
-      addOns: addOnsList,
-      specialInstructions: instructionsText,
+      addOns: dealSelectionsArray.map((sel) => ({ 
+        name: sel.name, 
+        price: 0 
+      })),
+      specialInstructions: summaryText,
       imageUrl: deal.imageUrl ?? null,
+      dealSelections: dealSelectionsArray, // Pass structured JSONB data
     });
 
     toast.success(`${quantity}× "${deal.name}" added to cart!`);

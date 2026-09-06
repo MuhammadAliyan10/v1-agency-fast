@@ -66,6 +66,7 @@ export type LiveOrderProjection = {
     selectedAddOns: any | null;
     specialInstructions: string | null;
     roundNumber: number;
+    dealSelections: any | null;
   }[];
 };
 
@@ -145,6 +146,7 @@ export async function getLiveOrders() {
         selectedAddOns: orderItems.selectedAddOns,
         specialInstructions: orderItems.specialInstructions,
         roundNumber: orderItems.roundNumber,
+        dealSelections: orderItems.dealSelections,
       })
       .from(orderItems)
       .where(inArray(orderItems.orderId, liveOrderIds));

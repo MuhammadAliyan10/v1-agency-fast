@@ -600,6 +600,7 @@ export const KanbanCard = React.memo(function KanbanCard({
                               const canVoid = !isKitchen && !["preparing", "ready_for_pickup", "out_for_delivery", "delivered"].includes(order.status);
                               const isDeal = item.itemName.includes("[DEAL]");
                               const dealName = isDeal ? item.itemName.replace(/^\[DEAL\]\s*/, "") : null;
+                              const dealSelections = isDeal && item.dealSelections ? item.dealSelections : null;
                               
                               return (
                                 <div key={item.id} className="flex justify-between items-start">
@@ -616,7 +617,16 @@ export const KanbanCard = React.memo(function KanbanCard({
                                           </>
                                         )}
                                       </span>
-                                      {isDeal && item.specialInstructions && (
+                                      {isDeal && dealSelections && dealSelections.length > 0 && (
+                                        <div className="text-xs font-semibold mt-2 space-y-1">
+                                          {dealSelections.map((sel: any, idx: any) => (
+                                            <div key={idx} className="text-amber-700 bg-amber-50/60 px-2 py-1 rounded">
+                                              <span className="font-bold">Slot {idx + 1}:</span> {sel.name}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                      {isDeal && !dealSelections && item.specialInstructions && (
                                         <div className="text-xs font-semibold mt-2 space-y-1">
                                           {item.specialInstructions.split(" • ").map((itemLine, idx) => (
                                             <div key={idx} className="text-amber-700 bg-amber-50/60 px-2 py-1 rounded">
@@ -1064,6 +1074,7 @@ export const KanbanCard = React.memo(function KanbanCard({
             const addOns = Array.isArray(item.selectedAddOns) ? (item.selectedAddOns as { name: string }[]) : [];
             const isDeal = item.itemName.includes("[DEAL]");
             const dealName = isDeal ? item.itemName.replace(/^\[DEAL\]\s*/, "") : null;
+            const dealSelections = isDeal && item.dealSelections ? item.dealSelections : null;
             
             return (
               <div key={idx} style={{ marginBottom: "6px" }}>
@@ -1076,7 +1087,15 @@ export const KanbanCard = React.memo(function KanbanCard({
                       </div>
                       <div className="iprice" style={{ fontWeight: "700" }}>Rs.{item.subtotal}</div>
                     </div>
-                    {item.specialInstructions && (
+                    {dealSelections && dealSelections.length > 0 ? (
+                      <div style={{ marginLeft: "22px", marginTop: "3px" }}>
+                        {dealSelections.map((sel: any, lineIdx: any) => (
+                          <div key={lineIdx} style={{ fontSize: "11px", fontWeight: "600", color: "#555", marginBottom: "2px" }}>
+                            • {sel.name}
+                          </div>
+                        ))}
+                      </div>
+                    ) : item.specialInstructions ? (
                       <div style={{ marginLeft: "22px", marginTop: "3px" }}>
                         {item.specialInstructions.split(" • ").map((itemLine, lineIdx) => (
                           <div key={lineIdx} style={{ fontSize: "11px", fontWeight: "600", color: "#555", marginBottom: "2px" }}>
@@ -1084,7 +1103,7 @@ export const KanbanCard = React.memo(function KanbanCard({
                           </div>
                         ))}
                       </div>
-                    )}
+                    ) : null}
                   </>
                 ) : (
                   <>

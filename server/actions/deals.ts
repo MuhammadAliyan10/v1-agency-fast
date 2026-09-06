@@ -77,7 +77,16 @@ export async function createDeal(data: {
   eventLabel?: string;
   originalPrice: number;
   dealPrice: number;
-  slots: { slotName: string; quantity: number; menuItemId?: string; categoryId?: string; requiredVariantName?: string }[];
+  slots: { 
+    slotName: string; 
+    quantity: number; 
+    menuItemId?: string | null; 
+    categoryId?: string | null; 
+    requiredVariantName?: string | null;
+    isTextOnly?: boolean;
+    fallbackDisplayName?: string | null;
+    fallbackUnitPrice?: number | null;
+  }[];
   validFrom?: Date;
   validUntil?: Date;
   isActive?: boolean;
@@ -109,6 +118,9 @@ export async function createDeal(data: {
             menuItemId: slot.menuItemId || null,
             categoryId: slot.categoryId || null,
             requiredVariantName: slot.requiredVariantName || null,
+            isTextOnly: slot.isTextOnly ?? false,
+            fallbackDisplayName: slot.fallbackDisplayName || null,
+            fallbackUnitPrice: slot.fallbackUnitPrice || null,
           }))
         );
       }
@@ -134,7 +146,16 @@ export async function updateDeal(
     eventLabel: string;
     originalPrice: number;
     dealPrice: number;
-    slots: { slotName: string; quantity: number; menuItemId?: string; categoryId?: string; requiredVariantName?: string }[];
+    slots: { 
+      slotName: string; 
+      quantity: number; 
+      menuItemId?: string | null; 
+      categoryId?: string | null; 
+      requiredVariantName?: string | null;
+      isTextOnly?: boolean;
+      fallbackDisplayName?: string | null;
+      fallbackUnitPrice?: number | null;
+    }[];
     validFrom: Date;
     validUntil: Date;
     isActive: boolean;
@@ -162,6 +183,9 @@ export async function updateDeal(
               menuItemId: slot.menuItemId || null,
               categoryId: slot.categoryId || null,
               requiredVariantName: slot.requiredVariantName || null,
+              isTextOnly: slot.isTextOnly ?? false,
+              fallbackDisplayName: slot.fallbackDisplayName || null,
+              fallbackUnitPrice: slot.fallbackUnitPrice || null,
             }))
           );
         }
