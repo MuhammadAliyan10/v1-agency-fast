@@ -608,18 +608,22 @@ export async function createManualOrder(payload: z.infer<typeof manualOrderSchem
     let finalCustomerPhone = validated.customerPhone || "00000000000";
     
     if (validated.customerPhone && validated.customerPhone.trim() !== "") {
-      const existingCustomer = await db.select().from(users).where(eq(users.phone, validated.customerPhone)).limit(1);
-      if (existingCustomer.length > 0) {
-        customerId = existingCustomer[0].id;
-        finalCustomerName = existingCustomer[0].name || finalCustomerName;
-      } else {
-        const [newUser] = await db.insert(users).values({
+      // Use upsert (onConflictDoUpdate) to avoid TOCTOU race when two POS orders
+      // arrive simultaneously with the same phone number.
+      const [upsertedCustomer] = await db
+        .insert(users)
+        .values({
           name: finalCustomerName,
           phone: validated.customerPhone,
-          role: "customer"
-        }).returning();
-        customerId = newUser.id;
-      }
+          role: "customer",
+        })
+        .onConflictDoUpdate({
+          target: users.phone,
+          set: { updatedAt: new Date() }, // keep existing name; just touch updatedAt
+        })
+        .returning({ id: users.id, name: users.name });
+      customerId = upsertedCustomer.id;
+      finalCustomerName = upsertedCustomer.name || finalCustomerName;
     }
     
     const orderId = `ORD-${Math.floor(100000 + Math.random() * 900000)}`;

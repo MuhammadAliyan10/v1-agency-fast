@@ -173,7 +173,8 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
       form.reset({
         orderType: "dine_in",
         customerName: existingOrder.customerName || "",
-        customerPhone: existingOrder.customerPhone || "",
+        // Treat the old "00000000000" placeholder as blank — it would fail phone validation
+        customerPhone: (existingOrder.customerPhone && existingOrder.customerPhone !== "00000000000") ? existingOrder.customerPhone : "",
         tableId: existingOrder.tableId || "",
         tableNumber: existingOrder.tableNumber || "",
         waiterId: existingOrder.waiterId || "",
