@@ -230,7 +230,10 @@ export default function CheckoutPage() {
             ...existing.filter((o) => o.id !== result.orderId),
           ].slice(0, 10);
           localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-        } catch { /* localStorage unavailable */ }
+          console.log("[Checkout] Saved to localStorage:", updated);
+        } catch (error) {
+          console.error("[Checkout] Failed to save to localStorage:", error);
+        }
       } else {
         toast.error(result.error ?? "Failed to place order. Please try again.");
         setIsSubmitting(false);

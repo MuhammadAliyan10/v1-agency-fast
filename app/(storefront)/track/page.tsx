@@ -18,10 +18,24 @@ function useRecentOrders() {
 
   useEffect(() => {
     setMounted(true);
+    
+    // Check if localStorage is available
+    if (typeof window === "undefined" || !window.localStorage) {
+      console.warn("[Track] localStorage not available");
+      return;
+    }
+
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return;
+      console.log("[Track] localStorage raw:", raw);
+      
+      if (!raw) {
+        console.log("[Track] No recent orders in storage");
+        return;
+      }
+      
       const parsed: unknown[] = JSON.parse(raw);
+      console.log("[Track] parsed orders:", parsed);
 
       const normalised: RecentOrder[] = parsed
         .map((entry): RecentOrder | null => {
@@ -49,8 +63,10 @@ function useRecentOrders() {
       if (fresh.length !== normalised.length) {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(fresh));
       }
+      console.log("[Track] loaded orders:", fresh);
       setOrders(fresh);
-    } catch {
+    } catch (error) {
+      console.error("[Track] Error reading orders:", error);
       setOrders([]);
     }
   }, []);
@@ -60,14 +76,18 @@ function useRecentOrders() {
       const updated = orders.filter((o) => o.id !== id);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
       setOrders(updated);
-    } catch {}
+    } catch (error) {
+      console.error("[Track] Error removing order:", error);
+    }
   };
 
   const clear = () => {
     try {
       localStorage.removeItem(STORAGE_KEY);
       setOrders([]);
-    } catch {}
+    } catch (error) {
+      console.error("[Track] Error clearing orders:", error);
+    }
   };
 
   return { orders, remove, clear, mounted };
