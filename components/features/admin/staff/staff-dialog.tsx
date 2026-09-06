@@ -242,7 +242,7 @@ export function StaffDialog({
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
 
-      <DialogContent className="w-[95vw] max-w-5xl p-0 flex flex-col max-h-[95vh] overflow-hidden">
+      <DialogContent className="w-screen max-w-2xl sm:max-w-3xl md:max-w-4xl lg:max-w-5xl p-0 flex flex-col max-h-[90vh] overflow-hidden" style={{ width: "90vw" }}>
         {/* ── Header ── */}
         <DialogHeader className="px-6 pt-5 pb-4 border-b shrink-0">
           <div className="flex items-center gap-2">
@@ -269,7 +269,7 @@ export function StaffDialog({
             <form id="staff-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
 
               {/* Row 1: Name + Phone */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <FormField control={form.control} name="name" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Full Name <span className="text-destructive">*</span></FormLabel>
@@ -293,7 +293,7 @@ export function StaffDialog({
               </div>
 
               {/* Row 2: Email + Age */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <FormField control={form.control} name="email" render={({ field }) => (
                   <FormItem>
                     <FormLabel>
@@ -322,7 +322,7 @@ export function StaffDialog({
               </div>
 
               {/* Row 3: Role + Password */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <FormField control={form.control} name="role" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Role <span className="text-destructive">*</span></FormLabel>
