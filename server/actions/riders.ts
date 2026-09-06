@@ -109,20 +109,20 @@ export async function createRider(data: {
 }) {
   await requireManagerPermission("staff", "update");
   try {
-    const existing = await db.query.users.findFirst({
-      where: eq(users.phone, data.phone),
-    });
+    // Pre-check for both phone and email before hitting DB constraints
+    const [byPhone, byEmail] = await Promise.all([
+      db.query.users.findFirst({ where: eq(users.phone, data.phone) }),
+      data.email ? db.query.users.findFirst({ where: eq(users.email, data.email) }) : Promise.resolve(null),
+    ]);
 
-    if (existing) {
-      return { success: false, error: "A user with this phone number already exists." };
-    }
+    if (byPhone) return { success: false, error: "A user with this phone number already exists." };
+    if (byEmail) return { success: false, error: "A user with this email address already exists." };
 
     let passwordHash = null;
     if (data.password) {
       passwordHash = await bcrypt.hash(data.password, 10);
     }
 
-    // neon-http doesn't support interactive transactions, so we run them sequentially.
     const [newUser] = await db.insert(users).values({
       name: data.name,
       phone: data.phone,
@@ -141,8 +141,16 @@ export async function createRider(data: {
 
     revalidatePath("/admin/riders");
     return { success: true };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Failed to create rider:", error);
+    // Catch any race-condition duplicate that slipped through the pre-check
+    const isDuplicate = error?.code === "23505" || error?.cause?.code === "23505" || error?.message?.includes("duplicate key");
+    if (isDuplicate) {
+      const detail: string = error?.detail ?? error?.cause?.detail ?? "";
+      if (detail.includes("email")) return { success: false, error: "A user with this email address already exists." };
+      if (detail.includes("phone")) return { success: false, error: "A user with this phone number already exists." };
+      return { success: false, error: "A rider with this phone or email already exists." };
+    }
     return { success: false, error: "Failed to create rider." };
   }
 }

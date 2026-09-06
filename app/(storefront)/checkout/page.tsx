@@ -215,7 +215,8 @@ export default function CheckoutPage() {
         clearCart();
         setSuccessOrderId(result.orderId);
         if (result.trackingToken) setSuccessToken(result.trackingToken);
-        // Persist order to localStorage so the track page can surface it
+        
+        // Persist order to localStorage (best-effort — may fail in private mode)
         try {
           const STORAGE_KEY = "cc_recent_orders";
           const existing: { id: string; token: string; placedAt: number }[] = JSON.parse(
@@ -230,9 +231,8 @@ export default function CheckoutPage() {
             ...existing.filter((o) => o.id !== result.orderId),
           ].slice(0, 10);
           localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-          console.log("[Checkout] Saved to localStorage:", updated);
         } catch (error) {
-          console.error("[Checkout] Failed to save to localStorage:", error);
+          console.error("[Checkout] localStorage unavailable:", error);
         }
       } else {
         toast.error(result.error ?? "Failed to place order. Please try again.");
@@ -292,7 +292,7 @@ export default function CheckoutPage() {
           </div>
           <div className="flex flex-col gap-3 w-full">
             <Button
-              onClick={() => router.push(`/track/${successToken ?? successOrderId}`)}
+              onClick={() => router.push(`/track?id=${encodeURIComponent(successToken ?? successOrderId)}`)}
               className="w-full h-12 text-base font-bold shadow-none rounded-none"
             >
               Track Order Status

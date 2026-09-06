@@ -29,7 +29,7 @@ export interface TopSellingItem {
 export interface RecentOrderSummary {
   id: string;
   customerName: string;
-  customerPhone: string;
+  customerPhone: string | null;
   itemsCount: number;
   totalAmount: number;
   source: Order["source"];

@@ -598,6 +598,9 @@ export const KanbanCard = React.memo(function KanbanCard({
                                 ? (item.selectedAddOns as { name: string; price?: number }[])
                                 : [];
                               const canVoid = !isKitchen && !["preparing", "ready_for_pickup", "out_for_delivery", "delivered"].includes(order.status);
+                              const isDeal = item.itemName.includes("[DEAL]");
+                              const dealName = isDeal ? item.itemName.replace(/^\[DEAL\]\s*/, "") : null;
+                              
                               return (
                                 <div key={item.id} className="flex justify-between items-start">
                                   <div className="flex gap-3 flex-1 min-w-0">
@@ -606,15 +609,28 @@ export const KanbanCard = React.memo(function KanbanCard({
                                     </div>
                                     <div className="flex flex-col min-w-0">
                                       <span className="font-bold text-base leading-tight text-foreground">
-                                        {item.itemName.replace(/^\[DEAL\]\s*/, "")}
-                                        {item.variantName && item.variantName !== "Combo Deal" && <span className="font-normal text-muted-foreground ml-1 text-sm">({item.variantName})</span>}
+                                        {isDeal ? dealName : (
+                                          <>
+                                            {item.itemName}
+                                            {item.variantName && item.variantName !== "Deal" && <span className="font-normal text-muted-foreground ml-1 text-sm">({item.variantName})</span>}
+                                          </>
+                                        )}
                                       </span>
-                                      {addOns.length > 0 && (
+                                      {isDeal && item.specialInstructions && (
+                                        <div className="text-xs font-semibold mt-2 space-y-1">
+                                          {item.specialInstructions.split(" • ").map((itemLine, idx) => (
+                                            <div key={idx} className="text-amber-700 bg-amber-50/60 px-2 py-1 rounded">
+                                              {itemLine}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                      {!isDeal && addOns.length > 0 && (
                                         <span className="text-muted-foreground text-xs font-semibold mt-0.5">
                                           + {addOns.map((a) => String(a.name || "")).join(", ")}
                                         </span>
                                       )}
-                                      {item.specialInstructions && !item.specialInstructions.startsWith("[DEAL:") && (
+                                      {!isDeal && item.specialInstructions && !item.specialInstructions.startsWith("[DEAL:") && (
                                         <div className="flex items-start gap-1 mt-1 text-rose-500">
                                           <AlertCircle className="w-3 h-3 shrink-0 mt-0.5" />
                                           <span className="text-xs font-bold leading-tight">{item.specialInstructions}</span>
@@ -995,7 +1011,7 @@ export const KanbanCard = React.memo(function KanbanCard({
       <div id={`receipt-${order.id}`} style={{ display: "none" }}>
         {/* HEADER */}
         <div style={{ textAlign: "center", marginBottom: "4px" }}>
-          <img src={`${typeof window !== "undefined" ? window.location.origin : ""}/Logo.png`} className="logo" alt="Logo" style={{ width: "52px", height: "52px", display: "block", margin: "0 auto 4px" }} />
+          <img src={`${typeof window !== "undefined" ? window.location.origin : ""}/logo.png`} className="logo" alt="Logo" style={{ width: "52px", height: "52px", display: "block", margin: "0 auto 4px" }} onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
           <div className="bold xl center" style={{ letterSpacing: "1px" }}>CLASSY CRAVE</div>
           <div className="sm center" style={{ letterSpacing: "3px", marginBottom: "6px" }}>SOPHISTICATION IN EVERY BITE</div>
           <div className="dash" />
@@ -1046,19 +1062,44 @@ export const KanbanCard = React.memo(function KanbanCard({
         <div style={{ margin: "5px 0" }}>
           {order.items.map((item, idx) => {
             const addOns = Array.isArray(item.selectedAddOns) ? (item.selectedAddOns as { name: string }[]) : [];
-            const hasNote = item.specialInstructions && !item.specialInstructions.startsWith("[DEAL:");
+            const isDeal = item.itemName.includes("[DEAL]");
+            const dealName = isDeal ? item.itemName.replace(/^\[DEAL\]\s*/, "") : null;
+            
             return (
-              <div key={idx} style={{ marginBottom: "5px" }}>
-                <div className="row">
-                  <div className="qty">{item.quantity}x</div>
-                  <div className="iname">
-                    {item.itemName.replace(/^\[DEAL\]\s*/, "")}
-                    {item.variantName && item.variantName !== "Combo Deal" && <span style={{ fontWeight: "normal", fontSize: "11px" }}> ({item.variantName})</span>}
-                  </div>
-                  <div className="iprice">Rs.{item.subtotal}</div>
-                </div>
-                {addOns.length > 0 && <div className="addon">+ {addOns.map((a) => String(a.name || "")).join(", ")}</div>}
-                {hasNote && <div className="inote">*** {item.specialInstructions}</div>}
+              <div key={idx} style={{ marginBottom: "6px" }}>
+                {isDeal ? (
+                  <>
+                    <div className="row" style={{ marginBottom: "3px" }}>
+                      <div className="qty">{item.quantity}x</div>
+                      <div className="iname" style={{ fontWeight: "700", fontSize: "13px", color: "#333" }}>
+                        {dealName}
+                      </div>
+                      <div className="iprice" style={{ fontWeight: "700" }}>Rs.{item.subtotal}</div>
+                    </div>
+                    {item.specialInstructions && (
+                      <div style={{ marginLeft: "22px", marginTop: "3px" }}>
+                        {item.specialInstructions.split(" • ").map((itemLine, lineIdx) => (
+                          <div key={lineIdx} style={{ fontSize: "11px", fontWeight: "600", color: "#555", marginBottom: "2px" }}>
+                            • {itemLine}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <div className="row">
+                      <div className="qty">{item.quantity}x</div>
+                      <div className="iname">
+                        {item.itemName}
+                        {item.variantName && item.variantName !== "Deal" && <span style={{ fontWeight: "normal", fontSize: "11px" }}> ({item.variantName})</span>}
+                      </div>
+                      <div className="iprice">Rs.{item.subtotal}</div>
+                    </div>
+                    {addOns.length > 0 && <div className="addon">+ {addOns.map((a) => String(a.name || "")).join(", ")}</div>}
+                    {item.specialInstructions && <div className="inote">*** {item.specialInstructions}</div>}
+                  </>
+                )}
               </div>
             );
           })}

@@ -36,7 +36,7 @@ export function AdminLayoutClient({
             <header className="md:hidden flex h-14 items-center border-b bg-muted/20 px-4 shrink-0">
               <SidebarTrigger />
             </header>
-            <div className="flex-1 p-4 sm:p-6 md:p-8 overflow-auto">
+            <div className="flex-1 p-4 sm:p-6 md:px-8 overflow-auto">
               {children}
             </div>
           </main>

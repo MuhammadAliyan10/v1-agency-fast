@@ -43,8 +43,8 @@ export async function getOrderTrackingStatus(tokenOrId: string) {
       maskedName = `${maskedName.substring(0, 3)}***`;
     }
 
-    let maskedPhone = order.customerPhone;
-    if (maskedPhone.length >= 7) {
+    let maskedPhone = order.customerPhone || "";
+    if (maskedPhone && maskedPhone.length >= 7) {
       const prefix = maskedPhone.substring(0, 5); // +92 3
       const suffix = maskedPhone.substring(maskedPhone.length - 3);
       maskedPhone = `${prefix}** ****${suffix}`;

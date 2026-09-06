@@ -472,8 +472,10 @@ const manualOrderSchema = z.object({
   paymentStatus: z.enum(["paid", "unpaid"]).default("unpaid"),
   items: z.array(z.object({
     menuItemId: z.string(),
+    name: z.string().optional(),
     variantId: z.string().optional().nullable(),
     quantity: z.number().min(1),
+    unitPrice: z.number().optional(),
     selectedAddOns: z.array(z.string()).optional(),
     specialInstructions: z.string().optional(),
   })).min(1),
@@ -525,16 +527,20 @@ export async function createManualOrder(payload: z.infer<typeof manualOrderSchem
     const validated = manualOrderSchema.parse(payload);
     
     // Fetch live menu prices for security — scoped to items in the order only
-    const orderedMenuIds = validated.items.map(i => i.menuItemId);
+    // Filter out deals (IDs starting with "deal-") for DB queries, as they're not real menu items
+    const orderedMenuIds = validated.items
+      .filter(i => !i.menuItemId.startsWith("deal-"))
+      .map(i => i.menuItemId);
+    
     const [menuItemsList, variantsList, addOnsList] = await Promise.all([
-      db.select().from(menuItems).where(inArray(menuItems.id, orderedMenuIds)),
-      db.select().from(itemVariants).where(inArray(itemVariants.menuItemId, orderedMenuIds)),
-      db.select().from(itemAddOns).where(inArray(itemAddOns.menuItemId, orderedMenuIds)),
+      orderedMenuIds.length > 0 ? db.select().from(menuItems).where(inArray(menuItems.id, orderedMenuIds)) : Promise.resolve([]),
+      orderedMenuIds.length > 0 ? db.select().from(itemVariants).where(inArray(itemVariants.menuItemId, orderedMenuIds)) : Promise.resolve([]),
+      orderedMenuIds.length > 0 ? db.select().from(itemAddOns).where(inArray(itemAddOns.menuItemId, orderedMenuIds)) : Promise.resolve([]),
     ]);
     
     let subtotal = 0;
     const orderItemsToInsert: {
-      menuItemId: string;
+      menuItemId: string | null;
       variantId: string | null;
       itemName: string;
       variantName: string | null;
@@ -547,18 +553,31 @@ export async function createManualOrder(payload: z.infer<typeof manualOrderSchem
     }[] = [];
     
     for (const item of validated.items) {
-      const dbItem = menuItemsList.find(m => m.id === item.menuItemId);
-      if (!dbItem) throw new Error(`Menu item not found: ${item.menuItemId}`);
+      // Handle deals (menuItemId starts with "deal-")
+      const isDeal = item.menuItemId.startsWith("deal-");
       
-      let itemPrice = dbItem.basePrice;
-      const itemName = dbItem.name;
+      let itemPrice: number;
+      let itemName: string;
+      let variantName: string | null = null;
       
-      let variantName = null;
-      if (item.variantId) {
-        const dbVariant = variantsList.find(v => v.id === item.variantId);
-        if (dbVariant) {
-          itemPrice = dbVariant.price;
-          variantName = dbVariant.name;
+      if (isDeal) {
+        // For deals, use the item name and price as-is from the form
+        itemName = (item.name || "").replace(/^\[DEAL\]\s*/, "");
+        itemPrice = item.unitPrice || 0;
+        variantName = "Deal";
+      } else {
+        const dbItem = menuItemsList.find(m => m.id === item.menuItemId);
+        if (!dbItem) throw new Error(`Menu item not found: ${item.menuItemId}`);
+        
+        itemPrice = dbItem.basePrice;
+        itemName = dbItem.name;
+        
+        if (item.variantId) {
+          const dbVariant = variantsList.find(v => v.id === item.variantId);
+          if (dbVariant) {
+            itemPrice = dbVariant.price;
+            variantName = dbVariant.name;
+          }
         }
       }
       
@@ -578,7 +597,7 @@ export async function createManualOrder(payload: z.infer<typeof manualOrderSchem
       subtotal += itemSubtotal;
       
       orderItemsToInsert.push({
-        menuItemId: item.menuItemId,
+        menuItemId: isDeal ? null : item.menuItemId,
         variantId: item.variantId || null,
         itemName,
         variantName,
@@ -605,7 +624,15 @@ export async function createManualOrder(payload: z.infer<typeof manualOrderSchem
     // Handle Customer
     let customerId = null;
     let finalCustomerName = validated.customerName || "Walk-in Guest";
-    let finalCustomerPhone = validated.customerPhone || "00000000000";
+    // Phone is optional for dine-in only; required for delivery/pickup
+    let finalCustomerPhone: string | null;
+    if (validated.customerPhone && validated.customerPhone.trim() !== "") {
+      finalCustomerPhone = validated.customerPhone;
+    } else if (validated.orderType === "dine_in") {
+      finalCustomerPhone = null; // dine-in allows no phone
+    } else {
+      finalCustomerPhone = "00000000000"; // placeholder for delivery/pickup without phone
+    }
     
     if (validated.customerPhone && validated.customerPhone.trim() !== "") {
       // Use upsert (onConflictDoUpdate) to avoid TOCTOU race when two POS orders

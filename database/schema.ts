@@ -394,7 +394,7 @@ export const orders = pgTable(
     waiterId:          uuid("waiter_id").references(() => users.id, { onDelete: "set null" }),
     createdById:       uuid("created_by_id").references(() => users.id, { onDelete: "set null" }),
     customerName:      varchar("customer_name", { length: 120 }).notNull(),
-    customerPhone:     varchar("customer_phone", { length: 20 }).notNull(),
+    customerPhone:     varchar("customer_phone", { length: 20 }),
     orderType:         orderTypeEnum("order_type").default("delivery").notNull(),
     tableId:           uuid("table_id").references(() => restaurantTables.id, { onDelete: "set null" }),
     tableNumber:       varchar("table_number", { length: 20 }),

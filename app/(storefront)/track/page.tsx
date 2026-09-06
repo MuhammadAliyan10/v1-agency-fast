@@ -99,6 +99,21 @@ export default function TrackSearchPage() {
   const [isSearching, setIsSearching] = useState(false);
   const { orders: recentOrders, remove, clear, mounted } = useRecentOrders();
 
+  // useSearchParams only works on client after mount
+  const [urlId, setUrlId] = useState("");
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const id = params.get("id");
+      if (id) {
+        setUrlId(id);
+        setInput(id);
+      }
+    } catch (error) {
+      console.error("[Track] Failed to read URL params:", error);
+    }
+  }, []);
+
   const navigate = (token: string) => {
     const clean = token.replace(/^#/, "").trim();
     if (!clean) return;

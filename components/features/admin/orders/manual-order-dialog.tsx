@@ -328,11 +328,11 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
   };
 
   const addDealToCart = (deal: any) => {
-    const slotSummary = deal.slots.map((slot: any, idx: number) => {
+    const slotSummary = deal.slots.map((slot: any) => {
       const sel = dealSlotSelections[slot.id];
       if (!sel) return null;
-      return `Step ${idx + 1}: ${slot.quantity}x ${sel.name}${sel.variantName ? ` (${sel.variantName})` : ""}`;
-    }).filter(Boolean).join(" | ");
+      return `${slot.quantity}x ${sel.name}${sel.variantName ? ` (${sel.variantName})` : ""}`;
+    }).filter(Boolean).join(" • ");
 
     const hash = generateItemHash(`deal-${deal.id}`, null, [], slotSummary);
     const currentItems = form.getValues("items");
@@ -345,14 +345,14 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
     } else {
       append({
         hash,
-        menuItemId: deal.slots[0]?.menuItemId || deal.id,
+        menuItemId: `deal-${deal.id}`,
         name: `[DEAL] ${deal.name}`,
         imageUrl: deal.imageUrl || null,
         variantId: null,
-        variantName: deal.eventLabel || "Combo Deal",
+        variantName: "Deal",
         quantity: dealQuantity,
         selectedAddOns: [],
-        specialInstructions: `[DEAL: ${deal.name}] - ${slotSummary}`,
+        specialInstructions: slotSummary,
         unitPrice: deal.dealPrice,
         totalPrice: deal.dealPrice * dealQuantity,
       });
@@ -446,6 +446,8 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
             currentVersion: existingOrder.orderVersion,
             items: data.items.map(c => ({
               menuItemId: c.menuItemId,
+              name: c.name,
+              unitPrice: c.unitPrice,
               variantId: c.variantId,
               quantity: c.quantity,
               selectedAddOns: c.selectedAddOns || [],
@@ -461,6 +463,8 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
             discountAmount: calculatedDiscount,
             items: data.items.map(c => ({
               menuItemId: c.menuItemId,
+              name: c.name,
+              unitPrice: c.unitPrice,
               variantId: c.variantId,
               quantity: c.quantity,
               selectedAddOns: c.selectedAddOns || [],
