@@ -317,7 +317,7 @@ export const KanbanCard = React.memo(function KanbanCard({
           // Semantic background tinting per status
           order.status === "pending"          && "bg-amber-50/80 dark:bg-amber-950/20 border-amber-200/60 dark:border-amber-900/40",
           order.status === "approved"         && "bg-blue-50/80 dark:bg-blue-950/20 border-blue-200/60 dark:border-blue-900/40",
-          order.status === "preparing"        && "bg-yellow-100/80 dark:bg-yellow-950/30 border-yellow-300/70 dark:border-yellow-800/50",
+          order.status === "preparing"        && "border-purple-300/60 dark:border-purple-800/40" && "bg-[#F3E7FF] dark:bg-purple-950/30",
           order.status === "ready_for_pickup" && "bg-emerald-50/80 dark:bg-emerald-950/20 border-emerald-300/60 dark:border-emerald-800/40",
           order.status === "out_for_delivery" && "bg-indigo-50/80 dark:bg-indigo-950/20 border-indigo-200/60 dark:border-indigo-900/40",
           order.status === "delayed"          && "bg-orange-50/80 dark:bg-orange-950/20 border-orange-300/60 dark:border-orange-800/40",
