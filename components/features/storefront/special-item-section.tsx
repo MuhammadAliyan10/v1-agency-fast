@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { ProductDetailDrawer } from "./product-detail-drawer";
 import { useCartStore } from "@/lib/store/cart-store";
 import { toast } from "sonner";
@@ -51,10 +52,12 @@ export function SpecialItemSection({ categories }: SpecialItemSectionProps) {
           
           {/* Background image */}
           {specialItem.imageUrl && (
-            <img
+            <Image
               src={specialItem.imageUrl}
               alt={specialItem.name}
-              className="absolute inset-0 w-full h-full object-cover object-center opacity-40 mix-blend-luminosity scale-105 transition-transform duration-[10000ms] hover:scale-100"
+              fill
+              sizes="100vw"
+              className="absolute inset-0 object-cover object-center opacity-40 mix-blend-luminosity scale-105 transition-transform duration-[10000ms] hover:scale-100"
             />
           )}
 

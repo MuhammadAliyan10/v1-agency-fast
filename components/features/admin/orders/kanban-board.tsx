@@ -119,7 +119,7 @@ export function LiveOrdersBoard({ role }: LiveOrdersBoardProps) {
     
     if (hasInitialized.current && currentCount > previousAlertCount.current && !isMuted) {
       const audio = new Audio("/sounds/new-order-bell.mp3");
-      audio.play().catch(err => console.log("Audio play blocked by browser:", err));
+      audio.play().catch(err => console.warn("Audio play blocked by browser:", err));
     }
     
     previousAlertCount.current = currentCount;

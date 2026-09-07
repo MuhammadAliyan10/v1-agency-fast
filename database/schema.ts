@@ -204,6 +204,7 @@ export const categories = pgTable("categories", {
   description:   text("description"),
   sortOrder:     integer("sort_order").default(0),
   isActive:      boolean("is_active").default(true),
+  isArchived:    boolean("is_archived").default(false).notNull(),
   isGlobalAddon: boolean("is_global_addon").default(false),
   createdAt:     timestamp("created_at").defaultNow(),
 });
@@ -222,6 +223,7 @@ export const menuItems = pgTable(
     imageUrl:        varchar("image_url", { length: 500 }),
     isAvailable:     boolean("is_available").default(true),
     isFeatured:      boolean("is_featured").default(false),
+    isArchived:      boolean("is_archived").default(false).notNull(),
     tags:            jsonb("tags").$type<{
       isSpicy?:   boolean;
       isVeg?:     boolean;
@@ -246,6 +248,7 @@ export const itemVariants = pgTable("item_variants", {
   name:        varchar("name", { length: 50 }).notNull(),
   price:       integer("price").notNull(),
   isAvailable: boolean("is_available").default(true),
+  isArchived:  boolean("is_archived").default(false).notNull(),
 });
 
 export const itemAddOns = pgTable("item_add_ons", {
@@ -256,6 +259,7 @@ export const itemAddOns = pgTable("item_add_ons", {
   name:        varchar("name", { length: 100 }).notNull(),
   price:       integer("price").notNull(),
   isAvailable: boolean("is_available").default(true),
+  isArchived:  boolean("is_archived").default(false).notNull(),
 });
 
 export const inventoryItems = pgTable("inventory_items", {
@@ -439,6 +443,10 @@ export const orders = pgTable(
     riderIdIdx:       index("orders_rider_id_idx").on(table.riderId),
     waiterIdIdx:      index("orders_waiter_id_idx").on(table.waiterId),
     tableIdIdx:       index("orders_table_id_idx").on(table.tableId),
+    subtotalCheck:    check("orders_subtotal_nonneg", sql`"subtotal" >= 0`),
+    deliveryFeeCheck: check("orders_delivery_fee_nonneg", sql`"delivery_fee" >= 0`),
+    discountCheck:    check("orders_discount_amount_nonneg", sql`"discount_amount" >= 0`),
+    totalCheck:       check("orders_total_amount_nonneg", sql`"total_amount" >= 0`),
   })
 );
 export const orderItems = pgTable(

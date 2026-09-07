@@ -103,7 +103,7 @@ export default function RootLayout({ children }: LayoutProps) {
     <html
       lang="en"
       suppressHydrationWarning
-      className={cn("h-full antialiased", inter.variable, figtree.variable)}
+      className={cn("h-full antialiased overflow-x-hidden", inter.variable, figtree.variable)}
     >
       <head>
         {/* Preconnect to Google Fonts CDN */}

@@ -12,7 +12,7 @@ export async function sendWhatsAppMessage(
 ) {
   if (!ACCESS_TOKEN || !PHONE_NUMBER_ID) {
     console.warn("[WhatsApp Client] Missing tokens. Simulating send to:", to);
-    console.log(JSON.stringify(payload, null, 2));
+    // Removed payload log
     
     // Still record it in DB for tracking
     await db.insert(whatsappMessages).values({

@@ -84,6 +84,12 @@ function getSlotChoices(slot: DealSlot): DealMenuItem[] {
   );
 }
 
+// ─── Helper: check if slot is Fixed Text (requires no user interaction) ─────────
+
+function isFixedTextSlot(slot: DealSlot): boolean {
+  return !!slot.isTextOnly || (!slot.menuItemId && !slot.categoryId);
+}
+
 // ─── SlotStep: Renders one deal slot (fixed or dynamic) ──────────────────────
 
 function SlotStep({
@@ -98,24 +104,78 @@ function SlotStep({
   onSelect: (sel: SlotSelection) => void;
 }) {
   const isFixed = !!slot.menuItemId && !slot.categoryId;
+  const isFixedText = isFixedTextSlot(slot);
   const choices = useMemo(() => getSlotChoices(slot), [slot]);
   const required = slot.requiredVariantName?.trim().toLowerCase();
 
+  // For fixed menu slots: filter variants to only the required one (if specified)
+  const filteredVariants = useMemo((): DealVariant[] => {
+    if (!slot.menuItem?.variants) return [];
+    if (!required) return slot.menuItem.variants;
+    return slot.menuItem.variants.filter(
+      (v) => v.name.trim().toLowerCase() === required
+    );
+  }, [slot.menuItem?.variants, required]);
+
+  // Auto-select when exactly one variant matches requiredVariantName and nothing is selected yet
+  useEffect(() => {
+    if (!isFixed || !slot.menuItem) return;
+    if (filteredVariants.length !== 1) return;
+    if (selection?.variantId) return;
+    const only = filteredVariants[0];
+    onSelect({
+      slotId: slot.id,
+      itemId: slot.menuItem.id,
+      itemName: slot.menuItem.name,
+      variantId: only.id,
+      variantName: only.name,
+      quantity: slot.quantity,
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slot.id, filteredVariants.length]);
+
+  // Fixed Text slot - auto-completed, no user interaction required
+  if (isFixedText) {
+    return (
+      <div className="border bg-green-50/50 border-green-200 rounded-none overflow-hidden">
+        <div className="flex items-center gap-2 px-4 py-2 border-b border-green-200/50 bg-green-100/30">
+          <div className="w-5 h-5 rounded-full bg-green-600 text-white flex items-center justify-center text-[10px] font-black shrink-0">
+            ✓
+          </div>
+          <span className="text-xs font-black uppercase tracking-wide text-green-800">
+            STEP {stepNumber}: {slot.slotName.toUpperCase()}
+          </span>
+          <Badge className="ml-auto text-[9px] font-bold rounded-none border bg-green-100 text-green-700 border-green-300">
+            Included
+          </Badge>
+        </div>
+        <div className="flex items-center gap-3 p-4">
+          <div className="flex-1 min-w-0">
+            <p className="font-bold text-sm text-zinc-950">{slot.quantity}× {slot.fallbackDisplayName || slot.slotName}</p>
+            <p className="text-xs text-green-700 font-medium">Automatically included in this deal</p>
+          </div>
+          <CheckCircle2 className="w-5 h-5 text-green-600 shrink-0" />
+        </div>
+      </div>
+    );
+  }
+
   if (isFixed && slot.menuItem) {
-    const hasVariants = (slot.menuItem.variants?.length ?? 0) > 0;
+    // hasVariants is based on the FILTERED list — if requiredVariantName narrows to 1, still counts as variant
+    const hasVariants = filteredVariants.length > 0;
     const isFixedComplete = !hasVariants || !!selection?.variantId;
 
     return (
-      <div className={cn("border bg-white rounded-none overflow-hidden", isFixedComplete ? "border-border/60" : "border-amber-400")}>
-        <div className={cn("flex items-center gap-2 px-4 py-2 border-b border-border/40", isFixedComplete ? "bg-zinc-100" : "bg-amber-50")}>
+      <div className={cn("border bg-white rounded-none overflow-hidden", isFixedComplete ? "border-green-300" : "border-amber-400")}>
+        <div className={cn("flex items-center gap-2 px-4 py-2 border-b border-border/40", isFixedComplete ? "bg-green-50" : "bg-amber-50")}>
           <div className={cn("w-5 h-5 rounded-full text-white flex items-center justify-center text-[10px] font-black shrink-0", isFixedComplete ? "bg-green-600" : "bg-amber-500")}>
             {isFixedComplete ? "✓" : stepNumber}
           </div>
-          <span className={cn("text-xs font-black uppercase tracking-wide", isFixedComplete ? "text-zinc-600" : "text-amber-800")}>
+          <span className={cn("text-xs font-black uppercase tracking-wide", isFixedComplete ? "text-green-800" : "text-amber-800")}>
             STEP {stepNumber}: {slot.slotName.toUpperCase()}
           </span>
           <Badge className={cn("ml-auto text-[9px] font-bold rounded-none border", isFixedComplete ? "bg-green-100 text-green-700 border-green-300" : "bg-amber-100 text-amber-700 border-amber-300")}>
-            Fixed Item
+            {isFixedComplete ? "Selected" : "Fixed Item"}
           </Badge>
         </div>
         <div className="flex items-center gap-3 p-4">
@@ -127,7 +187,7 @@ function SlotStep({
           <div className="flex-1 min-w-0">
             <p className="font-bold text-sm text-zinc-950">{slot.quantity}× {slot.menuItem.name}</p>
             {hasVariants && selection?.variantName && (
-              <p className="text-[11px] text-zinc-500 font-medium">{selection.variantName}</p>
+              <p className="text-[11px] text-green-700 font-semibold">{selection.variantName}</p>
             )}
             {!hasVariants && (
               <p className="text-xs text-zinc-500">Included in this deal</p>
@@ -138,12 +198,14 @@ function SlotStep({
           </div>
           {isFixedComplete && <CheckCircle2 className="w-5 h-5 text-green-600 shrink-0" />}
         </div>
-        
+
         {hasVariants && (
-          <div className="px-4 pb-3 pt-1 border-t border-border/40 bg-zinc-50/50">
-            <p className="text-[10px] font-black uppercase tracking-wider text-zinc-500 mb-2">Choose your flavor:</p>
+          <div className={cn("px-4 pb-3 pt-1 border-t border-border/40", isFixedComplete ? "bg-green-50/50" : "bg-zinc-50/50")}>
+            <p className="text-[10px] font-black uppercase tracking-wider text-zinc-500 mb-2">
+              {filteredVariants.length === 1 ? "Size / Flavor:" : "Choose your flavor:"}
+            </p>
             <div className="flex flex-wrap gap-2">
-              {slot.menuItem.variants!.map((v) => {
+              {filteredVariants.map((v) => {
                 const isVariantSelected = selection?.variantId === v.id;
                 return (
                   <button
@@ -336,15 +398,20 @@ export function DealCard({ deal }: { deal: DealItem }) {
     : false;
 
   const dynamicSlots = useMemo(() =>
-    deal.slots.filter((s) => s.categoryId && !s.menuItemId),
+    deal.slots.filter((s) => s.categoryId && !s.menuItemId && !s.isTextOnly),
     [deal.slots]
   );
   const fixedSlots = useMemo(() =>
-    deal.slots.filter((s) => s.menuItemId && !s.categoryId),
+    deal.slots.filter((s) => s.menuItemId && !s.categoryId && !s.isTextOnly),
+    [deal.slots]
+  );
+  const fixedTextSlots = useMemo(() =>
+    deal.slots.filter((s) => s.isTextOnly || (!s.menuItemId && !s.categoryId)),
     [deal.slots]
   );
 
   const isComplete = useMemo(() => {
+    // Fixed Text slots are always complete (no user interaction required)
     const dynamicComplete = dynamicSlots.every((s) => {
       const sel = selections[s.id];
       if (!sel) return false;
@@ -364,21 +431,25 @@ export function DealCard({ deal }: { deal: DealItem }) {
       return true;
     });
 
+    // Fixed Text slots don't require validation
     return dynamicComplete && fixedComplete;
   }, [dynamicSlots, fixedSlots, selections]);
 
   useEffect(() => {
     if (!drawerOpen) return;
     const auto: Record<string, SlotSelection> = {};
+    
     dynamicSlots.forEach((slot) => {
       const choices = getSlotChoices(slot);
-      if (choices.length > 0 && !selections[slot.id]) {
+      if (choices.length === 1 && !selections[slot.id]) {
+        // Auto-select when only one valid item exists
         const item = choices[0];
         const required = slot.requiredVariantName?.trim().toLowerCase();
         const variant = required ? item.variants?.find((v) => v.name.trim().toLowerCase() === required) : undefined;
         auto[slot.id] = { slotId: slot.id, itemId: item.id, itemName: item.name, variantId: variant?.id, variantName: variant?.name, quantity: slot.quantity };
       }
     });
+    
     if (Object.keys(auto).length > 0) {
       setSelections((prev) => ({ ...auto, ...prev }));
     }
@@ -394,6 +465,17 @@ export function DealCard({ deal }: { deal: DealItem }) {
     // Build dealSelections JSONB array: immutable snapshot of user choices
     const dealSelectionsArray = deal.slots.map((slot, slotIndex) => {
       const selection = selections[slot.id];
+      
+      // Fixed Text slots - auto-included without user selection
+      if (isFixedTextSlot(slot)) {
+        return {
+          slotIndex,
+          slotId: slot.id,
+          type: "fixed_text" as const,
+          name: slot.fallbackDisplayName || slot.slotName,
+          quantity: slot.quantity,
+        };
+      }
       
       if (slot.menuItemId && slot.menuItem) {
         // FIXED_MENU slot type
@@ -630,7 +712,7 @@ export function DealCard({ deal }: { deal: DealItem }) {
                 <ShoppingBag className="w-4 h-4" />
                 {isComplete
                   ? `Add to Cart · ${STORE_CONSTANTS.CURRENCY} ${deal.dealPrice * quantity}`
-                  : `Choose all items to continue (${Object.keys(selections).length}/${dynamicSlots.length} done)`}
+                  : `Choose all items to continue (${Object.keys(selections).length}/${dynamicSlots.length + fixedSlots.length} done)`}
               </Button>
             </div>
           </div>

@@ -24,7 +24,7 @@ async function handler(req: NextRequest) {
     return new NextResponse("No stuck messages found", { status: 200 });
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000";
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
 
   let recoveredCount = 0;
 

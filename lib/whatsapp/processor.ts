@@ -1144,28 +1144,21 @@ async function handleItemSelection(
     return handleGreeting(phone, session, false, false);
   }
 
-  // Variant selection pending
-  if (td.pendingItemId) {
-    if (input.startsWith("var_")) {
-      const variantId = input.replace("var_", "");
-      return addItemToCartAndProceed(phone, session, td.pendingItemId, variantId);
-    }
-    await sendWhatsAppText(phone, lang === "ur"
-      ? "Baraye meharbani upar diye options mein se ek chunein."
-      : "Please choose a size from the options above.");
-    return;
-  }
-
-  // "Order Now" button tapped on item card — check for variants before proceeding
+  // "Order Now" button tapped on item card — MUST be checked before pendingItemId
+  // guard so a card reply never gets swallowed by the variant-pending block.
   if (input.startsWith("view_item_")) {
     const itemId = input.replace("view_item_", "");
     const dbItemCheck = await db.query.menuItems.findFirst({ where: eq(menuItems.id, itemId) });
     if (!dbItemCheck) return handleGreeting(phone, session, false, false);
 
+    // Clear any stale pendingItemId so the variant guard below starts fresh
+    const cleanTd: TempData = { ...td };
+    delete cleanTd.pendingItemId;
+
     const variants = await db.select().from(itemVariants).where(eq(itemVariants.menuItemId, itemId));
     if (variants.length > 0) {
       // Has variants — show size selection first
-      const newTd: TempData = { ...td, pendingItemId: itemId };
+      const newTd: TempData = { ...cleanTd, pendingItemId: itemId };
       if (variants.length <= 3) {
         await sendWhatsAppInteractiveButtons(
           phone,
@@ -1189,30 +1182,56 @@ async function handleItemSelection(
     return addItemToCartAndProceed(phone, session, itemId, null);
   }
 
-  // Item selected from list → show product detail card with real image
-  // The card has a button that sends view_item_{id} when tapped
+  // Variant selection pending — only reached when input is NOT a view_item_ reply
+  if (td.pendingItemId) {
+    if (input.startsWith("var_")) {
+      const variantId = input.replace("var_", "");
+      return addItemToCartAndProceed(phone, session, td.pendingItemId, variantId);
+    }
+    await sendWhatsAppText(phone, lang === "ur"
+      ? "Baraye meharbani upar diye options mein se ek chunein."
+      : "Please choose a size from the options above.");
+    return;
+  }
+
+  // Item selected from list → show product detail card with real image.
+  // The card has a button that sends view_item_{id} when tapped — handled above.
   if (input.startsWith("item_")) {
     const itemId = input.replace("item_", "");
     const dbItem = await db.query.menuItems.findFirst({ where: eq(menuItems.id, itemId) });
     if (!dbItem) return handleGreeting(phone, session, false, false);
 
     const imageUrl = dbItem.imageUrl ?? `${BASE_URL}/Menu/Items.jpeg`;
-    // Card body: name (bold) + description (italic) + price
-    // "Order Now" button sends view_item_{id} — handled above with variant check
-    await sendWhatsAppItemCard(
-      phone,
-      dbItem.name,
-      dbItem.basePrice,
-      imageUrl,
-      dbItem.id,
-      lang === "ur" ? "Order Karein" : "Order Now"
-    );
+    try {
+      await sendWhatsAppItemCard(
+        phone,
+        dbItem.name,
+        dbItem.basePrice,
+        imageUrl,
+        dbItem.id,
+        lang === "ur" ? "Order Karein" : "Order Now"
+      );
+    } catch {
+      // Image card failed (likely a non-public imageUrl in dev/staging).
+      // Fall back to a text message so the user never hits a dead-end.
+      await sendWhatsAppInteractiveButtons(
+        phone,
+        `*${dbItem.name}*\nRs. ${dbItem.basePrice}\n\n${lang === "ur" ? "Order karne ke liye tap karein:" : "Tap below to order:"}`,
+        [{ id: `view_item_${dbItem.id}`, title: lang === "ur" ? "Order Karein" : "Order Now" }]
+      );
+    }
     return updateSessionState(session.id, "item_selection", cart, td);
   }
 
   // Back to menu
   if (input === "menu" || input === "back" || input === "wapis") {
     return handleGreeting(phone, session, false, false);
+  }
+
+  // Numeric input routing — user typed a raw number instead of tapping a qty button.
+  // Route to quantity handler only if there is a pending cart item waiting for qty.
+  if (td.pendingCartItem && /^\d+$/.test(input)) {
+    return handleQuantityInput(phone, session, input);
   }
 
   // Fuzzy text search — user typed a food name
@@ -1224,8 +1243,16 @@ async function handleItemSelection(
     });
     if (match) {
       const imageUrl = match.imageUrl ?? `${BASE_URL}/Menu/Items.jpeg`;
-      await sendWhatsAppItemCard(phone, match.name, match.basePrice, imageUrl, match.id,
-        lang === "ur" ? "Order Karein" : "Order Now");
+      try {
+        await sendWhatsAppItemCard(phone, match.name, match.basePrice, imageUrl, match.id,
+          lang === "ur" ? "Order Karein" : "Order Now");
+      } catch {
+        await sendWhatsAppInteractiveButtons(
+          phone,
+          `*${match.name}*\nRs. ${match.basePrice}\n\n${lang === "ur" ? "Order karne ke liye tap karein:" : "Tap below to order:"}`,
+          [{ id: `view_item_${match.id}`, title: lang === "ur" ? "Order Karein" : "Order Now" }]
+        );
+      }
       return updateSessionState(session.id, "item_selection", cart, td);
     }
 
@@ -1742,7 +1769,15 @@ async function handleDealBuilder(
     const dealId = input.replace("deal_", "");
     const deal = await db.query.deals.findFirst({
       where: eq(deals.id, dealId),
-      with: { slots: { orderBy: (s, { asc }) => [asc(s.createdAt)] } },
+      with: {
+        slots: {
+          with: {
+            menuItem: { with: { variants: true } },
+            category: { with: { menuItems: { with: { variants: true } } } },
+          },
+          orderBy: (s, { asc }) => [asc(s.createdAt)],
+        },
+      },
     });
     if (!deal) {
       await sendWhatsAppText(phone, lang === "ur" ? "Deal nahi mili." : "Deal not found.");

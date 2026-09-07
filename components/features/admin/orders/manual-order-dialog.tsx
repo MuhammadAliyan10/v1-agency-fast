@@ -5,13 +5,22 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Plus, Minus, Check, ShoppingBag, Loader2, X, AlertCircle } from "lucide-react";
+import { Search, Plus, Minus, Check, ShoppingBag, Loader2, X, AlertCircle, CheckCircle2 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getPOSMenuData } from "@/server/actions/menu";
 import { getPublicDeals } from "@/server/actions/deals";
 import { createManualOrder, getStaffWaiters, addItemsToExistingOrder, LiveOrder } from "@/server/actions/live-orders";
 import { getTablesWithStatus } from "@/server/actions/tables";
+import {
+  deals as dealsTable,
+  dealSlots as dealSlotsTable,
+  menuItems as menuItemsTable,
+  itemVariants as itemVariantsTable,
+  categories as categoriesTable,
+} from "@/database/schema";
+import type { InferSelectModel } from "drizzle-orm";
 import { z } from "zod";
 import { toast } from "sonner";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -21,6 +30,38 @@ import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { cn } from "@/lib/utils";
+
+// ── Strictly typed POS deal shapes (built from Drizzle $inferSelect) ─────────────
+// Variant row (item_variants table)
+type PosSlotVariant = Pick<InferSelectModel<typeof itemVariantsTable>, "id" | "name" | "price" | "isAvailable">;
+
+// A menu item inside a category for a dynamic deal slot
+type PosSlotMenuItem = Pick<InferSelectModel<typeof menuItemsTable>, "id" | "name" | "basePrice" | "imageUrl"> & {
+  variants?: PosSlotVariant[] | null;
+};
+
+// A deal slot row with its eager-loaded relations
+type PosDealSlot = Pick<
+  InferSelectModel<typeof dealSlotsTable>,
+  | "id" | "slotName" | "quantity" | "menuItemId" | "categoryId"
+  | "requiredVariantName" | "isTextOnly" | "fallbackDisplayName" | "fallbackUnitPrice"
+> & {
+  menuItem?: (Pick<InferSelectModel<typeof menuItemsTable>, "id" | "name" | "basePrice" | "imageUrl"> & {
+    variants?: PosSlotVariant[] | null;
+  }) | null;
+  category?: (Pick<InferSelectModel<typeof categoriesTable>, "id" | "name"> & {
+    menuItems?: PosSlotMenuItem[] | null;
+  }) | null;
+};
+
+// A full deal row with its slot relations
+type PosPublicDeal = Pick<
+  InferSelectModel<typeof dealsTable>,
+  | "id" | "name" | "description" | "imageUrl" | "dealType" | "eventLabel"
+  | "originalPrice" | "dealPrice" | "validFrom" | "validUntil" | "isActive"
+> & {
+  slots: PosDealSlot[];
+};
 
 const manualOrderSchema = z.object({
   orderType: z.enum(["delivery", "pickup", "dine_in"]),
@@ -320,16 +361,66 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
     setItemSpecialInstructions("");
   };
 
-  const openDealConfig = (deal: any) => {
+  const openDealConfig = (deal: PosPublicDeal) => {
     setConfigDeal(deal);
-    // Auto-fill fixed slots immediately
+    // Auto-fill fixed and single-choice slots immediately
     const autoSelections: typeof dealSlotSelections = {};
     for (const slot of deal.slots) {
+      // Fixed Text slots are auto-completed — no selection object needed
+      if (slot.isTextOnly || (!slot.menuItemId && !slot.categoryId)) {
+        continue;
+      }
+
+      // Fixed menu item slot
       if (slot.menuItemId && !slot.categoryId && slot.menuItem) {
-        if (!slot.menuItem.variants || slot.menuItem.variants.length === 0) {
-          autoSelections[slot.id] = { menuItemId: slot.menuItem.id, name: slot.menuItem.name, variantId: null, variantName: null };
+        const required = slot.requiredVariantName?.trim().toLowerCase();
+        const allVariants: PosSlotVariant[] = slot.menuItem.variants ?? [];
+        const filteredVariants = required
+          ? allVariants.filter((v) => v.name.trim().toLowerCase() === required)
+          : allVariants;
+
+        if (filteredVariants.length === 0 || filteredVariants.length > 1) {
+          // No variants, or multiple choices — item pre-selected, variant left for user
+          autoSelections[slot.id] = {
+            menuItemId: slot.menuItem.id,
+            name: slot.menuItem.name,
+            variantId: null,
+            variantName: null,
+          };
         } else {
-          autoSelections[slot.id] = { menuItemId: slot.menuItem.id, name: slot.menuItem.name, variantId: null, variantName: null };
+          // Exactly one filtered variant — auto-complete the slot
+          const only = filteredVariants[0];
+          autoSelections[slot.id] = {
+            menuItemId: slot.menuItem.id,
+            name: slot.menuItem.name,
+            variantId: only.id,
+            variantName: only.name,
+          };
+        }
+      }
+
+      // Dynamic (category) slot with only one qualifying item
+      if (slot.categoryId && !slot.menuItemId) {
+        const required = slot.requiredVariantName?.trim().toLowerCase();
+        const categoryItems: PosSlotMenuItem[] = slot.category?.menuItems ?? [];
+        const dynamicItems = categoryItems.filter((mi) => {
+          if (!required) return true;
+          return (mi.variants ?? []).some(
+            (v) => v.name.toLowerCase() === required
+          );
+        });
+
+        if (dynamicItems.length === 1) {
+          const item = dynamicItems[0];
+          const matchedVariant = required
+            ? (item.variants ?? []).find((v) => v.name.trim().toLowerCase() === required)
+            : undefined;
+          autoSelections[slot.id] = {
+            menuItemId: item.id,
+            name: item.name,
+            variantId: matchedVariant?.id ?? null,
+            variantName: matchedVariant?.name ?? null,
+          };
         }
       }
     }
@@ -341,6 +432,17 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
     // Build dealSelections JSONB array
     const dealSelectionsArray = deal.slots.map((slot: any, slotIndex: number) => {
       const sel = dealSlotSelections[slot.id];
+      
+      // Fixed Text slots - auto-included without user selection
+      if (slot.isTextOnly || (!slot.menuItemId && !slot.categoryId)) {
+        return {
+          slotIndex,
+          slotId: slot.id,
+          type: "fixed_text" as const,
+          name: slot.fallbackDisplayName || slot.slotName,
+          quantity: slot.quantity,
+        };
+      }
       
       if (slot.menuItemId && !slot.categoryId && slot.menuItem) {
         // FIXED_MENU slot type
@@ -367,7 +469,7 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
           quantity: slot.quantity,
         };
       } else {
-        // FIXED_TEXT slot type (fallback)
+        // Fallback for any other slot type
         return {
           slotIndex,
           slotId: slot.id,
@@ -379,6 +481,11 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
     });
 
     const slotSummary = deal.slots.map((slot: any) => {
+      // Fixed Text slots are auto-included
+      if (slot.isTextOnly || (!slot.menuItemId && !slot.categoryId)) {
+        return `${slot.quantity}x ${slot.fallbackDisplayName || slot.slotName}`;
+      }
+      
       const sel = dealSlotSelections[slot.id];
       if (!sel) return null;
       return `${slot.quantity}x ${sel.name}${sel.variantName ? ` (${sel.variantName})` : ""}`;
@@ -1232,18 +1339,45 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
                     {configDeal.slots.map((slot: any, slotIdx: number) => {
                       const isFixed = !!slot.menuItemId && !slot.categoryId;
                       const isDynamic = !!slot.categoryId;
+                      const isFixedText = slot.isTextOnly || (!slot.menuItemId && !slot.categoryId);
 
-                      // For dynamic slots, filter available items
+                      // For dynamic slots, filter available items using exact matching
                       const dynamicItems = isDynamic
                         ? (slot.category?.menuItems || []).filter((mi: any) => {
                             if (!slot.requiredVariantName) return true;
                             return (mi.variants || []).some((v: any) =>
-                              v.name.toLowerCase().includes(slot.requiredVariantName.toLowerCase())
+                              v.name.toLowerCase() === slot.requiredVariantName.toLowerCase()
                             );
                           })
                         : [];
 
                       const currentSelection = dealSlotSelections[slot.id];
+
+                      // Fixed Text slot - auto-completed, no user interaction required
+                      if (isFixedText) {
+                        return (
+                          <div key={slot.id} className="space-y-3">
+                            <div className="flex items-center gap-2">
+                              <div className="w-6 h-6 rounded-full bg-green-600 text-white flex items-center justify-center text-xs font-bold shrink-0">
+                                <Check className="w-3 h-3" />
+                              </div>
+                              <Label className="font-bold text-sm">
+                                {slot.slotName}
+                              </Label>
+                              <Badge className="ml-auto text-[9px] font-bold rounded-none border bg-green-100 text-green-700 border-green-300">
+                                Included
+                              </Badge>
+                            </div>
+                            <div className="flex items-center gap-3 p-3 border border-green-200 bg-green-50/50 rounded-none">
+                              <div className="flex-1 min-w-0">
+                                <p className="font-semibold text-sm">{slot.quantity}× {slot.fallbackDisplayName || slot.slotName}</p>
+                                <p className="text-xs text-green-700 font-medium">Automatically included in this deal</p>
+                              </div>
+                              <CheckCircle2 className="w-5 h-5 text-green-600 shrink-0" />
+                            </div>
+                          </div>
+                        );
+                      }
 
                       return (
                         <div key={slot.id} className="space-y-3">
@@ -1291,29 +1425,36 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
                                 )}
                               </div>
                               
-                              {slot.menuItem.variants && slot.menuItem.variants.length > 0 && (
-                                <div className="px-3 pb-3 pt-1 border-t border-border/50 flex flex-wrap gap-1.5 bg-background">
-                                  <p className="w-full text-[10px] font-black uppercase tracking-wider text-muted-foreground mb-1">
-                                    Choose your flavor:
-                                  </p>
-                                  {slot.menuItem.variants.map((v: any) => {
-                                    const variantActive = currentSelection?.variantId === v.id;
-                                    return (
-                                      <button
-                                        key={v.id}
-                                        type="button"
-                                        onClick={() => setDealSlotSelections(prev => ({
-                                          ...prev,
-                                          [slot.id]: { menuItemId: slot.menuItem.id, name: slot.menuItem.name, variantId: v.id, variantName: v.name }
-                                        }))}
-                                        className={`text-xs px-3 py-1.5 border font-bold transition-all rounded-none ${variantActive ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:border-primary hover:text-foreground"}`}
-                                      >
-                                        {v.name}
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              )}
+                              {slot.menuItem.variants && slot.menuItem.variants.length > 0 && (() => {
+                                const requiredFilter = slot.requiredVariantName?.trim().toLowerCase();
+                                const displayVariants = requiredFilter
+                                  ? (slot.menuItem.variants ?? []).filter((v: PosSlotVariant) => v.name.trim().toLowerCase() === requiredFilter)
+                                  : (slot.menuItem.variants ?? []);
+                                if (displayVariants.length === 0) return null;
+                                return (
+                                  <div className="px-3 pb-3 pt-1 border-t border-border/50 flex flex-wrap gap-1.5 bg-background">
+                                    <p className="w-full text-[10px] font-black uppercase tracking-wider text-muted-foreground mb-1">
+                                      {displayVariants.length === 1 ? "Size / Flavor:" : "Choose your flavor:"}
+                                    </p>
+                                    {displayVariants.map((v: PosSlotVariant) => {
+                                      const variantActive = currentSelection?.variantId === v.id;
+                                      return (
+                                        <button
+                                          key={v.id}
+                                          type="button"
+                                          onClick={() => setDealSlotSelections(prev => ({
+                                            ...prev,
+                                            [slot.id]: { menuItemId: slot.menuItem.id, name: slot.menuItem.name, variantId: v.id, variantName: v.name }
+                                          }))}
+                                          className={`text-xs px-3 py-1.5 border font-bold transition-all rounded-none ${variantActive ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:border-primary hover:text-foreground"}`}
+                                        >
+                                          {v.name}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                );
+                              })()}
                             </div>
                           )}
 
@@ -1325,7 +1466,7 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
                               {dynamicItems.map((mi: any) => {
                                 const matchingVariants = slot.requiredVariantName
                                   ? (mi.variants || []).filter((v: any) =>
-                                      v.name.toLowerCase().includes(slot.requiredVariantName.toLowerCase())
+                                      v.name.toLowerCase() === slot.requiredVariantName.toLowerCase()
                                     )
                                   : mi.variants || [];
 
@@ -1410,32 +1551,38 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
                     {/* Quantity + Add to Order */}
                     <div className="border-t pt-4 space-y-4 sticky -bottom-4 -mx-4 px-4 bg-background/95 backdrop-blur-sm pb-4">
                       {(() => {
-                        const totalSlots = configDeal.slots.length;
-                        const filledSlots = Object.keys(dealSlotSelections).length;
-                        const allFilled = configDeal.slots.every((s: any) => {
+                        const interactiveSlots: PosDealSlot[] = configDeal.slots.filter(
+                          (s: PosDealSlot) => !s.isTextOnly && (s.menuItemId ?? s.categoryId)
+                        );
+
+                        const isSlotComplete = (s: PosDealSlot): boolean => {
                           const sel = dealSlotSelections[s.id];
                           if (!sel) return false;
-                          
-                          // Check if the selected item has variants
-                          let hasVariants = false;
+                          // Determine whether the resolved item has variants that still need a choice
+                          let needsVariant = false;
                           if (s.categoryId) {
-                            const dynamicItems = s.category?.menuItems || [];
-                            const mi = dynamicItems.find((item: any) => item.id === sel.menuItemId);
-                            if (mi && mi.variants && mi.variants.length > 0) {
-                              hasVariants = true;
-                            }
+                            const categoryItems: PosSlotMenuItem[] = s.category?.menuItems ?? [];
+                            const resolvedItem = categoryItems.find((item) => item.id === sel.menuItemId);
+                            needsVariant = (resolvedItem?.variants?.length ?? 0) > 0;
                           } else if (s.menuItem) {
-                            hasVariants = (s.menuItem.variants?.length || 0) > 0;
+                            // For fixed slots, check the FILTERED variant count
+                            const reqFilter = s.requiredVariantName?.trim().toLowerCase();
+                            const allVars: PosSlotVariant[] = s.menuItem.variants ?? [];
+                            const filtered = reqFilter
+                              ? allVars.filter((v) => v.name.trim().toLowerCase() === reqFilter)
+                              : allVars;
+                            needsVariant = filtered.length > 0;
                           }
+                          return !needsVariant || !!sel.variantId;
+                        };
 
-                          if (hasVariants && !sel.variantId) return false;
-                          return true;
-                        });
+                        const filledSlots = interactiveSlots.filter(isSlotComplete).length;
+                        const allFilled = interactiveSlots.every(isSlotComplete);
                         return (
                           <>
                             {!allFilled && (
                               <p className="text-xs text-amber-600 font-semibold">
-                                {totalSlots - filledSlots} selection(s) remaining before you can add to order.
+                                {interactiveSlots.length - filledSlots} selection(s) remaining before you can add to order.
                               </p>
                             )}
                             <div className="flex items-center gap-4">

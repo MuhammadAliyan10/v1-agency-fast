@@ -155,7 +155,7 @@ export async function createOrderFromWhatsApp(phone: string, restaurantId: strin
       .where(eq(whatsappSessions.id, session.id));
 
     // Create Outbound Message inside the transaction
-    const trackUrl = `https://agency-fast.vercel.app/track/${orderId}`;
+    const trackUrl = `${STORE_CONSTANTS.STOREFRONT_URL}/track/${orderId}`;
     const textBody = [
       `Order *#${orderId}* confirm ho gaya. Shukriya!`,
       ``,

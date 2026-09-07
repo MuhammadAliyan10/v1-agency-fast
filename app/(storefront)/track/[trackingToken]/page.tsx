@@ -23,6 +23,8 @@ import { toast } from "sonner";
 import { getOrderTrackingStatus } from "@/server/actions/tracking";
 import { WhatsAppButton } from "@/components/features/storefront/whatsapp-button";
 import { STORE_CONSTANTS } from "@/lib/constants";
+
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { OrderActions } from "./order-actions";
@@ -401,10 +403,12 @@ export default function TrackingPage({ params }: { params: Promise<{ trackingTok
                     <div className="flex gap-4">
                       {item.menuItem?.imageUrl ? (
                         <div className="relative w-16 h-16 shrink-0 bg-muted">
-                          <img 
+                          <Image 
                             src={item.menuItem.imageUrl} 
                             alt={item.itemName} 
-                            className="w-full h-full object-cover"
+                            fill
+                            sizes="64px"
+                            className="object-cover"
                           />
                           <div className="absolute -top-2 -right-2 w-6 h-6 bg-foreground text-background text-xs font-bold flex items-center justify-center">
                             {item.quantity}

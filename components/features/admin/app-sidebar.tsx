@@ -49,7 +49,7 @@ export function AppSidebar({ session }: { session: SessionPayload | null }) {
         const res = await getLiveOrders();
         if (res.success && res.data) {
           const count = res.data.filter(o => o.status === "pending").length;
-          console.log("Live orders count:", count);
+          // Removed log
           setPendingOrdersCount(count);
         } else {
           console.error("Failed to fetch live orders:", res.error);

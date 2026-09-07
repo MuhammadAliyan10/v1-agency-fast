@@ -27,15 +27,15 @@ function useRecentOrders() {
 
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      console.log("[Track] localStorage raw:", raw);
+      // Remove log
       
       if (!raw) {
-        console.log("[Track] No recent orders in storage");
+        // No logs
         return;
       }
       
       const parsed: unknown[] = JSON.parse(raw);
-      console.log("[Track] parsed orders:", parsed);
+      // Parsed
 
       const normalised: RecentOrder[] = parsed
         .map((entry): RecentOrder | null => {
@@ -63,7 +63,7 @@ function useRecentOrders() {
       if (fresh.length !== normalised.length) {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(fresh));
       }
-      console.log("[Track] loaded orders:", fresh);
+      // Loaded
       setOrders(fresh);
     } catch (error) {
       console.error("[Track] Error reading orders:", error);
