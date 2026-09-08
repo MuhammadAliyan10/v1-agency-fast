@@ -379,14 +379,19 @@ export const coupons = pgTable(
 // -----------------------------------------------------------------------------
 // Restaurant Tables
 // -----------------------------------------------------------------------------
-export const hallTypeEnum = pgEnum("hall_type", ["general", "family"]);
+export const hallTypeEnum  = pgEnum("hall_type",   ["general", "family"]);
+export const tableZoneEnum = pgEnum("table_zone",  ["general", "outdoor", "family"]);
 
 export const restaurantTables = pgTable("restaurant_tables", {
-  id:       uuid("id").defaultRandom().primaryKey(),
-  name:     varchar("name", { length: 50 }).notNull(),
-  capacity: integer("capacity").default(4).notNull(),
-  isActive: boolean("is_active").default(true).notNull(),
-  hallType: hallTypeEnum("hall_type").default("general").notNull(),
+  id:        uuid("id").defaultRandom().primaryKey(),
+  name:      varchar("name", { length: 50 }).notNull(),
+  capacity:  integer("capacity").default(4).notNull(),
+  isActive:  boolean("is_active").default(true).notNull(),
+  hallType:  hallTypeEnum("hall_type").default("general").notNull(),
+  /** Fine-grained zone: 'general' (T1-8) | 'outdoor' (T9-12) | 'family' (T13-19).
+   *  outdoor shares hallType=general so it appears in the General Hall selector,
+   *  but is visually labelled as OutDoor. */
+  tableZone: tableZoneEnum("table_zone").default("general").notNull(),
 });
 
 // -----------------------------------------------------------------------------

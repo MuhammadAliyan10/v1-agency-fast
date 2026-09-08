@@ -3,10 +3,11 @@
 
 import { db } from "@/database/db";
 import { orders, orderItems, users } from "@/database/schema";
-import { and, gte, lte, eq, sql, desc, inArray, isNotNull } from "drizzle-orm";
+import { and, gte, lte, eq, sql, desc, inArray, isNotNull, isNull } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
-import { requireManagerPermission } from "@/lib/auth/session";
+import { requireManagerPermission, getSession } from "@/lib/auth/session";
 import { startOfDay, endOfDay, startOfWeek, endOfWeek, subWeeks, format } from "date-fns";
+import { registerShifts } from "@/database/schema";
 
 export interface FinancialStats {
   grossSales: number;
@@ -107,6 +108,8 @@ export interface PaymentMethodTotal {
 
 /** Everything the register-close view needs */
 export interface RegisterCloseData {
+  /** The current active shift information */
+  shift?: { id: string; openedAt: Date; closedAt: Date | null; startingFloat: number; status: string };
   /** Total cash that should be in-store (paid Cash + paid COD collected at counter) */
   totalCashPaid: number;
   /** Total digital payments confirmed paid (JazzCash, EasyPaisa, Card, Bank) */
@@ -121,12 +124,10 @@ export interface RegisterCloseData {
   riderCash: RiderCashEntry[];
   /** Per-waiter breakdown for counter cash */
   waiterCash: WaiterCashEntry[];
-  /** Unpaid (credit) orders — will pay later */
-  unpaidCreditOrders: UnpaidOrder[];
-  /** Sum of all unpaid credit orders */
-  totalUnpaidCredit: number;
   /** Total of everything that is paid across all methods */
   totalPaidSales: number;
+  /** Total value of unpaid credit orders */
+  totalUnpaidCredit: number;
 }
 
 export interface FinancialSummaryResult {
@@ -505,9 +506,8 @@ export async function getFinancialSummary(params: {
           paymentMethodTotals,
           riderCash,
           waiterCash,
-          unpaidCreditOrders,
-          totalUnpaidCredit,
           totalPaidSales,
+          totalUnpaidCredit: Number(statsRow?.unpaidAmount || 0),
         },
       },
     };
@@ -518,42 +518,120 @@ export async function getFinancialSummary(params: {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Register State Management
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function getRegisterState() {
+  await requireManagerPermission("finance", "read");
+  try {
+    const [openShift] = await db
+      .select()
+      .from(registerShifts)
+      .where(eq(registerShifts.status, "open"))
+      .orderBy(desc(registerShifts.openedAt))
+      .limit(1);
+    
+    return { success: true, data: openShift || null };
+  } catch (error) {
+    console.error("Get register state error:", error);
+    return { success: false, error: "Failed to get register state" };
+  }
+}
+
+export async function openRegister(startingFloat: number) {
+  await requireManagerPermission("finance", "update");
+  const session = await getSession();
+  if (!session?.id) return { success: false, error: "Unauthorized" };
+
+  try {
+    const [existing] = await db
+      .select()
+      .from(registerShifts)
+      .where(eq(registerShifts.status, "open"))
+      .limit(1);
+
+    if (existing) {
+      return { success: false, error: "A register is already open." };
+    }
+
+    const [newShift] = await db
+      .insert(registerShifts)
+      .values({
+        openedById: session.id,
+        startingFloat,
+        status: "open",
+      })
+      .returning();
+
+    return { success: true, data: newShift };
+  } catch (error) {
+    console.error("Open register error:", error);
+    return { success: false, error: "Failed to open register" };
+  }
+}
+
+export async function closeRegister(shiftId: string, actualCash: number, expectedCash: number) {
+  await requireManagerPermission("finance", "update");
+  const session = await getSession();
+  if (!session?.id) return { success: false, error: "Unauthorized" };
+
+  try {
+    const variance = actualCash - expectedCash;
+    const [closedShift] = await db
+      .update(registerShifts)
+      .set({
+        status: "closed",
+        closedById: session.id,
+        closedAt: new Date(),
+        actualCash,
+        expectedCash,
+        variance,
+      })
+      .where(eq(registerShifts.id, shiftId))
+      .returning();
+
+    return { success: true, data: closedShift };
+  } catch (error) {
+    console.error("Close register error:", error);
+    return { success: false, error: "Failed to close register" };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Standalone lean action for the Daily Register page.
 // Only runs the 5 queries needed for cash reconciliation — no charts, no stats.
 // ─────────────────────────────────────────────────────────────────────────────
-export async function getRegisterCloseData(params: {
-  from?: string;
-  to?: string;
-} = {}): Promise<{ success: true; data: RegisterCloseData } | { success: false; error: string }> {
+export async function getRegisterCloseData(shiftId: string): Promise<{ success: true; data: RegisterCloseData } | { success: false; error: string }> {
   await requireManagerPermission("finance", "read");
 
   try {
-    const now = new Date();
-    // Default to today only (not whole month like getFinancialSummary)
-    const fromDate = params.from ? startOfDay(new Date(params.from)) : startOfDay(now);
-    const toDate   = params.to   ? endOfDay(new Date(params.to))     : endOfDay(now);
+    const [shift] = await db.select().from(registerShifts).where(eq(registerShifts.id, shiftId));
+    if (!shift) {
+      return { success: false, error: "Shift not found" };
+    }
 
-    const activeCondition = and(
-      gte(orders.createdAt, fromDate),
-      lte(orders.createdAt, toDate),
+    // Used for paid orders (we look at when the payment happened, approximated by updatedAt)
+    const paidCondition = and(
+      gte(orders.updatedAt, shift.openedAt),
+      shift.closedAt ? lte(orders.updatedAt, shift.closedAt) : undefined,
       inArray(orders.status, [...ACTIVE_STATUSES])
     );
+
+    // Used for unpaid orders (rolling balance regardless of creation date)
+    const unpaidCondition = inArray(orders.status, [...ACTIVE_STATUSES]);
 
     const CASH_METHODS    = ["Cash", "COD"]                          as const;
     const DIGITAL_METHODS = ["JazzCash", "EasyPaisa", "Card", "Bank"] as const;
 
     // ── Run all queries in parallel ──────────────────────────────────────────
-    const ridersAlias       = alias(users, "ridersAlias");
-    const waitersAlias      = alias(users, "waitersAlias");
     const riderCashAlias    = alias(users, "riderCashAlias2");
     const waiterCashAlias   = alias(users, "waiterCashAlias2");
 
     const [
       paidBreakdownRows,
-      unpaidBreakdownRows,
-      unpaidOrderRows,
       riderCashRows,
       waiterCashRows,
+      unpaidTotals
     ] = await Promise.all([
       // 1. Paid totals per payment method
       db.select({
@@ -562,42 +640,10 @@ export async function getRegisterCloseData(params: {
         total:      sql<number>`COALESCE(SUM(${orders.totalAmount}), 0)`,
       })
         .from(orders)
-        .where(and(activeCondition, eq(orders.paymentStatus, "paid")))
+        .where(and(paidCondition, eq(orders.paymentStatus, "paid")))
         .groupBy(orders.paymentMethod),
 
-      // 2. Unpaid (credit) totals per payment method
-      db.select({
-        method:     orders.paymentMethod,
-        orderCount: sql<number>`COUNT(${orders.id})`,
-        total:      sql<number>`COALESCE(SUM(${orders.totalAmount}), 0)`,
-      })
-        .from(orders)
-        .where(and(activeCondition, eq(orders.paymentStatus, "unpaid")))
-        .groupBy(orders.paymentMethod),
-
-      // 3. All unpaid orders (with rider/waiter names) for credit list
-      db.select({
-        id:            orders.id,
-        customerName:  orders.customerName,
-        customerPhone: orders.customerPhone,
-        totalAmount:   orders.totalAmount,
-        paymentMethod: orders.paymentMethod,
-        orderType:     orders.orderType,
-        createdAt:     orders.createdAt,
-        status:        orders.status,
-        riderId:       orders.riderId,
-        riderName:     ridersAlias.name,
-        waiterId:      orders.waiterId,
-        waiterName:    waitersAlias.name,
-      })
-        .from(orders)
-        .leftJoin(ridersAlias,  eq(orders.riderId,  ridersAlias.id))
-        .leftJoin(waitersAlias, eq(orders.waiterId, waitersAlias.id))
-        .where(and(activeCondition, eq(orders.paymentStatus, "unpaid")))
-        .orderBy(desc(orders.createdAt))
-        .limit(100),
-
-      // 4. Cash out with riders (delivery COD not yet collected)
+      // 2. Cash out with riders (delivery COD not yet collected)
       db.select({
         riderId:       orders.riderId,
         riderName:     riderCashAlias.name,
@@ -609,7 +655,7 @@ export async function getRegisterCloseData(params: {
         .from(orders)
         .leftJoin(riderCashAlias, eq(orders.riderId, riderCashAlias.id))
         .where(and(
-          activeCondition,
+          unpaidCondition,
           isNotNull(orders.riderId),
           eq(orders.orderType, "delivery"),
           inArray(orders.paymentMethod, [...CASH_METHODS]),
@@ -617,7 +663,7 @@ export async function getRegisterCloseData(params: {
         ))
         .orderBy(orders.riderId),
 
-      // 5. Cash with waiters (dine-in/pickup cash not yet reconciled)
+      // 3. Cash with waiters (dine-in/pickup cash not yet reconciled)
       db.select({
         waiterId:     orders.waiterId,
         waiterName:   waiterCashAlias.name,
@@ -629,32 +675,30 @@ export async function getRegisterCloseData(params: {
         .from(orders)
         .leftJoin(waiterCashAlias, eq(orders.waiterId, waiterCashAlias.id))
         .where(and(
-          activeCondition,
+          unpaidCondition,
           isNotNull(orders.waiterId),
           inArray(orders.orderType, ["dine_in", "pickup"]),
           inArray(orders.paymentMethod, [...CASH_METHODS]),
           eq(orders.paymentStatus, "unpaid")
         ))
         .orderBy(orders.waiterId),
+
+      // 4. Total Unpaid Credits (any order that is unpaid)
+      db.select({
+        total: sql<number>`COALESCE(SUM(${orders.totalAmount}), 0)`,
+      })
+      .from(orders)
+      .where(and(unpaidCondition, eq(orders.paymentStatus, "unpaid")))
     ]);
 
-    // ── Build payment method totals ─────────────────────────────────────────
-    const unpaidMap = new Map(
-      unpaidBreakdownRows.map(r => [String(r.method), { total: Number(r.total), count: Number(r.orderCount) }])
-    );
+    // ── Build payment method totals (PAID ONLY) ─────────────────────────────
     const paymentMethodTotals: PaymentMethodTotal[] = paidBreakdownRows.map(r => ({
       method:     String(r.method),
       paid:       Number(r.total),
-      unpaid:     unpaidMap.get(String(r.method))?.total ?? 0,
-      total:      Number(r.total) + (unpaidMap.get(String(r.method))?.total ?? 0),
-      orderCount: Number(r.orderCount) + (unpaidMap.get(String(r.method))?.count ?? 0),
+      unpaid:     0,
+      total:      Number(r.total),
+      orderCount: Number(r.orderCount),
     }));
-    // Include methods that only have unpaid orders
-    for (const [method, d] of unpaidMap) {
-      if (!paidBreakdownRows.find(r => String(r.method) === method)) {
-        paymentMethodTotals.push({ method, paid: 0, unpaid: d.total, total: d.total, orderCount: d.count });
-      }
-    }
 
     const totalCashPaid = paymentMethodTotals
       .filter(r => (CASH_METHODS as readonly string[]).includes(r.method))
@@ -700,15 +744,16 @@ export async function getRegisterCloseData(params: {
     const waiterCash = [...waiterMap.values()];
     const cashWithWaiters = waiterCash.reduce((s, w) => s + w.totalCash, 0);
 
-    // ── Credit orders (will pay later) ──────────────────────────────────────
-    const unpaidCreditOrders = (unpaidOrderRows as UnpaidOrder[]).filter(
-      o => !(CASH_METHODS as readonly string[]).includes(o.paymentMethod) || o.orderType === "dine_in"
-    );
-    const totalUnpaidCredit = unpaidCreditOrders.reduce((s, o) => s + o.totalAmount, 0);
-
     return {
       success: true,
       data: {
+        shift: {
+          id: shift.id,
+          openedAt: shift.openedAt,
+          closedAt: shift.closedAt,
+          startingFloat: shift.startingFloat,
+          status: shift.status,
+        },
         totalCashPaid,
         totalDigitalPaid,
         cashWithRiders,
@@ -716,9 +761,8 @@ export async function getRegisterCloseData(params: {
         paymentMethodTotals,
         riderCash,
         waiterCash,
-        unpaidCreditOrders,
-        totalUnpaidCredit,
         totalPaidSales,
+        totalUnpaidCredit: Number(unpaidTotals[0]?.total || 0),
       },
     };
   } catch (error) {

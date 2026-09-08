@@ -21,15 +21,27 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
-import { markOrderPaid } from "@/server/actions/finance";
+import { markOrderPaid, closeRegister } from "@/server/actions/finance";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 import type {
   RegisterCloseData,
   RiderCashEntry,
   WaiterCashEntry,
-  UnpaidOrder,
 } from "@/server/actions/finance";
 
 // ─── Payment method colour map ────────────────────────────────────────────────
@@ -122,10 +134,10 @@ function Section({
 }
 
 // ─── Payment method breakdown row ─────────────────────────────────────────────
-function MethodRow({ method, paid, unpaid, orderCount }: { method: string; paid: number; unpaid: number; orderCount: number }) {
+function MethodRow({ method, paid, orderCount }: { method: string; paid: number; orderCount: number }) {
   const c = methodCls(method);
-  const total = paid + unpaid;
-  const paidPct = total > 0 ? Math.round((paid / total) * 100) : 100;
+  const total = paid;
+  const paidPct = 100;
 
   return (
     <div className="flex items-center gap-4 px-5 py-3 hover:bg-muted/20 transition-colors">
@@ -150,12 +162,6 @@ function MethodRow({ method, paid, unpaid, orderCount }: { method: string; paid:
           <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-600 leading-none mb-0.5">Paid</p>
           <p className="font-black text-emerald-700">Rs.&nbsp;{paid.toLocaleString()}</p>
         </div>
-        {unpaid > 0 && (
-          <div className="text-right">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-rose-500 leading-none mb-0.5">Credit</p>
-            <p className="font-black text-rose-600">Rs.&nbsp;{unpaid.toLocaleString()}</p>
-          </div>
-        )}
       </div>
     </div>
   );
@@ -308,57 +314,6 @@ function WaiterCard({ entry, onCollected }: { entry: WaiterCashEntry; onCollecte
   );
 }
 
-// ─── Credit order row ─────────────────────────────────────────────────────────
-function CreditRow({ order, onMarkPaid }: { order: UnpaidOrder; onMarkPaid: (id: string) => void }) {
-  const [pending, startTransition] = useTransition();
-  const c = methodCls(order.paymentMethod);
-
-  return (
-    <div className="flex items-center gap-3 px-5 py-3 hover:bg-muted/20 border-b border-border/30 last:border-0 transition-colors">
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-          <span className="font-mono font-black text-xs">#{order.id}</span>
-          <Badge variant="outline" className="text-[9px] uppercase">{order.orderType.replace("_", " ")}</Badge>
-          <span className={cn("text-[9px] font-black px-1.5 py-0.5 border uppercase", c.bg, c.text, c.border)}>
-            {order.paymentMethod}
-          </span>
-          {order.status && (
-            <Badge variant="secondary" className="text-[9px]">{order.status}</Badge>
-          )}
-        </div>
-        <p className="text-xs text-muted-foreground truncate">
-          {order.customerName}
-          {order.customerPhone ? ` · ${order.customerPhone}` : ""}
-          {order.createdAt ? ` · ${format(new Date(order.createdAt), "dd MMM, h:mm a")}` : ""}
-        </p>
-      </div>
-      <div className="flex items-center gap-2 shrink-0">
-        <span className="font-black text-sm text-rose-600">Rs.&nbsp;{order.totalAmount.toLocaleString()}</span>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={pending}
-          onClick={() =>
-            startTransition(async () => {
-              const res = await markOrderPaid(order.id);
-              if (res.success) {
-                toast.success(`Order #${order.id} marked as paid`);
-                onMarkPaid(order.id);
-              } else {
-                toast.error(res.error ?? "Failed to update");
-              }
-            })
-          }
-          className="h-7 text-xs gap-1 border-emerald-300 text-emerald-700 hover:bg-emerald-50"
-        >
-          {pending ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}
-          Received
-        </Button>
-      </div>
-    </div>
-  );
-}
-
 // ─── All-clear pill ───────────────────────────────────────────────────────────
 function AllClear({ label }: { label: string }) {
   return (
@@ -370,31 +325,63 @@ function AllClear({ label }: { label: string }) {
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
-export function RegisterClose({ data, dateLabel }: { data: RegisterCloseData; dateLabel?: string }) {
-  const [creditOrders, setCreditOrders] = useState<UnpaidOrder[]>(data.unpaidCreditOrders);
-  const [riderCash,    setRiderCash   ] = useState<RiderCashEntry[]>(data.riderCash);
-  const [waiterCash,   setWaiterCash  ] = useState<WaiterCashEntry[]>(data.waiterCash);
+export function RegisterClose({ data }: { data: RegisterCloseData }) {
+  const router = useRouter();
+  if (!data.shift) return null;
 
-  const handleMarkPaid        = (id: string)      => setCreditOrders(prev => prev.filter(o => o.id !== id));
-  const handleRiderCollected  = (riderId: string) => setRiderCash(prev => prev.filter(r => r.riderId !== riderId));
-  const handleWaiterCollected = (wId: string)     => setWaiterCash(prev => prev.filter(w => w.waiterId !== wId));
+  const [riderCash, setRiderCash] = useState<RiderCashEntry[]>(data.riderCash);
+  const [waiterCash, setWaiterCash] = useState<WaiterCashEntry[]>(data.waiterCash);
 
-  const totalCredit      = creditOrders.reduce((s, o) => s + o.totalAmount, 0);
-  const cashWithRiders   = riderCash.reduce((s, r) => s + r.totalCash, 0);
-  const cashWithWaiters  = waiterCash.reduce((s, w) => s + w.totalCash, 0);
-  const cashInRegister   = data.totalCashPaid - cashWithRiders - cashWithWaiters;
-  const everythingClear  = cashWithRiders === 0 && cashWithWaiters === 0 && totalCredit === 0;
+  const [actualCash, setActualCash] = useState("");
+  const [closing, startClosing] = useTransition();
+
+  // The initial uncollected cash when the page loads
+  const [initialRiderCash] = useState(() => data.riderCash.reduce((s, r) => s + r.totalCash, 0));
+  const [initialWaiterCash] = useState(() => data.waiterCash.reduce((s, w) => s + w.totalCash, 0));
+  // Gross cash sales = already paid + originally unpaid
+  const [grossCashSales] = useState(() => data.totalCashPaid + initialRiderCash + initialWaiterCash);
+
+  const handleRiderCollected = (riderId: string) => setRiderCash(prev => prev.filter(r => r.riderId !== riderId));
+  const handleWaiterCollected = (wId: string) => setWaiterCash(prev => prev.filter(w => w.waiterId !== wId));
+
+  const cashWithRiders = riderCash.reduce((s, r) => s + r.totalCash, 0);
+  const cashWithWaiters = waiterCash.reduce((s, w) => s + w.totalCash, 0);
+  
+  // Cash in register is Gross minus what is STILL outstanding
+  const cashInRegister = grossCashSales - cashWithRiders - cashWithWaiters;
+  const expectedCash = data.shift.startingFloat + cashInRegister;
+  const everythingClear = cashWithRiders === 0 && cashWithWaiters === 0;
+
+  const handleCloseRegister = () => {
+    const shift = data.shift;
+    if (!shift) return;
+    const cash = Number(actualCash);
+    if (isNaN(cash) || cash < 0 || actualCash.trim() === "") {
+      toast.error("Please enter a valid actual cash amount.");
+      return;
+    }
+    
+    startClosing(async () => {
+      const res = await closeRegister(shift.id, cash, expectedCash);
+      if (res.success) {
+        toast.success("Register closed successfully.");
+        router.refresh();
+      } else {
+        toast.error(res.error || "Failed to close register.");
+      }
+    });
+  };
 
   return (
-    <div className="space-y-5 print:space-y-3">
-
+    <div className="space-y-5 print:space-y-0">
+      
       {/* ── Top KPI cards ───────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 print:hidden">
         {/* Total paid sales */}
-        <div className="border border-emerald-200 bg-emerald-50/60 dark:border-emerald-900/40 dark:bg-emerald-950/10 p-4 flex flex-col gap-2">
+        <div className="border border-emerald-200 bg-emerald-50/60 dark:border-emerald-900/40 dark:bg-emerald-950/10 p-4 flex flex-col gap-2 rounded-none">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Total Paid Sales</span>
-            <div className="p-1.5 bg-emerald-100 text-emerald-600 dark:bg-emerald-900/50">
+            <div className="p-1.5 bg-emerald-100 text-emerald-600 dark:bg-emerald-900/50 rounded-none">
               <TrendingUp className="w-3.5 h-3.5" />
             </div>
           </div>
@@ -404,222 +391,307 @@ export function RegisterClose({ data, dateLabel }: { data: RegisterCloseData; da
           <p className="text-xs text-muted-foreground">All confirmed payments today</p>
         </div>
 
-        {/* Cash in register */}
-        <div className="border border-border bg-card p-4 flex flex-col gap-2">
+        {/* Expected Cash in register */}
+        <div className="border border-border bg-card p-4 flex flex-col gap-2 rounded-none">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Cash in Register</span>
-            <div className="p-1.5 bg-primary/10 text-primary">
+            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Expected Cash</span>
+            <div className="p-1.5 bg-primary/10 text-primary rounded-none">
               <Banknote className="w-3.5 h-3.5" />
             </div>
           </div>
           <p className="text-3xl font-black tracking-tight leading-none tabular-nums">
-            Rs.&nbsp;{Math.max(0, cashInRegister).toLocaleString()}
+            Rs.&nbsp;{Math.max(0, expectedCash).toLocaleString()}
           </p>
-          <p className="text-xs text-muted-foreground">Cash paid minus rider &amp; counter</p>
+          <p className="text-xs text-muted-foreground">Float + Cash Sales - Withheld</p>
         </div>
 
         {/* Digital payments */}
-        <div className="border border-border bg-card p-4 flex flex-col gap-2">
+        <div className="border border-border bg-card p-4 flex flex-col gap-2 rounded-none">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Digital Payments</span>
-            <div className="p-1.5 bg-primary/10 text-primary">
+            <div className="p-1.5 bg-primary/10 text-primary rounded-none">
               <Smartphone className="w-3.5 h-3.5" />
             </div>
           </div>
           <p className="text-3xl font-black tracking-tight leading-none tabular-nums">
             Rs.&nbsp;{data.totalDigitalPaid.toLocaleString()}
           </p>
-          <p className="text-xs text-muted-foreground">JazzCash · EasyPaisa · Card · Bank</p>
+          <p className="text-xs text-muted-foreground">JazzCash · EasyPaisa · Card</p>
         </div>
 
         {/* Credit outstanding */}
         <div className={cn(
-          "border p-4 flex flex-col gap-2",
-          totalCredit > 0
+          "border p-4 flex flex-col gap-2 rounded-none",
+          data.totalUnpaidCredit > 0
             ? "border-rose-200 bg-rose-50/60 dark:border-rose-900/40 dark:bg-rose-950/10"
             : "border-emerald-200 bg-emerald-50/60 dark:border-emerald-900/40 dark:bg-emerald-950/10"
         )}>
           <div className="flex items-center justify-between">
-            <span className={cn("text-[10px] font-black uppercase tracking-widest", totalCredit > 0 ? "text-rose-500" : "text-emerald-600")}>
+            <span className={cn("text-[10px] font-black uppercase tracking-widest", data.totalUnpaidCredit > 0 ? "text-rose-500" : "text-emerald-600")}>
               Credit / Unpaid
             </span>
-            <div className={cn("p-1.5", totalCredit > 0 ? "bg-rose-100 text-rose-600 dark:bg-rose-900/50" : "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/50")}>
-              {totalCredit > 0 ? <AlertTriangle className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+            <div className={cn("p-1.5 rounded-none", data.totalUnpaidCredit > 0 ? "bg-rose-100 text-rose-600 dark:bg-rose-900/50" : "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/50")}>
+              {data.totalUnpaidCredit > 0 ? <AlertTriangle className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
             </div>
           </div>
-          <p className={cn("text-3xl font-black tracking-tight leading-none tabular-nums", totalCredit > 0 ? "text-rose-700 dark:text-rose-400" : "text-emerald-700 dark:text-emerald-400")}>
-            Rs.&nbsp;{totalCredit.toLocaleString()}
+          <p className={cn("text-3xl font-black tracking-tight leading-none tabular-nums", data.totalUnpaidCredit > 0 ? "text-rose-700 dark:text-rose-400" : "text-emerald-700 dark:text-emerald-400")}>
+            Rs.&nbsp;{data.totalUnpaidCredit.toLocaleString()}
           </p>
           <p className="text-xs text-muted-foreground">
-            {creditOrders.length === 0 ? "No outstanding credit" : `${creditOrders.length} order${creditOrders.length !== 1 ? "s" : ""} pending collection`}
+            Total unpaid sales/credit
           </p>
         </div>
       </div>
 
       {/* ── All clear banner ─────────────────────────────────────────────── */}
       {everythingClear && (
-        <div className="flex items-center gap-3 border border-emerald-200 bg-emerald-50/60 dark:border-emerald-900/40 dark:bg-emerald-950/10 px-5 py-4">
+        <div className="flex items-center gap-3 border border-emerald-200 bg-emerald-50/60 dark:border-emerald-900/40 dark:bg-emerald-950/10 px-5 py-4 print:hidden rounded-none">
           <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
           <div>
             <p className="font-black text-sm text-emerald-700 dark:text-emerald-400">Register is clear</p>
-            <p className="text-xs text-muted-foreground mt-0.5">All cash collected, no outstanding credit. You can close the register.</p>
+            <p className="text-xs text-muted-foreground mt-0.5">All cash collected. You can close the register.</p>
           </div>
         </div>
       )}
 
-      {/* ── Payment method breakdown ──────────────────────────────────────── */}
-      <Section
-        title="Payment Method Breakdown"
-        subtitle="How today's sales came in — paid vs credit per method"
-        icon={CreditCard}
-        defaultOpen
-        collapsible
-      >
-        {data.paymentMethodTotals.length === 0 ? (
-          <AllClear label="No orders in this period." />
-        ) : (
-          <div className="divide-y divide-border/40">
-            {[...data.paymentMethodTotals]
-              .sort((a, b) => b.paid - a.paid)
-              .map(m => <MethodRow key={m.method} {...m} />)}
+      {/* ── Details Sections ──────────────────────────────────────────────── */}
+      <div className="print:hidden space-y-5">
+        <Section
+          title="Payment Method Breakdown"
+          subtitle="How today's sales came in — strictly collected funds"
+          icon={CreditCard}
+          defaultOpen
+          collapsible
+        >
+          {data.paymentMethodTotals.length === 0 ? (
+            <AllClear label="No orders in this period." />
+          ) : (
+            <div className="divide-y divide-border/40">
+              {[...data.paymentMethodTotals]
+                .sort((a, b) => b.paid - a.paid)
+                .map(m => <MethodRow key={m.method} {...m} />)}
+            </div>
+          )}
+        </Section>
+
+        <Section
+          title="Cash With Riders"
+          subtitle={
+            riderCash.length === 0
+              ? "All rider cash collected — nothing outstanding"
+              : `${riderCash.length} rider${riderCash.length !== 1 ? "s" : ""} still holding delivery cash`
+          }
+          amount={cashWithRiders}
+          icon={Bike}
+          variant={cashWithRiders > 0 ? "warning" : "success"}
+          collapsible={riderCash.length > 0}
+          defaultOpen={riderCash.length > 0}
+          badge={
+            riderCash.length > 0
+              ? <Badge variant="outline" className="text-[9px] text-amber-700 border-amber-300 bg-amber-50 rounded-none">{riderCash.length} rider{riderCash.length !== 1 ? "s" : ""}</Badge>
+              : undefined
+          }
+        >
+          {riderCash.length === 0 ? (
+            <AllClear label="All rider cash accounted for. Nothing outstanding." />
+          ) : (
+            riderCash.map(entry => (
+              <RiderCard key={entry.riderId} entry={entry} onCollected={handleRiderCollected} />
+            ))
+          )}
+        </Section>
+
+        <Section
+          title="Cash With Waiters / Counter"
+          subtitle={
+            waiterCash.length === 0
+              ? "All counter cash reconciled — nothing outstanding"
+              : `${waiterCash.length} staff member${waiterCash.length !== 1 ? "s" : ""} with unreturned counter cash`
+          }
+          amount={cashWithWaiters}
+          icon={Users}
+          variant={cashWithWaiters > 0 ? "warning" : "success"}
+          collapsible={waiterCash.length > 0}
+          defaultOpen={waiterCash.length > 0}
+          badge={
+            waiterCash.length > 0
+              ? <Badge variant="outline" className="text-[9px] text-blue-700 border-blue-300 bg-blue-50 rounded-none">{waiterCash.length} staff</Badge>
+              : undefined
+          }
+        >
+          {waiterCash.length === 0 ? (
+            <AllClear label="All counter cash reconciled." />
+          ) : (
+            waiterCash.map(entry => (
+              <WaiterCard key={entry.waiterId} entry={entry} onCollected={handleWaiterCollected} />
+            ))
+          )}
+        </Section>
+
+        {/* ── Register reconciliation panel ────────────────────────────────── */}
+        <div className="border border-primary/25 bg-primary/5 dark:bg-primary/[0.07] overflow-hidden rounded-none">
+          <div className="flex items-center gap-3 px-5 py-4 border-b border-primary/15">
+            <div className="p-2 bg-primary/15 text-primary rounded-none">
+              <Wallet className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="font-black text-sm uppercase tracking-widest">Register Reconciliation</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">Where all the money is right now</p>
+            </div>
           </div>
-        )}
-      </Section>
 
-      {/* ── Cash with riders ─────────────────────────────────────────────── */}
-      <Section
-        title="Cash With Riders"
-        subtitle={
-          riderCash.length === 0
-            ? "All rider cash collected — nothing outstanding"
-            : `${riderCash.length} rider${riderCash.length !== 1 ? "s" : ""} still holding delivery cash`
-        }
-        amount={cashWithRiders}
-        icon={Bike}
-        variant={cashWithRiders > 0 ? "warning" : "success"}
-        collapsible={riderCash.length > 0}
-        defaultOpen={riderCash.length > 0}
-        badge={
-          riderCash.length > 0
-            ? <Badge variant="outline" className="text-[9px] text-amber-700 border-amber-300 bg-amber-50">{riderCash.length} rider{riderCash.length !== 1 ? "s" : ""}</Badge>
-            : undefined
-        }
-      >
-        {riderCash.length === 0 ? (
-          <AllClear label="All rider cash accounted for. Nothing outstanding." />
-        ) : (
-          riderCash.map(entry => (
-            <RiderCard key={entry.riderId} entry={entry} onCollected={handleRiderCollected} />
-          ))
-        )}
-      </Section>
-
-      {/* ── Cash with waiters ────────────────────────────────────────────── */}
-      <Section
-        title="Cash With Waiters / Counter"
-        subtitle={
-          waiterCash.length === 0
-            ? "All counter cash reconciled — nothing outstanding"
-            : `${waiterCash.length} staff member${waiterCash.length !== 1 ? "s" : ""} with unreturned counter cash`
-        }
-        amount={cashWithWaiters}
-        icon={Users}
-        variant={cashWithWaiters > 0 ? "warning" : "success"}
-        collapsible={waiterCash.length > 0}
-        defaultOpen={waiterCash.length > 0}
-        badge={
-          waiterCash.length > 0
-            ? <Badge variant="outline" className="text-[9px] text-blue-700 border-blue-300 bg-blue-50">{waiterCash.length} staff</Badge>
-            : undefined
-        }
-      >
-        {waiterCash.length === 0 ? (
-          <AllClear label="All counter cash reconciled." />
-        ) : (
-          waiterCash.map(entry => (
-            <WaiterCard key={entry.waiterId} entry={entry} onCollected={handleWaiterCollected} />
-          ))
-        )}
-      </Section>
-
-      {/* ── Credit orders ────────────────────────────────────────────────── */}
-      <Section
-        title="Credit Orders — Will Pay Later"
-        subtitle={
-          creditOrders.length === 0
-            ? "No outstanding credit — all customers have paid"
-            : `${creditOrders.length} order${creditOrders.length !== 1 ? "s" : ""} not yet collected — mark as received when cash arrives`
-        }
-        amount={totalCredit}
-        icon={Clock}
-        variant={totalCredit > 0 ? "danger" : "success"}
-        collapsible={creditOrders.length > 0}
-        defaultOpen={creditOrders.length > 0}
-        badge={
-          creditOrders.length > 0
-            ? <Badge variant="outline" className="text-[9px] text-rose-700 border-rose-300 bg-rose-50">{creditOrders.length} pending</Badge>
-            : undefined
-        }
-      >
-        {creditOrders.length === 0 ? (
-          <AllClear label="No credit orders. All payments collected." />
-        ) : (
-          creditOrders.map(o => (
-            <CreditRow key={o.id} order={o} onMarkPaid={handleMarkPaid} />
-          ))
-        )}
-      </Section>
-
-      {/* ── Register reconciliation panel ────────────────────────────────── */}
-      <div className="border border-primary/25 bg-primary/5 dark:bg-primary/[0.07] overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center gap-3 px-5 py-4 border-b border-primary/15">
-          <div className="p-2 bg-primary/15 text-primary">
-            <Wallet className="w-4 h-4" />
-          </div>
-          <div>
-            <h3 className="font-black text-sm uppercase tracking-widest">Register Reconciliation</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">Where all the money is right now</p>
+          <div className="py-1">
+            <RecRow label="Total cash sales (Paid & Unpaid)"            amount={grossCashSales}        sign="+" />
+            <RecRow label="Cash with riders (not yet collected)"        amount={cashWithRiders}        sign="-" muted={cashWithRiders === 0} />
+            <RecRow label="Cash with waiters / counter (not returned)"  amount={cashWithWaiters}       sign="-" muted={cashWithWaiters === 0} />
+            <Separator className="my-1 bg-primary/15" />
+            <RecRow label="Cash from sales in register"                 amount={Math.max(0, cashInRegister)} sign="=" />
+            <RecRow label="Starting Float"                              amount={data.shift.startingFloat} sign="+" />
+            <Separator className="my-1 bg-primary/15" />
+            <RecRow label="Total Expected Cash in Drawer"               amount={Math.max(0, expectedCash)} sign="=" />
           </div>
         </div>
 
-        {/* Math rows */}
-        <div className="py-1">
-          <RecRow label="Total cash payments received today"          amount={data.totalCashPaid}   sign="+" />
-          <RecRow label="Cash with riders (not yet collected)"        amount={cashWithRiders}        sign="-" muted={cashWithRiders === 0} />
-          <RecRow label="Cash with waiters / counter (not returned)"  amount={cashWithWaiters}       sign="-" muted={cashWithWaiters === 0} />
-          <Separator className="my-1 bg-primary/15" />
-          <RecRow label="Cash that should be in the register"         amount={Math.max(0, cashInRegister)} sign="=" />
-        </div>
-
-        {/* Footer: digital + credit */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-0 border-t border-primary/15">
-          <div className="px-5 py-3.5 sm:border-r border-primary/10">
-            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Digital (in bank/wallet)</p>
-            <p className="font-black text-base">Rs.&nbsp;{data.totalDigitalPaid.toLocaleString()}</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">JazzCash · EasyPaisa · Card · Bank</p>
-          </div>
-          <div className={cn("px-5 py-3.5 sm:border-r border-primary/10", totalCredit > 0 && "bg-rose-50/40 dark:bg-rose-950/10")}>
-            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Credit still outstanding</p>
-            <p className={cn("font-black text-base", totalCredit > 0 ? "text-rose-600 dark:text-rose-400" : "text-emerald-600 dark:text-emerald-400")}>
-              Rs.&nbsp;{totalCredit.toLocaleString()}
-            </p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">{creditOrders.length} order{creditOrders.length !== 1 ? "s" : ""} uncollected</p>
-          </div>
-          <div className="px-5 py-3.5">
-            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Total accounted for</p>
-            <p className="font-black text-base text-primary">
-              Rs.&nbsp;{(Math.max(0, cashInRegister) + data.totalDigitalPaid).toLocaleString()}
-            </p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">Cash in drawer + digital received</p>
-          </div>
+        {/* Close Actions */}
+        <div className="flex justify-end pt-4 pb-12">
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button size="lg" className="rounded-none font-bold uppercase tracking-wider h-12 px-8">
+                Close Register
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent className="rounded-none">
+              <AlertDialogHeader>
+                <AlertDialogTitle className="font-black uppercase tracking-tight">Close Register</AlertDialogTitle>
+                <AlertDialogDescription>
+                  You are about to close the current register shift. Please count the physical cash in the drawer.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              
+              <div className="my-6">
+                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground block mb-2">
+                  Actual Cash Counted
+                </label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-muted-foreground">Rs.</span>
+                  <Input 
+                    type="number" 
+                    placeholder="0" 
+                    value={actualCash}
+                    onChange={(e) => setActualCash(e.target.value)}
+                    className="pl-12 h-12 text-xl font-black rounded-none focus-visible:ring-primary"
+                    disabled={closing}
+                  />
+                </div>
+              </div>
+              
+              <AlertDialogFooter>
+                <AlertDialogCancel className="rounded-none font-bold">Cancel</AlertDialogCancel>
+                <Button 
+                  onClick={handleCloseRegister} 
+                  disabled={closing || !actualCash.trim()}
+                  className="rounded-none font-bold"
+                >
+                  {closing && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  Confirm Closure
+                </Button>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
 
-      {/* ── Print-only: summary ───────────────────────────────────────────── */}
-      <div className="hidden print:block border-t pt-4 mt-4 text-xs text-gray-500">
-        <p className="font-bold">Register Close Report · {dateLabel}</p>
-        <p className="mt-1">Generated: {new Date().toLocaleString()}</p>
+      {/* ── Print-only: 80mm Thermal Receipt ───────────────────────────────────────────── */}
+      <style dangerouslySetInnerHTML={{__html: `
+        @media print {
+          body * { visibility: hidden; }
+          .print-section, .print-section * { visibility: visible; }
+          .print-section {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 80mm;
+            padding: 0;
+            margin: 0;
+            font-family: monospace;
+            color: black;
+            font-size: 12px;
+            line-height: 1.2;
+          }
+          .print-section h1 { font-size: 16px; font-weight: bold; text-align: center; margin: 0 0 10px; }
+          .print-section h2 { font-size: 14px; font-weight: bold; border-bottom: 1px dashed black; padding-bottom: 4px; margin: 10px 0 5px; }
+          .print-section .row { display: flex; justify-content: space-between; margin: 2px 0; }
+          .print-section .bold { font-weight: bold; }
+          .print-section .dashed-line { border-bottom: 1px dashed black; margin: 6px 0; }
+        }
+      `}} />
+
+      <div className="hidden print:block print-section">
+        <h1>REGISTER CLOSE</h1>
+        <div className="row">
+          <span>Opened:</span>
+          <span>{format(new Date(data.shift.openedAt), "dd/MM/yy HH:mm")}</span>
+        </div>
+        <div className="row">
+          <span>Printed:</span>
+          <span>{format(new Date(), "dd/MM/yy HH:mm")}</span>
+        </div>
+
+        <h2>SALES SUMMARY</h2>
+        <div className="row">
+          <span>Total Sales</span>
+          <span>{data.totalPaidSales}</span>
+        </div>
+        <div className="row">
+          <span>Cash Sales</span>
+          <span>{data.totalCashPaid}</span>
+        </div>
+        <div className="row">
+          <span>Digital Sales</span>
+          <span>{data.totalDigitalPaid}</span>
+        </div>
+
+        <h2>CASH RECONCILIATION</h2>
+        <div className="row">
+          <span>Starting Float</span>
+          <span>{data.shift.startingFloat}</span>
+        </div>
+        <div className="row">
+          <span>(+) Gross Cash Sales</span>
+          <span>{grossCashSales}</span>
+        </div>
+        <div className="row">
+          <span>(-) With Riders</span>
+          <span>{cashWithRiders}</span>
+        </div>
+        <div className="row">
+          <span>(-) With Waiters</span>
+          <span>{cashWithWaiters}</span>
+        </div>
+        <div className="dashed-line"></div>
+        <div className="row bold">
+          <span>Expected Cash</span>
+          <span>{expectedCash}</span>
+        </div>
+        
+        <h2>DECLARATION</h2>
+        <div className="row">
+          <span>Counted Cash</span>
+          <span>______________</span>
+        </div>
+        <div className="row">
+          <span>Variance</span>
+          <span>______________</span>
+        </div>
+        
+        <div className="dashed-line"></div>
+        <div style={{ textAlign: "center", marginTop: "20px" }}>
+          <p>Manager Signature</p>
+          <p>___________________</p>
+        </div>
+        <div style={{ textAlign: "center", marginTop: "15px", fontSize: "10px" }}>
+          End of Report
+        </div>
       </div>
     </div>
   );

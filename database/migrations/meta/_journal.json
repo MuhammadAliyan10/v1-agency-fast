@@ -253,6 +253,13 @@
       "when": 1788816091058,
       "tag": "0035_living_gravity",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1788860590005,
+      "tag": "0036_light_joseph",
+      "breakpoints": true
     }
   ]
 }

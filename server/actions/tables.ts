@@ -11,6 +11,7 @@ export type TableStatus = {
   capacity: number;
   isActive: boolean;
   hallType: "general" | "family";
+  tableZone: "general" | "outdoor" | "family";
   isOccupied: boolean;
   activeOrderIds: string[];
 };
@@ -36,6 +37,7 @@ export async function getTablesWithStatus(): Promise<{ success: boolean; data?: 
         capacity: table.capacity,
         isActive: table.isActive,
         hallType: table.hallType,
+        tableZone: table.tableZone,
         isOccupied: ordersForTable.length > 0,
         activeOrderIds: ordersForTable.map(o => o.id),
       };
@@ -88,13 +90,34 @@ export async function seedTables(): Promise<{ success: boolean; error?: string }
     const existing = await db.select().from(restaurantTables);
     if (existing.length > 0) return { success: true, error: "Tables already seeded" };
 
-    const newTables = Array.from({ length: 8 }).map((_, i) => ({
+    // T1–T8: General hall
+    const generalTables = Array.from({ length: 8 }, (_, i) => ({
       name: `Table ${i + 1}`,
       capacity: 4,
       isActive: true,
+      hallType:  "general" as const,
+      tableZone: "general"  as const,
     }));
 
-    await db.insert(restaurantTables).values(newTables);
+    // T9–T12: OutDoor (displayed in General Hall)
+    const outdoorTables = Array.from({ length: 4 }, (_, i) => ({
+      name: `Table ${i + 9}`,
+      capacity: 4,
+      isActive: true,
+      hallType:  "general" as const,
+      tableZone: "outdoor"  as const,
+    }));
+
+    // T13–T19: Family Hall
+    const familyTables = Array.from({ length: 7 }, (_, i) => ({
+      name: `Table ${i + 13}`,
+      capacity: 6,
+      isActive: true,
+      hallType:  "family" as const,
+      tableZone: "family"  as const,
+    }));
+
+    await db.insert(restaurantTables).values([...generalTables, ...outdoorTables, ...familyTables]);
     return { success: true };
   } catch (error: any) {
     console.error("Failed to seed tables:", error);

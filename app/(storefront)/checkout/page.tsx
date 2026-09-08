@@ -692,57 +692,7 @@ export default function CheckoutPage() {
 
             <div className="border-t border-dashed border-zinc-200 my-4" />
 
-            {/* Coupon Input */}
-            {!appliedCoupon ? (
-              <div className="mb-4">
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <Tag className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400" />
-                    <input
-                      value={couponInput}
-                      onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
-                      onKeyDown={(e) =>
-                        e.key === "Enter" && (e.preventDefault(), handleApplyCoupon())
-                      }
-                      placeholder="COUPON CODE"
-                      className="w-full pl-8 pr-3 h-10 border border-zinc-200 bg-zinc-50 text-xs font-mono focus:outline-none focus:border-zinc-950 transition-colors"
-                    />
-                  </div>
-                  <Button
-                    type="button"
-                    onClick={handleApplyCoupon}
-                    disabled={isValidatingCoupon || !couponInput.trim()}
-                    className="h-10 text-[10px] font-bold px-4 uppercase tracking-wider rounded-none"
-                  >
-                    {isValidatingCoupon ? (
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                    ) : (
-                      "Apply"
-                    )}
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="mb-4 flex items-center justify-between bg-green-50/50 border border-green-200 p-3">
-                <div className="flex items-center gap-2">
-                  <CheckCheck className="w-4 h-4 text-green-600" />
-                  <span className="text-xs font-bold text-green-700 font-mono tracking-widest">
-                    {appliedCoupon.code}
-                  </span>
-                  <span className="text-[10px] text-green-600 font-bold bg-green-100 px-1.5">
-                    {appliedCoupon.discountType === "flat"
-                      ? `-Rs. ${appliedCoupon.discountValue}`
-                      : `-${appliedCoupon.discountValue}%`}
-                  </span>
-                </div>
-                <button
-                  onClick={removeCoupon}
-                  className="text-green-600 hover:text-green-800 bg-green-100 p-1"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </div>
-            )}
+            {/* ── Coupon Input removed per client request ── */}
 
             {/* Price breakdown */}
             <div className="space-y-2.5 text-xs font-medium mb-1">

@@ -24,7 +24,7 @@ import type { InferSelectModel } from "drizzle-orm";
 import { z } from "zod";
 import { toast } from "sonner";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useSession } from "@/lib/auth/session-context";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -761,15 +761,56 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
                             <SelectValue placeholder="Select Table" />
                           </SelectTrigger>
                           <SelectContent>
-                            {(hallFilter === "all"
-                              ? tablesData
-                              : tablesData?.filter(t => t.hallType === hallFilter)
-                            )?.map(table => (
-                              <SelectItem key={table.id} value={table.id}>
-                                {table.name}
-                                {table.isOccupied ? " 🔴" : ""}
-                              </SelectItem>
-                            ))}
+                            {(() => {
+                              const filtered = hallFilter === "all"
+                                ? tablesData
+                                : tablesData?.filter(t => t.hallType === hallFilter);
+
+                              const generalGroup = filtered?.filter(t => t.tableZone === "general") ?? [];
+                              const outdoorGroup = filtered?.filter(t => t.tableZone === "outdoor") ?? [];
+                              const familyGroup  = filtered?.filter(t => t.tableZone === "family")  ?? [];
+
+                              return (
+                                <>
+                                  {generalGroup.length > 0 && (
+                                    <SelectGroup>
+                                      <SelectLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                                        General Hall
+                                      </SelectLabel>
+                                      {generalGroup.map(table => (
+                                        <SelectItem key={table.id} value={table.id}>
+                                          {table.name}{table.isOccupied ? " 🔴" : ""}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectGroup>
+                                  )}
+                                  {outdoorGroup.length > 0 && (
+                                    <SelectGroup>
+                                      <SelectLabel className="text-[10px] font-black uppercase tracking-widest text-sky-600">
+                                        🌳 OutDoor Tables
+                                      </SelectLabel>
+                                      {outdoorGroup.map(table => (
+                                        <SelectItem key={table.id} value={table.id}>
+                                          {table.name} (OutDoor){table.isOccupied ? " 🔴" : ""}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectGroup>
+                                  )}
+                                  {familyGroup.length > 0 && (
+                                    <SelectGroup>
+                                      <SelectLabel className="text-[10px] font-black uppercase tracking-widest text-amber-600">
+                                        🏠 Family Hall
+                                      </SelectLabel>
+                                      {familyGroup.map(table => (
+                                        <SelectItem key={table.id} value={table.id}>
+                                          {table.name} (Family Hall){table.isOccupied ? " 🔴" : ""}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectGroup>
+                                  )}
+                                </>
+                              );
+                            })()}
                           </SelectContent>
                         </Select>
                       </div>

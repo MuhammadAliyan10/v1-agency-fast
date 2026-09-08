@@ -34,6 +34,7 @@ export type WaiterTableStatus = {
   name: string;
   capacity: number;
   hallType: "general" | "family";
+  tableZone: "general" | "outdoor" | "family";
   isOccupied: boolean;
   activeOrders: WaiterOrder[];
 };
@@ -67,6 +68,7 @@ export async function getWaiterFloorData(): Promise<{
           name: table.name,
           capacity: table.capacity,
           hallType: table.hallType,
+          tableZone: table.tableZone,
           isOccupied: tableOrders.length > 0,
           activeOrders: tableOrders.map(o => ({
             id: o.id,

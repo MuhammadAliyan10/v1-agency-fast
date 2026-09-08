@@ -90,9 +90,13 @@ function TableCard({
     >
       {/* Top bar — hall + status dot */}
       <div className="flex items-center justify-between px-2.5 pt-2.5">
-        {table.hallType === "family" ? (
+        {table.tableZone === "family" ? (
           <span className={cn("text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-none", c.hall)}>
             Family
+          </span>
+        ) : table.tableZone === "outdoor" ? (
+          <span className="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-none bg-sky-100 text-sky-700">
+            OutDoor
           </span>
         ) : (
           <span className="text-[9px] font-black uppercase tracking-widest text-transparent select-none">·</span>
@@ -176,7 +180,7 @@ function TableDetailSheet({
             <div>
               <SheetTitle className="text-2xl font-black tracking-tight">
                 {table.name}
-                {table.hallType === "family" && (
+                {table.tableZone === "family" && (
                   <span className="ml-2 text-xs font-black uppercase tracking-widest text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 align-middle">
                     Family Hall
                   </span>
@@ -338,8 +342,9 @@ export function WaiterBoard() {
   }, [data]);
 
   const tables = data?.data ?? [];
-  const generalTables = tables.filter(t => t.hallType === "general");
-  const familyTables  = tables.filter(t => t.hallType === "family");
+  const generalTables = tables.filter(t => t.hallType === "general" && t.tableZone === "general");
+  const outdoorTables  = tables.filter(t => t.tableZone === "outdoor");
+  const familyTables   = tables.filter(t => t.hallType === "family");
 
   const occupiedCount = tables.filter(t => t.isOccupied).length;
   const freeCount     = tables.filter(t => !t.isOccupied).length;
@@ -402,7 +407,7 @@ export function WaiterBoard() {
         </div>
       </div>
 
-      {/* General Hall */}
+      {/* General Hall — T1-T8 */}
       {generalTables.length > 0 && (
         <section>
           <div className="flex items-center gap-2 mb-3">
@@ -418,7 +423,23 @@ export function WaiterBoard() {
         </section>
       )}
 
-      {/* Family Hall */}
+      {/* OutDoor Tables — T9-T12 (shown under General Hall) */}
+      {outdoorTables.length > 0 && (
+        <section>
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-xs font-black uppercase tracking-widest text-sky-600">OutDoor</span>
+            <div className="flex-1 h-px bg-sky-200" />
+            <span className="text-[10px] text-sky-500">{outdoorTables.length} tables</span>
+          </div>
+          <div className="grid grid-cols-4 gap-2.5">
+            {outdoorTables.map(table => (
+              <TableCard key={table.id} table={table} onClick={() => handleTableClick(table)} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Family Hall — T13-T19 */}
       {familyTables.length > 0 && (
         <section>
           <div className="flex items-center gap-2 mb-3">

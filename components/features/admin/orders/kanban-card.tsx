@@ -1013,7 +1013,10 @@ export const KanbanCard = React.memo(function KanbanCard({
               <SelectContent>
                 {tablesData?.map(table => (
                   <SelectItem key={table.id} value={table.id} disabled={table.isOccupied}>
-                    {table.name}{table.hallType === "family" ? " — Family Hall" : ""} {table.isOccupied ? "(Occupied)" : ""}
+                   {table.name}
+                    {table.tableZone === "outdoor" ? " (OutDoor)" : ""}
+                    {table.tableZone === "family"  ? " (Family Hall)" : ""}
+                    {table.isOccupied ? " (Occupied)" : ""}
                   </SelectItem>
                 ))}
               </SelectContent>

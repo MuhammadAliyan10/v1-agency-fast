@@ -553,66 +553,7 @@ export function CheckoutDrawer({ open, onOpenChange }: CheckoutDrawerProps) {
                   </div>
                 </div>
 
-                {/* ── Coupon field ──────────────────────────────────────── */}
-                <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                    Coupon Code
-                  </Label>
-                  {!appliedCoupon ? (
-                    <div className="flex gap-2">
-                      <div className="relative flex-1">
-                        <Tag className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-                        <input
-                          value={couponInput}
-                          onChange={(e) =>
-                            setCouponInput(e.target.value.toUpperCase())
-                          }
-                          onKeyDown={(e) =>
-                            e.key === "Enter" &&
-                            (e.preventDefault(), handleApplyCoupon())
-                          }
-                          placeholder="Enter coupon code"
-                          className="w-full pl-9 pr-3 h-12 border border-border bg-muted/40 text-sm font-mono focus:outline-none focus:border-primary transition-colors rounded-none"
-                        />
-                      </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={handleApplyCoupon}
-                        disabled={isValidatingCoupon || !couponInput.trim()}
-                        className="h-12 px-4 rounded-none font-bold text-xs uppercase tracking-wider shrink-0"
-                      >
-                        {isValidatingCoupon ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        ) : (
-                          "Apply"
-                        )}
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-between bg-green-50 border border-green-200 p-3">
-                      <div className="flex items-center gap-2">
-                        <CheckCheck className="w-4 h-4 text-green-600 shrink-0" />
-                        <span className="text-sm font-bold text-green-700 font-mono tracking-widest">
-                          {appliedCoupon.code}
-                        </span>
-                        <span className="text-xs text-green-700 font-bold bg-green-100 px-1.5 py-0.5">
-                          {appliedCoupon.discountType === "flat"
-                            ? `− Rs. ${appliedCoupon.discountValue}`
-                            : `− ${appliedCoupon.discountValue}%`}
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={removeCoupon}
-                        className="text-green-600 hover:text-green-900 bg-green-100 hover:bg-green-200 p-1 transition-colors"
-                        aria-label="Remove coupon"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  )}
-                </div>
+                {/* ── Coupon field removed per client request ── */}
 
                 {/* ── Payment Method ────────────────────────────────────── */}
                 <div className="space-y-2 pb-4">
