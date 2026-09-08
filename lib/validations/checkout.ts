@@ -16,20 +16,13 @@ export const checkoutSchema = z
     deliveryNotes: z.string().optional(),
     latitude: z.number().optional(),
     longitude: z.number().optional(),
-    paymentMethod: z.enum(["COD", "JazzCash", "EasyPaisa", "Bank"], {
+    paymentMethod: z.enum(["COD", "EasyPaisa"], {
       message: "Please select a payment method",
     }),
     couponCode: z.string().optional(),
   })
   .superRefine((data, ctx) => {
     if (data.orderType === "delivery") {
-      if (!data.deliveryZone) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["deliveryZone"],
-          message: "Please select a delivery area",
-        });
-      }
       if (!data.deliveryAddress || data.deliveryAddress.trim().length < 5) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,

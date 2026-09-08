@@ -112,15 +112,11 @@ export function CheckoutDrawer({ open, onOpenChange }: CheckoutDrawerProps) {
   });
 
   const orderType = form.watch("orderType");
-  const deliveryZoneId = form.watch("deliveryZone");
   const paymentMethod = form.watch("paymentMethod");
   const isDelivery = orderType === "delivery";
 
-  // Dynamic delivery fee — zone-based, Rs. 0 for pickup
-  const selectedZone = isDelivery
-    ? STORE_CONSTANTS.DELIVERY_ZONES.find((z) => z.id === deliveryZoneId) ?? null
-    : null;
-  const deliveryFee = selectedZone?.fee ?? 0;
+  // Dynamic delivery fee is removed for now, admin sets it later
+  const deliveryFee = 0;
 
   // Coupon discount computed client-side for preview
   const getCouponDiscount = (): number => {
@@ -515,38 +511,7 @@ export function CheckoutDrawer({ open, onOpenChange }: CheckoutDrawerProps) {
                   {/* Delivery-only fields */}
                   {isDelivery && (
                     <>
-                      <div className="space-y-1.5">
-                        <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                          Delivery Area
-                        </Label>
-                        <Select
-                          onValueChange={(val) => form.setValue("deliveryZone", val)}
-                          value={deliveryZoneId ?? ""}
-                        >
-                          <SelectTrigger className="w-full h-12 rounded-none border-border focus:ring-primary">
-                            <SelectValue placeholder="Select your neighbourhood" />
-                          </SelectTrigger>
-                          <SelectContent className="rounded-none">
-                            {STORE_CONSTANTS.DELIVERY_ZONES.map((zone) => (
-                              <SelectItem
-                                key={zone.id}
-                                value={zone.id}
-                                className="cursor-pointer"
-                              >
-                                {zone.name}
-                                <span className="ml-2 text-muted-foreground text-xs">
-                                  — {STORE_CONSTANTS.CURRENCY} {zone.fee}
-                                </span>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        {form.formState.errors.deliveryZone && (
-                          <span className="text-xs text-destructive font-medium">
-                            {form.formState.errors.deliveryZone.message}
-                          </span>
-                        )}
-                      </div>
+                      {/* Delivery Area field removed, admin sets delivery charge based on address */}
 
                       <div className="space-y-1.5">
                         <Label
@@ -662,7 +627,7 @@ export function CheckoutDrawer({ open, onOpenChange }: CheckoutDrawerProps) {
                     onValueChange={(v) =>
                       form.setValue(
                         "paymentMethod",
-                        v as "COD" | "JazzCash" | "EasyPaisa" | "Bank"
+                        v as "COD" | "EasyPaisa"
                       )
                     }
                     className="grid gap-2"
@@ -677,22 +642,10 @@ export function CheckoutDrawer({ open, onOpenChange }: CheckoutDrawerProps) {
                         info: null,
                       },
                       {
-                        value: "JazzCash",
-                        label: "JazzCash",
-                        desc: "Send payment then place order",
-                        info: { account: "03001234567" },
-                      },
-                      {
                         value: "EasyPaisa",
                         label: "EasyPaisa",
                         desc: "Send payment then place order",
-                        info: { account: "03001234567" },
-                      },
-                      {
-                        value: "Bank",
-                        label: "Bank Transfer",
-                        desc: "Meezan Bank — send then order",
-                        info: { account: "01234567890123" },
+                        info: { account: "03027261544", title: "Roman Aftab" },
                       },
                     ].map((opt) => (
                       <div key={opt.value} className="flex flex-col gap-1">
@@ -715,7 +668,7 @@ export function CheckoutDrawer({ open, onOpenChange }: CheckoutDrawerProps) {
                         {paymentMethod === opt.value && opt.info && (
                           <div className="p-3 ml-8 bg-muted text-sm text-muted-foreground border-l-4 border-primary space-y-1">
                             <p>
-                              <strong>Account Title:</strong> Classy Crave
+                              <strong>Account Title:</strong> {(opt.info as any)?.title || "Classy Crave"}
                             </p>
                             <p className="flex items-center gap-2">
                               <strong>Account No:</strong>
@@ -753,21 +706,9 @@ export function CheckoutDrawer({ open, onOpenChange }: CheckoutDrawerProps) {
                 </div>
                 {isDelivery && (
                   <div className="flex justify-between text-muted-foreground">
-                    <span>
-                      Delivery
-                      {selectedZone && (
-                        <span className="ml-1 text-xs">({selectedZone.name})</span>
-                      )}
-                    </span>
-                    <span
-                      className={cn(
-                        "font-semibold",
-                        selectedZone ? "text-foreground" : "text-muted-foreground/60"
-                      )}
-                    >
-                      {selectedZone
-                        ? `Rs. ${selectedZone.fee}`
-                        : "Select area"}
+                    <span>Delivery</span>
+                    <span className="font-semibold text-muted-foreground/60 text-xs">
+                      TBD (Added later)
                     </span>
                   </div>
                 )}

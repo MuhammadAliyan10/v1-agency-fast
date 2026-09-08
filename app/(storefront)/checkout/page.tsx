@@ -66,19 +66,11 @@ export default function CheckoutPage() {
 
   const { isValid } = form.formState;
   const orderType = useWatch({ control: form.control, name: "orderType" });
-  const deliveryZoneId = useWatch({ control: form.control, name: "deliveryZone" });
   const isDelivery = orderType === "delivery";
 
-  // ── Dynamic delivery fee — mirrors checkout-drawer logic exactly ──────
-  const selectedZone = isDelivery
-    ? STORE_CONSTANTS.DELIVERY_ZONES.find((z) => z.id === deliveryZoneId) ?? null
-    : null;
-  const deliveryFee = selectedZone ? selectedZone.fee : isDelivery ? 0 : 0;
-  const deliveryFeeLabel = selectedZone
-    ? `${STORE_CONSTANTS.CURRENCY} ${selectedZone.fee}`
-    : isDelivery
-    ? "Select area first"
-    : "FREE";
+  // Dynamic delivery fee is removed for now, admin sets it later
+  const deliveryFee = 0;
+  const deliveryFeeLabel = isDelivery ? "TBD (Added later)" : "FREE";
 
   useEffect(() => {
     setMounted(true);
@@ -442,45 +434,7 @@ export default function CheckoutPage() {
                   {/* Delivery-only fields */}
                   {isDelivery && (
                     <>
-                      {/* ── Delivery Zone Select (was missing — the P0-1 fix) ── */}
-                      <FormField
-                        control={form.control}
-                        name="deliveryZone"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="font-bold text-xs text-zinc-500 uppercase flex items-center gap-1.5">
-                              <MapPin className="w-3 h-3" />
-                              Delivery Area
-                            </FormLabel>
-                            <Select
-                              onValueChange={field.onChange}
-                              value={field.value ?? ""}
-                            >
-                              <FormControl>
-                                <SelectTrigger className="h-12 rounded-none bg-zinc-50 border-transparent focus:ring-1 focus:ring-primary font-medium">
-                                  <SelectValue placeholder="Select your neighbourhood" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent className="rounded-none">
-                                {STORE_CONSTANTS.DELIVERY_ZONES.map((zone) => (
-                                  <SelectItem
-                                    key={zone.id}
-                                    value={zone.id}
-                                    className="cursor-pointer"
-                                  >
-                                    <span className="font-medium">{zone.name}</span>
-                                    <span className="ml-2 text-muted-foreground text-xs">
-                                      — {STORE_CONSTANTS.CURRENCY} {zone.fee}
-                                    </span>
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <FormMessage className="text-[10px]" />
-                          </FormItem>
-                        )}
-                      />
-
+                      {/* Delivery Area removed */}
                       {/* Address */}
                       <FormField
                         control={form.control}
@@ -580,9 +534,7 @@ export default function CheckoutPage() {
                                 ? "Pay the rider when your order arrives"
                                 : "Pay at the counter when you pick up",
                             },
-                            { value: "JazzCash", label: "JazzCash", desc: "Send payment then place order" },
                             { value: "EasyPaisa", label: "EasyPaisa", desc: "Send payment then place order" },
-                            { value: "Bank", label: "Bank Transfer", desc: "Send payment then place order" },
                           ].map((opt) => (
                             <div key={opt.value} className="flex flex-col gap-1">
                               <FormItem className="relative flex items-center gap-3 p-3 border border-zinc-100 cursor-pointer transition-all hover:bg-zinc-50 [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/5">
@@ -599,63 +551,18 @@ export default function CheckoutPage() {
                                 </div>
                               </FormItem>
 
-                              {field.value === opt.value && opt.value === "JazzCash" && (
-                                <div className="p-3 ml-7 bg-muted text-sm text-muted-foreground border-l-4 border-primary space-y-1">
-                                  <p>
-                                    <strong>Account Title:</strong> Classy Crave
-                                  </p>
-                                  <p className="flex items-center gap-2">
-                                    <strong>Account Number:</strong>{" "}
-                                    <span className="font-mono">03001234567</span>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        navigator.clipboard.writeText("03001234567");
-                                        toast.success("Copied!");
-                                      }}
-                                      className="text-muted-foreground hover:text-foreground"
-                                    >
-                                      <Copy className="w-3.5 h-3.5" />
-                                    </button>
-                                  </p>
-                                </div>
-                              )}
                               {field.value === opt.value && opt.value === "EasyPaisa" && (
                                 <div className="p-3 ml-7 bg-muted text-sm text-muted-foreground border-l-4 border-primary space-y-1">
                                   <p>
-                                    <strong>Account Title:</strong> Classy Crave
+                                    <strong>Account Title:</strong> Roman Aftab
                                   </p>
                                   <p className="flex items-center gap-2">
                                     <strong>Account Number:</strong>{" "}
-                                    <span className="font-mono">03001234567</span>
+                                    <span className="font-mono">03027261544</span>
                                     <button
                                       type="button"
                                       onClick={() => {
-                                        navigator.clipboard.writeText("03001234567");
-                                        toast.success("Copied!");
-                                      }}
-                                      className="text-muted-foreground hover:text-foreground"
-                                    >
-                                      <Copy className="w-3.5 h-3.5" />
-                                    </button>
-                                  </p>
-                                </div>
-                              )}
-                              {field.value === opt.value && opt.value === "Bank" && (
-                                <div className="p-3 ml-7 bg-muted text-sm text-muted-foreground border-l-4 border-primary space-y-1">
-                                  <p>
-                                    <strong>Bank:</strong> Meezan Bank
-                                  </p>
-                                  <p>
-                                    <strong>Account Title:</strong> Classy Crave
-                                  </p>
-                                  <p className="flex items-center gap-2">
-                                    <strong>Account Number:</strong>{" "}
-                                    <span className="font-mono">01234567890123</span>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        navigator.clipboard.writeText("01234567890123");
+                                        navigator.clipboard.writeText("03027261544");
                                         toast.success("Copied!");
                                       }}
                                       className="text-muted-foreground hover:text-foreground"
@@ -846,20 +753,11 @@ export default function CheckoutPage() {
                 </span>
               </div>
               <div className="flex justify-between text-zinc-500">
-                <span>
-                  Delivery Fee
-                  {selectedZone && (
-                    <span className="ml-1 text-zinc-400">({selectedZone.name})</span>
-                  )}
-                </span>
+                <span>Delivery Fee</span>
                 <span
                   className={cn(
                     "font-bold",
-                    !isDelivery
-                      ? "text-green-600"
-                      : selectedZone
-                      ? "text-zinc-950"
-                      : "text-zinc-400"
+                    !isDelivery ? "text-green-600" : "text-zinc-400 text-xs"
                   )}
                 >
                   {deliveryFeeLabel}
