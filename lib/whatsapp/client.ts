@@ -58,7 +58,8 @@ export async function sendWhatsAppMessage(
         status: "failed",
         payload,
       });
-      return false;
+      // Throw so callers with try/catch fallbacks are properly triggered
+      throw new Error(`WhatsApp API error: ${data?.error?.message ?? response.status}`);
     }
 
     const messageId = data.messages?.[0]?.id || null;

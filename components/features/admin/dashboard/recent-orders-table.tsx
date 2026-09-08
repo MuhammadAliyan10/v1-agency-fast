@@ -115,6 +115,7 @@ const statusConfig: Record<string, { label: string; className: string }> = {
   cancelled:        { label: "Cancelled",       className: "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/30 dark:text-red-400" },
   rejected:         { label: "Rejected",        className: "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/30 dark:text-red-400" },
   delayed:          { label: "Delayed",         className: "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/30 dark:text-orange-400" },
+  ready_for_pickup: { label: "Ready to Pickup", className: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400" },
 };
 
 export function RecentOrdersTable({ data }: RecentOrdersTableProps) {

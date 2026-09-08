@@ -21,29 +21,44 @@ export default function AdminError({
         <AlertCircle className="w-8 h-8 text-red-600 dark:text-red-500" />
       </div>
       
-      <h2 className="text-2xl font-bold tracking-tight mb-3">Something went wrong</h2>
+      <h2 className="text-2xl font-bold tracking-tight mb-3">
+        {error.message.includes("UNAUTHORIZED") ? "Session Expired" : "Something went wrong"}
+      </h2>
       
       <p className="text-muted-foreground max-w-[500px] mb-8">
-        We encountered an unexpected error while loading this page. Our team has been notified. 
-        Please try refreshing or returning to the dashboard.
+        {error.message.includes("UNAUTHORIZED") 
+          ? "Your session has expired or you do not have permission to view this page. Please log in again to continue."
+          : "We encountered an unexpected error while loading this page. Our team has been notified. Please try refreshing or returning to the dashboard."}
       </p>
       
       <div className="flex items-center gap-4">
-        <Button 
-          onClick={reset} 
-          className="gap-2 font-semibold"
-          size="lg"
-        >
-          <RefreshCw className="w-4 h-4" />
-          Try Again
-        </Button>
-        <Button 
-          variant="outline" 
-          onClick={() => window.location.href = "/admin/dashboard"}
-          size="lg"
-        >
-          Go to Dashboard
-        </Button>
+        {error.message.includes("UNAUTHORIZED") ? (
+          <Button 
+            onClick={() => window.location.href = "/admin/login"}
+            size="lg"
+            className="font-semibold"
+          >
+            Go to Login
+          </Button>
+        ) : (
+          <>
+            <Button 
+              onClick={reset} 
+              className="gap-2 font-semibold"
+              size="lg"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Try Again
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => window.location.href = "/admin/dashboard"}
+              size="lg"
+            >
+              Go to Dashboard
+            </Button>
+          </>
+        )}
       </div>
 
       <div className="mt-12 p-4 bg-muted/30 border max-w-[600px] w-full text-left overflow-auto">

@@ -7,6 +7,7 @@ import { STORE_CONSTANTS } from "@/lib/constants";
 import { eq, inArray } from "drizzle-orm";
 import { getStoreStatus } from "@/server/actions/settings";
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { CartItem, DealSelection } from "@/lib/store/cart-store";
 import { randomBytes } from "crypto";
 import { validateCoupon, calculateCouponDiscount, incrementCouponUsage } from "./coupons";
@@ -303,6 +304,28 @@ export async function submitOrder(data: CheckoutValues, cartItems: CartItem[], i
     }
 
     revalidatePath("/admin/orders");
+
+    // Persist last order to a readable cookie so the /track page can show it
+    // even if the user cleared localStorage or opened a new browser session.
+    try {
+      const cookieStore = await cookies();
+      const existing: { id: string; token: string; placedAt: number }[] = JSON.parse(
+        cookieStore.get("cc_recent_orders")?.value ?? "[]"
+      );
+      const updated = [
+        { id: orderId, token: trackingToken, placedAt: Date.now() },
+        ...existing.filter((o) => o.id !== orderId),
+      ].slice(0, 5);
+      cookieStore.set("cc_recent_orders", JSON.stringify(updated), {
+        path: "/",
+        httpOnly: false,      // Must be readable by client JS on the /track page
+        sameSite: "lax",
+        maxAge: 60 * 60 * 24 * 7, // 7 days
+        secure: process.env.NODE_ENV === "production",
+      });
+    } catch {
+      // Cookie persistence is best-effort; never block the order response
+    }
 
     return { success: true, orderId, trackingToken };
   } catch (error: unknown) {

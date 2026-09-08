@@ -9,8 +9,75 @@ import { formatDistanceToNow } from "date-fns";
 
 const STORAGE_KEY = "cc_recent_orders";
 
-// Support both legacy {id, placedAt} and new {id, token, placedAt}
 type RecentOrder = { id: string; token: string; placedAt: number };
+
+function parseCookieOrders(): RecentOrder[] {
+  try {
+    const match = document.cookie
+      .split("; ")
+      .find((row) => row.startsWith("cc_recent_orders="));
+    if (!match) return [];
+    const raw = decodeURIComponent(match.split("=").slice(1).join("="));
+    const parsed: unknown[] = JSON.parse(raw);
+    return parsed
+      .map((entry): RecentOrder | null => {
+        if (entry && typeof entry === "object") {
+          const e = entry as Record<string, unknown>;
+          if (typeof e.id === "string" && typeof e.token === "string") {
+            return { id: e.id, token: e.token, placedAt: typeof e.placedAt === "number" ? e.placedAt : Date.now() };
+          }
+        }
+        return null;
+      })
+      .filter((e): e is RecentOrder => e !== null);
+  } catch {
+    return [];
+  }
+}
+
+function parseLocalOrders(): RecentOrder[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    const parsed: unknown[] = JSON.parse(raw);
+    return parsed
+      .map((entry): RecentOrder | null => {
+        if (typeof entry === "string") return { id: entry, token: entry, placedAt: Date.now() };
+        if (entry && typeof entry === "object") {
+          const e = entry as Record<string, unknown>;
+          if (typeof e.id === "string") {
+            return {
+              id: e.id,
+              token: typeof e.token === "string" ? e.token : e.id,
+              placedAt: typeof e.placedAt === "number" ? e.placedAt : Date.now(),
+            };
+          }
+        }
+        return null;
+      })
+      .filter((e): e is RecentOrder => e !== null);
+  } catch {
+    return [];
+  }
+}
+
+function mergeOrders(...sources: RecentOrder[][]): RecentOrder[] {
+  const seenIds = new Set<string>();
+  const merged: RecentOrder[] = [];
+  for (const list of sources) {
+    for (const order of list) {
+      if (!seenIds.has(order.id)) {
+        seenIds.add(order.id);
+        merged.push(order);
+      }
+    }
+  }
+  const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  return merged
+    .filter((o) => o.placedAt > weekAgo)
+    .sort((a, b) => b.placedAt - a.placedAt)
+    .slice(0, 10);
+}
 
 function useRecentOrders() {
   const [orders, setOrders] = useState<RecentOrder[]>([]);
@@ -18,76 +85,29 @@ function useRecentOrders() {
 
   useEffect(() => {
     setMounted(true);
-    
-    // Check if localStorage is available
-    if (typeof window === "undefined" || !window.localStorage) {
-      console.warn("[Track] localStorage not available");
-      return;
-    }
+    if (typeof window === "undefined") return;
 
+    const cookieOrders = parseCookieOrders();
+    const localOrders = parseLocalOrders();
+    const merged = mergeOrders(cookieOrders, localOrders);
+
+    // Back-fill localStorage so future visits without cookies still work
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      // Remove log
-      
-      if (!raw) {
-        // No logs
-        return;
-      }
-      
-      const parsed: unknown[] = JSON.parse(raw);
-      // Parsed
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+    } catch { /* best-effort */ }
 
-      const normalised: RecentOrder[] = parsed
-        .map((entry): RecentOrder | null => {
-          if (typeof entry === "string") {
-            return { id: entry, token: entry, placedAt: Date.now() };
-          }
-          if (entry && typeof entry === "object") {
-            const e = entry as Record<string, unknown>;
-            if (typeof e.id === "string") {
-              return {
-                id: e.id,
-                token: typeof e.token === "string" ? e.token : e.id,
-                placedAt: typeof e.placedAt === "number" ? e.placedAt : Date.now(),
-              };
-            }
-          }
-          return null;
-        })
-        .filter((e): e is RecentOrder => e !== null);
-
-      // Auto-expire after 7 days
-      const fresh = normalised.filter(
-        (o) => Date.now() - o.placedAt < 7 * 24 * 60 * 60 * 1000
-      );
-      if (fresh.length !== normalised.length) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(fresh));
-      }
-      // Loaded
-      setOrders(fresh);
-    } catch (error) {
-      console.error("[Track] Error reading orders:", error);
-      setOrders([]);
-    }
+    setOrders(merged);
   }, []);
 
   const remove = (id: string) => {
-    try {
-      const updated = orders.filter((o) => o.id !== id);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      setOrders(updated);
-    } catch (error) {
-      console.error("[Track] Error removing order:", error);
-    }
+    const updated = orders.filter((o) => o.id !== id);
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(updated)); } catch { /* best-effort */ }
+    setOrders(updated);
   };
 
   const clear = () => {
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-      setOrders([]);
-    } catch (error) {
-      console.error("[Track] Error clearing orders:", error);
-    }
+    try { localStorage.removeItem(STORAGE_KEY); } catch { /* best-effort */ }
+    setOrders([]);
   };
 
   return { orders, remove, clear, mounted };

@@ -32,13 +32,13 @@ export function KanbanColumn({ status, orders, role, onStatusChange }: KanbanCol
   return (
     <div className={cn(
       "flex flex-col shrink-0 h-full min-h-[calc(100vh-220px)] max-h-[300vh] bg-muted/20  overflow-hidden border border-border/50",
-      isKitchen ? "w-full flex-1" : "w-[380px]"
+      isKitchen ? "w-full flex-1" : "w-[440px]"
     )}>
-      <div className={cn("p-3.5 border-b font-semibold flex items-center justify-between shadow-sm", config.color)}>
-        <span className={cn(isKitchen ? "text-xl uppercase tracking-wider font-bold" : "text-sm")}>
+      <div className={cn("px-4 py-3 border-b font-semibold flex items-center justify-between shadow-sm", config.color)}>
+        <span className={cn(isKitchen ? "text-xl uppercase tracking-wider font-bold" : "text-sm font-bold")}>
           {config.label}
         </span>
-        <span className="bg-background/50 px-2 py-0.5 text-xs font-bold">
+        <span className="bg-background/50 px-2.5 py-0.5 text-sm font-bold">
           {orders.length}
         </span>
       </div>

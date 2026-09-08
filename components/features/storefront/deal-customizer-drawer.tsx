@@ -514,9 +514,7 @@ export function DealCard({ deal }: { deal: DealItem }) {
     });
 
     // Display summary for verification
-    const parts = dealSelectionsArray.map((sel, idx) => 
-      `Step ${idx + 1}: ${sel.name}`
-    );
+    const parts = dealSelectionsArray.map((sel) => sel.name);
     const summaryText = `[DEAL: ${deal.name}] - ${parts.join(", ")}`;
 
     addItemStore({

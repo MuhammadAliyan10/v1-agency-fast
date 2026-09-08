@@ -1212,13 +1212,22 @@ async function handleItemSelection(
         lang === "ur" ? "Order Karein" : "Order Now"
       );
     } catch {
-      // Image card failed (likely a non-public imageUrl in dev/staging).
-      // Fall back to a text message so the user never hits a dead-end.
-      await sendWhatsAppInteractiveButtons(
-        phone,
-        `*${dbItem.name}*\nRs. ${dbItem.basePrice}\n\n${lang === "ur" ? "Order karne ke liye tap karein:" : "Tap below to order:"}`,
-        [{ id: `view_item_${dbItem.id}`, title: lang === "ur" ? "Order Karein" : "Order Now" }]
-      );
+      // Image card failed — try interactive button fallback
+      try {
+        await sendWhatsAppInteractiveButtons(
+          phone,
+          `*${dbItem.name}*\nRs. ${dbItem.basePrice}\n\n${lang === "ur" ? "Order karne ke liye tap karein:" : "Tap below to order:"}`,
+          [{ id: `view_item_${dbItem.id}`, title: lang === "ur" ? "Order Karein" : "Order Now" }]
+        );
+      } catch {
+        // Final guaranteed fallback — plain text
+        await sendWhatsAppText(
+          phone,
+          `*${dbItem.name}*\nRs. ${dbItem.basePrice}\n\n${lang === "ur" ? `Order karne ke liye likhein: view_item_${dbItem.id}` : `Reply *1* to add to cart.`}`
+        );
+        // Directly proceed to add item so user isn't stuck
+        return addItemToCartAndProceed(phone, session, dbItem.id, null);
+      }
     }
     return updateSessionState(session.id, "item_selection", cart, td);
   }
@@ -1247,11 +1256,19 @@ async function handleItemSelection(
         await sendWhatsAppItemCard(phone, match.name, match.basePrice, imageUrl, match.id,
           lang === "ur" ? "Order Karein" : "Order Now");
       } catch {
-        await sendWhatsAppInteractiveButtons(
-          phone,
-          `*${match.name}*\nRs. ${match.basePrice}\n\n${lang === "ur" ? "Order karne ke liye tap karein:" : "Tap below to order:"}`,
-          [{ id: `view_item_${match.id}`, title: lang === "ur" ? "Order Karein" : "Order Now" }]
-        );
+        try {
+          await sendWhatsAppInteractiveButtons(
+            phone,
+            `*${match.name}*\nRs. ${match.basePrice}\n\n${lang === "ur" ? "Order karne ke liye tap karein:" : "Tap below to order:"}`,
+            [{ id: `view_item_${match.id}`, title: lang === "ur" ? "Order Karein" : "Order Now" }]
+          );
+        } catch {
+          await sendWhatsAppText(
+            phone,
+            `*${match.name}*\nRs. ${match.basePrice}\n\n${lang === "ur" ? "Reply karo order ke liye" : "Reply *1* to add to cart."}`
+          );
+          return addItemToCartAndProceed(phone, session, match.id, null);
+        }
       }
       return updateSessionState(session.id, "item_selection", cart, td);
     }

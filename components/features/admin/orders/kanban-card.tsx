@@ -311,8 +311,8 @@ export const KanbanCard = React.memo(function KanbanCard({
         {...attributes}
         {...listeners}
         className={cn(
-          "rounded-[4px] relative cursor-grab active:cursor-grabbing active:scale-105 overflow-hidden transition-all duration-300 p-3.5 sm:p-4 pb-8 sm:pb-8 receipt-bottom",
-          "drop-shadow-lg hover:drop-shadow-xl shadow-black/20 dark:shadow-black/40 border",
+          "rounded-[4px] relative cursor-grab active:cursor-grabbing active:scale-105 overflow-hidden transition-all duration-300 pb-10 receipt-bottom",
+          "drop-shadow-[0_3px_3px_rgba(0,0,0,0.1)] hover:drop-shadow-[0_5px_5px_rgba(0,0,0,0.15)] dark:drop-shadow-[0_3px_3px_rgba(0,0,0,0.3)] border",
           "text-stone-950 dark:text-stone-100",
           // Semantic background tinting per status
           order.status === "pending"          && "bg-amber-50/80 dark:bg-amber-950/20 border-amber-200/60 dark:border-amber-900/40",
@@ -805,150 +805,151 @@ export const KanbanCard = React.memo(function KanbanCard({
 
         {/* ── Card Face ── */}
         <div className="p-0">
-          <div className="flex justify-between items-start mb-3">
-            <div className="flex flex-col gap-2">
-              <span className={cn("font-black tracking-tight", isKitchen ? "text-3xl" : "text-2xl")}>#{order.id}</span>
-              <div className="flex flex-wrap items-center gap-1.5 shrink-0">
-                <Badge className={cn("text-[11px] uppercase font-black tracking-wider px-2.5 py-0.5 text-white hover:text-white border-0 shadow-sm whitespace-nowrap", getBgColor(borderColor))}>
-                  {order.status.replace(/_/g, " ")}
-                </Badge>
-                <Badge variant="outline" className={cn("text-[11px] uppercase font-black tracking-wider px-2.5 py-0.5 shadow-sm whitespace-nowrap", getOrderTypeColor(order.orderType))}>
-                  {order.orderType.replace(/_/g, " ")}
-                </Badge>
-                {isUpdated && (
-                  <Badge className="text-[11px] uppercase font-black tracking-wider px-2.5 py-0.5 bg-amber-500 hover:bg-amber-500 text-white border-0 shadow-sm whitespace-nowrap">
-                    ✏ RECALL · Updated
-                  </Badge>
-                )}
-                {order.status === "delayed" && (
-                  <Badge className="text-[11px] uppercase font-black tracking-wider px-2.5 py-0.5 bg-yellow-400 text-yellow-900 border-0 shadow-sm whitespace-nowrap">
-                    Delayed
-                  </Badge>
-                )}
-              </div>
-            </div>
-            <div className="flex items-center gap-1.5 self-start">
-              <div className="text-xs font-bold bg-muted/80 text-muted-foreground border border-black/5 dark:border-white/5 px-2 py-0.5 rounded whitespace-nowrap shadow-sm tracking-tight">
+
+          {/* Row 1: Order ID + Time */}
+          <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-dashed border-black/20 dark:border-white/20">
+            <span className={cn("font-black tracking-tight leading-none", isKitchen ? "text-3xl" : "text-xl")}>#{order.id}</span>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <div className="text-xs font-bold bg-muted/80 text-muted-foreground border border-black/5 dark:border-white/5 px-2 py-0.5 rounded whitespace-nowrap">
                 <LiveTime date={order.createdAt || new Date()} /> ago
               </div>
               {order.estimatedReadyAt && (
-                <div className={cn("text-xs font-bold px-2 py-0.5 rounded whitespace-nowrap shadow-sm border tracking-tight", new Date(order.estimatedReadyAt) < new Date() ? "bg-red-500/10 text-red-600 border-red-500/20" : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20")}>
+                <div className={cn("text-xs font-bold px-2 py-0.5 rounded whitespace-nowrap border", new Date(order.estimatedReadyAt) < new Date() ? "bg-red-500/10 text-red-600 border-red-500/20" : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20")}>
                   {new Date(order.estimatedReadyAt) < new Date() ? "Overdue" : format(new Date(order.estimatedReadyAt), "h:mm a")}
                 </div>
               )}
             </div>
           </div>
 
+          {/* Row 2: Status + Type — always on ONE line, no wrap */}
+          <div className="flex items-center gap-2 px-4 py-2.5 border-b border-black/5 dark:border-white/5">
+            <Badge className={cn("text-[11px] uppercase font-black tracking-widest px-2.5 py-0.5 text-white hover:text-white border-0 shrink-0", getBgColor(borderColor))}>
+              {order.status.replace(/_/g, " ")}
+            </Badge>
+            <Badge variant="outline" className={cn("text-[11px] uppercase font-black tracking-widest px-2.5 py-0.5 shrink-0", getOrderTypeColor(order.orderType))}>
+              {order.orderType.replace(/_/g, " ")}
+            </Badge>
+            {order.paymentStatus === "paid" ? (
+              <Badge className="text-[10px] uppercase font-black tracking-widest px-2 py-0.5 bg-emerald-500 hover:bg-emerald-500 text-white border-0 shrink-0">Paid</Badge>
+            ) : (
+              <Badge variant="outline" className="text-[10px] uppercase font-black tracking-widest px-2 py-0.5 text-red-600 border-red-500/30 bg-red-500/10 shrink-0">Unpaid</Badge>
+            )}
+            {isUpdated && (
+              <Badge className="text-[10px] uppercase font-black tracking-widest px-2 py-0.5 bg-amber-500 hover:bg-amber-500 text-white border-0 shrink-0">✏ Recall</Badge>
+            )}
+            {order.status === "delayed" && (
+              <Badge className="text-[10px] uppercase font-black tracking-widest px-2 py-0.5 bg-yellow-400 text-yellow-900 border-0 shrink-0">Delayed</Badge>
+            )}
+          </div>
+
           {/* Details block */}
           {!isKitchen && (
-            <div className="my-3 bg-muted/30 border border-black/5 dark:border-white/5 p-2.5 space-y-2">
+            <div className="px-4 py-3 space-y-2 border-b border-dashed border-black/20 dark:border-white/20">
               {isDineIn ? (
-                <div className="flex flex-col gap-1.5">
-                  <div className="text-[13px] font-bold text-purple-600 dark:text-purple-400 flex items-center gap-1.5 flex-wrap">
-                    <UtensilsCrossed className="h-3.5 w-3.5" />
-                    {order.tableNumber || "N/A"}
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-2 text-sm font-bold text-purple-600 dark:text-purple-400">
+                    <UtensilsCrossed className="h-4 w-4 shrink-0" />
+                    <span className="truncate">{order.tableNumber || "N/A"}</span>
                     {order.tableHallType === "family" && (
-                      <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 bg-amber-100 text-amber-700 border border-amber-300">
-                        Family Hall
-                      </span>
+                      <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 bg-amber-100 text-amber-700 border border-amber-300 shrink-0">Family</span>
                     )}
-                    <span className="text-muted-foreground font-normal mx-1">•</span>
-                    <span className="text-foreground">{order.waiterName || "Unassigned"}</span>
+                    <span className="text-muted-foreground font-normal">•</span>
+                    <span className="text-foreground font-semibold truncate">{order.waiterName || "Unassigned"}</span>
                   </div>
                   {(order.customerName && order.customerName !== "Walk-in Guest") && (
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
-                      <User className="h-3 w-3 text-primary/70 shrink-0" />
-                      <span className="capitalize line-clamp-1">{order.customerName}</span>
+                    <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                      <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      <span className="capitalize truncate">{order.customerName}</span>
                       {order.customerPhone && (
                         <>
-                          <span className="mx-0.5">•</span>
-                          <Phone className="h-3 w-3 text-primary/70 shrink-0" />
-                          <span className="tabular-nums tracking-tight">{formatPhone(order.customerPhone)}</span>
+                          <span className="text-muted-foreground">•</span>
+                          <span className="tabular-nums text-muted-foreground font-medium">{formatPhone(order.customerPhone)}</span>
                         </>
                       )}
                     </div>
                   )}
                 </div>
               ) : (
-                <div className="flex flex-col gap-1.5">
-                  <div className="flex items-center gap-1.5 text-[13px] font-bold">
-                    <User className="h-3.5 w-3.5 text-primary/70 shrink-0" />
-                    <span className="capitalize line-clamp-1">{order.customerName || "Walk-in Guest"}</span>
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-2 text-sm font-bold text-foreground">
+                    <User className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="capitalize truncate">{order.customerName || "Walk-in Guest"}</span>
                   </div>
                   {order.customerPhone && (
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
-                      <Phone className="h-3 w-3 text-primary/70 shrink-0" />
-                      <span className="tabular-nums tracking-tight">{formatPhone(order.customerPhone)}</span>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground font-medium">
+                      <Phone className="h-3.5 w-3.5 shrink-0" />
+                      <span className="tabular-nums">{formatPhone(order.customerPhone)}</span>
                     </div>
                   )}
                   {order.orderType === "delivery" && order.rider && (
-                    <div className="flex items-center gap-1.5 text-xs text-emerald-700 font-medium">
-                      <Bike className="h-3 w-3 shrink-0" />
-                      <span className="font-bold">{order.rider.name}</span>
+                    <div className="flex items-center gap-2 text-sm font-bold text-emerald-700 dark:text-emerald-400">
+                      <Bike className="h-3.5 w-3.5 shrink-0" />
+                      <span>{order.rider.name}</span>
                     </div>
                   )}
                   {order.orderType === "delivery" && !order.rider && (
-                    <div className="flex items-center gap-1 text-[10px] text-amber-700 font-bold">
-                      <AlertCircle className="h-3 w-3 shrink-0" /> No rider assigned
+                    <div className="flex items-center gap-2 text-sm font-bold text-amber-700">
+                      <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                      <span>No rider assigned</span>
                     </div>
                   )}
-                </div>
-              )}
-              {order.orderType === "delivery" && order.deliveryAddress && (
-                <div className="flex items-start gap-1.5 text-xs text-muted-foreground font-medium pt-0.5">
-                  <MapPin className="h-3 w-3 mt-0.5 text-primary/70 shrink-0" />
-                  {order.latitude && order.longitude ? (
-                    <a href={`https://www.google.com/maps?q=${order.latitude},${order.longitude}`} target="_blank" rel="noopener noreferrer" className="line-clamp-2 leading-relaxed hover:underline text-blue-600 dark:text-blue-400" onClick={(e) => e.stopPropagation()}>
-                      {order.deliveryAddress}
-                    </a>
-                  ) : (
-                    <span className="line-clamp-2 leading-relaxed">{order.deliveryAddress}</span>
+                  {order.orderType === "delivery" && order.deliveryAddress && (
+                    <div className="flex items-start gap-2 text-sm text-muted-foreground font-medium pt-2 border-t border-dashed border-black/20 dark:border-white/20">
+                      <MapPin className="h-4 w-4 mt-0.5 text-primary/60 shrink-0" />
+                      {order.latitude && order.longitude ? (
+                        <a href={`https://www.google.com/maps?q=${order.latitude},${order.longitude}`} target="_blank" rel="noopener noreferrer" className="leading-relaxed hover:underline text-blue-600 dark:text-blue-400 line-clamp-2" onClick={(e) => e.stopPropagation()}>
+                          {order.deliveryAddress}
+                        </a>
+                      ) : (
+                        <span className="leading-relaxed line-clamp-2">{order.deliveryAddress}</span>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
               {order.source === "whatsapp" && (
-                <div className="flex items-center gap-1.5 text-[10px] uppercase font-bold tracking-wider text-green-700 bg-green-500/10 w-fit px-1.5 py-0.5 rounded mt-1">
-                  <MessageCircle className="h-3 w-3" /> Ordered via WhatsApp
+                <div className="flex items-center gap-1.5 text-[10px] uppercase font-black tracking-wider text-green-700 bg-green-500/10 w-fit px-2 py-1 rounded">
+                  <MessageCircle className="h-3 w-3" /> WhatsApp Order
                 </div>
               )}
             </div>
           )}
 
           {isKitchen && isDineIn && (
-            <div className="text-sm font-semibold text-purple-600 dark:text-purple-400 mt-2 mb-3 flex items-center gap-1">
+            <div className="px-4 py-2.5 text-sm font-semibold text-purple-600 dark:text-purple-400 flex items-center gap-1.5 border-b border-dashed border-black/20 dark:border-white/20">
               <UtensilsCrossed className="h-3.5 w-3.5" />
               {order.tableNumber || "N/A"} • {order.waiterName || "Unassigned"}
             </div>
           )}
 
           {/* Items */}
-          <div className="space-y-2 mt-2 border-t border-dashed pt-3">
+          <div className="px-4 pt-3 pb-1 space-y-3">
             {Object.entries(rounds).map(([roundNum, roundItems]) => (
-              <div key={roundNum} className="space-y-1.5">
+              <div key={roundNum} className="space-y-2.5">
                 {Object.keys(rounds).length > 1 && (
-                  <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-1 flex items-center gap-1.5">
+                  <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest flex items-center gap-1.5 mb-1">
                     <span>Round {roundNum}</span>
-                    {Number(roundNum) > 1 && <span className="bg-amber-100 text-amber-700 text-[9px] font-black px-1.5 py-0.5 uppercase tracking-wider">Added</span>}
+                    {Number(roundNum) > 1 && <span className="bg-amber-100 text-amber-700 text-[9px] font-black px-1.5 py-0.5 uppercase">Added</span>}
                   </div>
                 )}
                 {roundItems.map((item) => {
                   const addOns = Array.isArray(item.selectedAddOns) ? (item.selectedAddOns as { name: string }[]) : [];
                   return (
-                    <div key={item.id} className={cn("flex justify-between items-start", item.status === "served" && isKitchen ? "opacity-30 line-through" : "")}>
-                      <div className="flex gap-2">
-                        <span className={cn("font-black shrink-0", isKitchen ? "text-2xl text-primary" : "text-base text-primary")}>{item.quantity}×</span>
-                        <div className="flex flex-col">
-                          <span className={cn("font-bold leading-tight", isKitchen ? "text-xl" : "text-[15px]")}>
+                    <div key={item.id} className={cn("flex justify-between items-start gap-3", item.status === "served" && isKitchen ? "opacity-30 line-through" : "")}>
+                      <div className="flex gap-2.5 min-w-0 flex-1">
+                        <span className={cn("font-black shrink-0 leading-tight", isKitchen ? "text-2xl text-primary" : "text-base text-primary")}>{item.quantity}×</span>
+                        <div className="flex flex-col min-w-0">
+                          <span className={cn("font-bold leading-snug", isKitchen ? "text-xl" : "text-[17px]")}>
                             {item.itemName.replace(/^\[DEAL\]\s*/, "")}
-                            {item.variantName && item.variantName !== "Combo Deal" && <span className="font-normal text-muted-foreground ml-1">({item.variantName})</span>}
+                            {item.variantName && item.variantName !== "Combo Deal" && <span className="font-normal text-muted-foreground ml-1 text-[15px]">({item.variantName})</span>}
                           </span>
-                          {addOns.length > 0 && <span className={cn("text-muted-foreground font-medium mt-0.5", isKitchen ? "text-base" : "text-xs")}>+ {addOns.map((a) => String(a.name || "")).join(", ")}</span>}
+                          {addOns.length > 0 && <span className={cn("text-muted-foreground font-medium mt-0.5", isKitchen ? "text-base" : "text-sm")}>+ {addOns.map((a) => String(a.name || "")).join(", ")}</span>}
                           {item.specialInstructions && !item.specialInstructions.startsWith("[DEAL:") && (
-                            <span className={cn("text-red-500 font-bold mt-0.5", isKitchen ? "text-base" : "text-xs")}>*** {item.specialInstructions}</span>
+                            <span className={cn("text-red-500 font-bold mt-0.5", isKitchen ? "text-base" : "text-sm")}>*** {item.specialInstructions}</span>
                           )}
                         </div>
                       </div>
-                      {!isKitchen && <span className="text-base font-black text-muted-foreground whitespace-nowrap ml-2">Rs. {String(item.subtotal)}</span>}
+                      {!isKitchen && <span className="text-[15px] font-black text-foreground whitespace-nowrap shrink-0">Rs. {String(item.subtotal)}</span>}
                     </div>
                   );
                 })}
@@ -958,18 +959,25 @@ export const KanbanCard = React.memo(function KanbanCard({
 
           {/* Card footer */}
           {!isKitchen && (
-            <div className="mt-3 pt-3 border-t border-dashed flex flex-col gap-1.5">
+            <div className="px-4 pb-5 pt-3 border-t-2 border-dashed border-black/20 dark:border-white/20 space-y-1.5">
               {(order.deliveryFee ?? 0) > 0 && (
-                <div className="flex justify-between items-center text-xs text-muted-foreground font-medium">
-                  <span>Delivery</span><span>Rs. {order.deliveryFee.toLocaleString()}</span>
+                <div className="flex justify-between items-center text-sm text-muted-foreground">
+                  <span className="font-medium">Delivery</span>
+                  <span className="font-semibold">Rs. {order.deliveryFee.toLocaleString()}</span>
                 </div>
               )}
-              <div className="flex justify-between items-center font-bold">
-                <span className="text-base font-bold">Total</span>
-                <span className="font-black text-xl text-primary">Rs. {order.totalAmount.toLocaleString()}</span>
+              {(order.discountAmount ?? 0) > 0 && (
+                <div className="flex justify-between items-center text-sm text-emerald-600 dark:text-emerald-400">
+                  <span className="font-medium">Discount</span>
+                  <span className="font-semibold">− Rs. {order.discountAmount?.toLocaleString()}</span>
+                </div>
+              )}
+              <div className="flex justify-between items-center pt-1">
+                <span className="text-base font-bold text-foreground">Total</span>
+                <span className="text-2xl font-black text-primary">Rs. {order.totalAmount.toLocaleString()}</span>
               </div>
               {isDineIn && (
-                <div className="flex gap-2 mt-1">
+                <div className="flex gap-2 pt-2">
                   <div onClick={(e) => e.stopPropagation()} className="w-full">
                     <ManualOrderDialog existingOrder={order}>
                       <Button variant="outline" size="sm" className="w-full text-xs h-8">
@@ -984,6 +992,9 @@ export const KanbanCard = React.memo(function KanbanCard({
               )}
             </div>
           )}
+
+          {/* Dark shadow at card bottom for depth/separation */}
+          <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-black/25 dark:from-black/50 to-transparent" />
         </div>
       </div>
 

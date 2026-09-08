@@ -77,7 +77,7 @@ function parseDealSlots(specialInstructions: string | undefined): string[] {
   if (!withoutPrefix) return [];
   return withoutPrefix
     .split(",")
-    .map((s) => s.trim())
+    .map((s) => s.trim().replace(/^Step \d+:\s*/, ""))
     .filter(Boolean);
 }
 

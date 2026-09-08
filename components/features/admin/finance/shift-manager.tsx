@@ -136,13 +136,14 @@ export function ShiftManager() {
     <>
       <Button 
         variant={shiftData ? "outline" : "default"} 
-        className={shiftData ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20" : ""}
+        size="sm"
+        className={`gap-1.5 h-9 ${shiftData ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20" : ""}`}
         onClick={() => setIsOpen(true)}
       >
         {shiftData ? (
-          <><Unlock className="w-4 h-4 mr-2" /> Shift Open</>
+          <><Unlock className="h-4 w-4" /> Shift Open</>
         ) : (
-          <><Lock className="w-4 h-4 mr-2" /> Open Shift</>
+          <><Lock className="h-4 w-4" /> Open Shift</>
         )}
       </Button>
 

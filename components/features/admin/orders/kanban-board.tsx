@@ -128,8 +128,11 @@ export function LiveOrdersBoard({ role }: LiveOrdersBoardProps) {
 
   // Optimistic UI mutation
   const updateStatusMutation = useMutation({
-    mutationFn: ({ id, currentVersion, status, etaMinutes }: { id: string; currentVersion: number; status: OrderStatus; etaMinutes?: number }) =>
-      updateLiveOrderStatus(id, currentVersion, status, etaMinutes),
+    mutationFn: async ({ id, currentVersion, status, etaMinutes }: { id: string; currentVersion: number; status: OrderStatus; etaMinutes?: number }) => {
+      const res = await updateLiveOrderStatus(id, currentVersion, status, etaMinutes);
+      if (!res.success) throw new Error(res.message || "Failed to update status");
+      return res;
+    },
     onMutate: async (newOrder) => {
       await queryClient.cancelQueries({ queryKey: ["live-orders"] });
       const previous = queryClient.getQueryData(["live-orders"]);
@@ -147,12 +150,17 @@ export function LiveOrdersBoard({ role }: LiveOrdersBoardProps) {
     },
     onError: (err: any, newOrder, context) => {
       queryClient.setQueryData(["live-orders"], context?.previous);
-      if (err.message && err.message.includes("CONCURRENCY_CONFLICT")) {
+      
+      const errorMessage = err.message || "";
+      
+      if (errorMessage.includes("CONCURRENCY_CONFLICT")) {
         toast.error("Order was modified by someone else. Refreshing...");
-      } else if (err.message && err.message.includes("INVALID_STATE_TRANSITION")) {
-        toast.error(err.message);
+      } else if (errorMessage.includes("INVALID_STATE_TRANSITION")) {
+        toast.error(errorMessage.replace("Error: ", ""));
+      } else if (errorMessage.includes("RIDER_REQUIRED")) {
+        toast.error(errorMessage.split("RIDER_REQUIRED:")[1]?.trim() || "Assign a rider before dispatching this delivery order.");
       } else {
-        toast.error("Failed to update status");
+        toast.error(errorMessage || "Failed to update status");
       }
       queryClient.invalidateQueries({ queryKey: ["live-orders"] });
     },

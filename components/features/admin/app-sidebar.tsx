@@ -217,7 +217,7 @@ export function AppSidebar({ session }: { session: SessionPayload | null }) {
                   className="text-destructive focus:text-destructive cursor-pointer"
                   onClick={async () => {
                     await logoutAdmin();
-                    window.location.href = "/login";
+                    window.location.href = "/admin/login";
                   }}
                 >
                   <LogOut className="mr-2 h-4 w-4" />

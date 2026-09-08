@@ -27,8 +27,11 @@ export function CategoryBento({ categories }: CategoryBentoProps) {
     if (name.includes("fries") || name.includes("side")) return "https://images.unsplash.com/photo-1576107232684-1279f390859f?w=800&h=800&fit=crop&q=80";
     if (name.includes("wrap") || name.includes("shawarma") || name.includes("roll")) return "https://images.unsplash.com/photo-1626700051175-6818013e1d4f?w=800&h=800&fit=crop&q=80";
     
-    // Default fallback
-    return "https://images.unsplash.com/photo-1550547660-d9450f859349?w=800&h=800&fit=crop&q=80";
+    if (name.includes("pasta") || name.includes("spaghetti") || name.includes("macaroni")) return "https://images.unsplash.com/photo-1473093295043-cdd812d0e601?w=800&h=800&fit=crop&q=80";
+    if (name.includes("sandwich") || name.includes("club")) return "https://images.unsplash.com/photo-1528735602780-2552fd46c7af?w=800&h=800&fit=crop&q=80";
+    
+    // Default fallback (Mixed food / general aesthetic)
+    return "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=800&h=800&fit=crop&q=80";
   };
 
   return (

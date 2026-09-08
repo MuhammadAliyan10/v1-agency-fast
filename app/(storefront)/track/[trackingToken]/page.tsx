@@ -250,13 +250,13 @@ export default function TrackingPage({ params }: { params: Promise<{ trackingTok
 
   return (
     <div 
-      className="min-h-screen bg-white pb-16 font-sans text-sm"
+      className="min-h-screen bg-white pb-32 md:pb-16 font-sans text-sm"
       style={{ '--font-heading': 'var(--font-inter)', '--font-sans': 'var(--font-figtree)' } as React.CSSProperties}
     >
       {/* Premium subtle top border */}
       <div className="h-1 w-full bg-gradient-to-r from-primary/20 via-primary to-primary/20" />
       
-      <div className="w-full max-w-[85rem] mx-auto px-4 md:px-6 xl:px-8 pt-6 md:pt-8">
+      <div className="w-full max-w-[85rem] mx-auto px-4 md:px-6 xl:px-8 pt-6 pb-48 md:pt-8 md:pb-16">
         
         {/* Back Link */}
         <button 
