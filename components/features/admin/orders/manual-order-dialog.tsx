@@ -716,7 +716,7 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
               type="button"
               variant="ghost"
               size="sm"
-              className="text-muted-foreground hover:text-destructive gap-1.5 shrink-0"
+              className="text-muted-foreground hover:text-destructive gap-1.5 shrink-0 mr-8"
               onClick={() => {
                 form.reset();
                 setCashTendered("");
