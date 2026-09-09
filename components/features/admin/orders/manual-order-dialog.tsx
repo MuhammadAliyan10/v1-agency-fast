@@ -197,7 +197,7 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
 
   const [pendingTableId, setPendingTableId] = useState<string | null>(null);
   const [splitCheckModalOpen, setSplitCheckModalOpen] = useState(false);
-  const [discountType, setDiscountType] = useState<"flat" | "percent">("flat");
+  const [discountType, setDiscountType] = useState<"flat" | "percent">("percent");
   /** IDs of existing order_items the user wants to remove. */
   const [itemsToRemove, setItemsToRemove] = useState<Set<string>>(new Set());
   
@@ -325,7 +325,7 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
 
   const items = form.watch("items");
   const subtotal = items.reduce((acc, item) => acc + (item.totalPrice || 0), 0);
-  const calculatedDiscount = discountType === "percent" ? (subtotal * Math.min(discountAmount || 0, 100)) / 100 : (discountAmount || 0);
+  const calculatedDiscount = discountType === "percent" ? Math.round((subtotal * Math.min(discountAmount || 0, 100)) / 100) : Math.round(discountAmount || 0);
   const appliedDeliveryFee = orderType === "delivery" ? deliveryFee : 0;
   const grandTotal = Math.max(0, subtotal + appliedDeliveryFee - calculatedDiscount);
 

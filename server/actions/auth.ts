@@ -57,7 +57,7 @@ export async function loginStaff(
           maxDiscountPercentage: perms.maxDiscountPercentage,
         };
       } else {
-        permissions = ADMIN_PERMS;
+        permissions = { ...DEFAULT_RBAC_MATRIX, maxDiscountPercentage: 0 };
       }
     }
 

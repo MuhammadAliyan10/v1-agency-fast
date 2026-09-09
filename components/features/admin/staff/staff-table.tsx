@@ -201,7 +201,7 @@ export function StaffTable({ data, isAdmin }: { data: StaffMember[]; isAdmin: bo
                 {/* Edit action (admin only) */}
                 {isAdmin && (
                   <TableCell className="text-right">
-                    <StaffDialog staff={staff}>
+                    <StaffDialog staff={staff} isAdmin={isAdmin}>
                       <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Edit ${staff.name}`}>
                         <Edit2 className="w-3.5 h-3.5" />
                       </Button>

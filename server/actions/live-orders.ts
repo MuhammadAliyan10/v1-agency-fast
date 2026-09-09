@@ -572,13 +572,13 @@ export async function createManualOrder(payload: z.infer<typeof manualOrderSchem
     // Check manual discount limit for managers (now that subtotal is calculated)
     if (session.role === "manager" && validated.discountAmount > 0) {
       const maxDiscountPct = session.permissions.maxDiscountPercentage || 0;
-      const calcMaxDiscount = (subtotal * maxDiscountPct) / 100;
+      const calcMaxDiscount = Math.round((subtotal * maxDiscountPct) / 100);
       if (validated.discountAmount > calcMaxDiscount) {
-        throw new Error(`UNAUTHORIZED: Your discount limit is ${maxDiscountPct}%. Maximum allowed discount for this order is Rs. ${Math.floor(calcMaxDiscount)}.`);
+        throw new Error(`UNAUTHORIZED: Your discount limit is ${maxDiscountPct}%. Maximum allowed discount for this order is Rs. ${calcMaxDiscount}.`);
       }
     }
 
-    const totalAmount = Math.max(0, subtotal + validated.deliveryFee - validated.discountAmount);
+    const totalAmount = Math.round(Math.max(0, subtotal + validated.deliveryFee - Math.round(validated.discountAmount)));
     
     // Handle Customer
     let customerId = null;

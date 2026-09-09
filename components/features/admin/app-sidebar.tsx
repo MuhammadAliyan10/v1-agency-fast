@@ -98,7 +98,20 @@ export function AppSidebar({ session }: { session: SessionPayload | null }) {
             if (!session) return false;
             if (session.role === "admin") return true;
             if ((item as any).permission) {
-              return session.permissions[(item as any).permission as keyof SessionPayload["permissions"]];
+              const permKey = (item as any).permission as string;
+              if (permKey === "adminOnly") return false;
+
+              // Map legacy permission strings to the new RBAC domain reads
+              const pMap: Record<string, boolean> = {
+                canViewFinance: session.permissions.finance.read,
+                canManageMenu: session.permissions.menu.read,
+                canManageCoupons: session.permissions.coupons.read,
+                canViewInventory: session.permissions.inventory.read,
+                canBroadcastWhatsapp: session.permissions.whatsapp.read,
+                canManageStaff: session.permissions.staff.read,
+              };
+              
+              return !!pMap[permKey];
             }
             return true;
           });

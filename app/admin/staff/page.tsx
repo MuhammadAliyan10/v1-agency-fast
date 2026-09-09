@@ -40,14 +40,14 @@ export default async function AdminStaffPage() {
         </div>
 
         {isAdmin ? (
-          <StaffDialog>
+          <StaffDialog isAdmin={isAdmin}>
             <Button className="gap-2 shrink-0">
               <Plus className="w-4 h-4" />
               Add Staff Member
             </Button>
           </StaffDialog>
         ) : canCreate ? (
-          <StaffDialog>
+          <StaffDialog isAdmin={isAdmin}>
             <Button variant="outline" className="gap-2 shrink-0">
               <Plus className="w-4 h-4" />
               Add Staff

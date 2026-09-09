@@ -13,6 +13,7 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from "@/components/ui/form";
@@ -134,9 +135,11 @@ const PRESETS: { label: string; matrix: RBACMatrix }[] = [
 export function StaffDialog({
   children,
   staff,
+  isAdmin = false,
 }: {
   children: React.ReactNode;
   staff?: StaffMember;
+  isAdmin?: boolean;
 }) {
   const router = useRouter();
   const [isOpen, setIsOpen]               = useState(false);
@@ -333,11 +336,13 @@ export function StaffDialog({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="admin">
-                          <span className="flex items-center gap-1.5 text-rose-600 font-bold">
-                            <ShieldAlert className="w-3.5 h-3.5" /> Admin (Full Access)
-                          </span>
-                        </SelectItem>
+                        {isAdmin && (
+                          <SelectItem value="admin">
+                            <span className="flex items-center gap-1.5 text-rose-600 font-bold">
+                              <ShieldAlert className="w-3.5 h-3.5" /> Admin (Full Access)
+                            </span>
+                          </SelectItem>
+                        )}
                         <SelectItem value="manager">
                           <span className="flex items-center gap-1.5 text-purple-600 font-bold">
                             <ShieldCheck className="w-3.5 h-3.5" /> Manager (Custom)
@@ -407,27 +412,38 @@ export function StaffDialog({
 
                   {showPerms && (
                     <div className="border-t px-4 py-4 space-y-4">
-                      {/* Quick presets */}
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Quick Presets:</span>
-                        {PRESETS.map(p => (
-                          <button
-                            key={p.label}
-                            type="button"
-                            onClick={() => applyPreset(p)}
-                            className="text-[10px] font-bold px-2 py-1 border border-primary/30 bg-primary/5 hover:bg-primary/15 text-primary transition-colors"
-                          >
-                            {p.label}
-                          </button>
-                        ))}
-                        <button
-                          type="button"
-                          onClick={() => form.setValue("permissions", DEFAULT_RBAC_MATRIX, { shouldDirty: true })}
-                          className="text-[10px] font-bold px-2 py-1 border border-rose-300 bg-rose-50 hover:bg-rose-100 text-rose-600 transition-colors"
-                        >
-                          Clear All
-                        </button>
-                      </div>
+                      {!isAdmin ? (
+                        <Alert className="rounded-none bg-amber-50 border-amber-200 text-amber-900">
+                          <AlertTitle className="font-bold flex items-center gap-2">
+                            <ShieldAlert className="w-4 h-4" /> Restricted Access
+                          </AlertTitle>
+                          <AlertDescription className="text-xs">
+                            As a manager, you cannot assign specific granular permissions. This user will be created with restricted access until an Admin configures their account.
+                          </AlertDescription>
+                        </Alert>
+                      ) : (
+                        <>
+                          {/* Quick presets */}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Quick Presets:</span>
+                            {PRESETS.map(p => (
+                              <button
+                                key={p.label}
+                                type="button"
+                                onClick={() => applyPreset(p)}
+                                className="text-[10px] font-bold px-2 py-1 border border-primary/30 bg-primary/5 hover:bg-primary/15 text-primary transition-colors"
+                              >
+                                {p.label}
+                              </button>
+                            ))}
+                            <button
+                              type="button"
+                              onClick={() => form.setValue("permissions", DEFAULT_RBAC_MATRIX, { shouldDirty: true })}
+                              className="text-[10px] font-bold px-2 py-1 border border-rose-300 bg-rose-50 hover:bg-rose-100 text-rose-600 transition-colors"
+                            >
+                              Clear All
+                            </button>
+                          </div>
 
                       {/* Permission grid */}
                       <div className="overflow-x-auto">
@@ -520,10 +536,12 @@ export function StaffDialog({
                           Set to 0 to disable discounts entirely.
                         </p>
                       </div>
-                    </div>
+                    </>
                   )}
                 </div>
               )}
+            </div>
+          )}
             </form>
           </Form>
         </div>
