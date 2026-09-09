@@ -17,12 +17,15 @@ export type KitchenOrderItem = {
   status: string;
   specialInstructions: string | null;
   selectedAddOns: unknown | null;
+  roundNumber: number | null;
 };
 
 export type KitchenOrder = {
   id: string;
   orderType: string;
   tableNumber: string | null;
+  tableZone: string | null;
+  rounds: unknown | null;
   customerName: string;
   createdAt: Date | null;
   status: string;
@@ -41,26 +44,37 @@ export async function getKitchenOrders(): Promise<
     const activeOrders = await db.query.orders.findMany({
       where: inArray(orders.status, ["approved", "preparing"]),
       orderBy: [asc(orders.createdAt)],
-      with: { items: true },
+      with: { items: true, table: true },
     });
 
-    const data: KitchenOrder[] = activeOrders.map((o) => ({
-      id: o.id,
-      orderType: o.orderType,
-      tableNumber: o.tableNumber,
-      customerName: o.customerName,
-      createdAt: o.createdAt,
-      status: o.status,
-      items: o.items.map((i) => ({
-        id: i.id,
-        itemName: i.itemName,
-        variantName: i.variantName,
-        quantity: i.quantity,
-        status: i.status,
-        specialInstructions: i.specialInstructions,
-        selectedAddOns: i.selectedAddOns,
-      })),
-    }));
+    const data: KitchenOrder[] = activeOrders.map((o) => {
+      const roundsObj = o.items.reduce((acc, item) => {
+        const r = item.roundNumber || 1;
+        acc[r] = true;
+        return acc;
+      }, {} as Record<number, boolean>);
+
+      return {
+        id: o.id,
+        orderType: o.orderType,
+        tableNumber: o.tableNumber,
+        tableZone: o.table?.tableZone || null,
+        rounds: roundsObj,
+        customerName: o.customerName,
+        createdAt: o.createdAt,
+        status: o.status,
+        items: o.items.map((i) => ({
+          id: i.id,
+          itemName: i.itemName,
+          variantName: i.variantName,
+          quantity: i.quantity,
+          status: i.status,
+          specialInstructions: i.specialInstructions,
+          selectedAddOns: i.selectedAddOns,
+          roundNumber: i.roundNumber,
+        })),
+      };
+    });
 
     return { success: true, data };
   } catch (error) {

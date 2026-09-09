@@ -1169,48 +1169,66 @@ export const KanbanCard = React.memo(function KanbanCard({
           <div style={{ borderBottom: "1px dashed #000", margin: "8px 0" }} />
           
           {/* Order type */}
-          <div style={{ fontSize: "16px", fontWeight: "700", textTransform: "capitalize" }}>
+          <div style={{ fontSize: "16px", fontWeight: "bold", textTransform: "uppercase", marginBottom: "4px" }}>
             {order.orderType.replace("_", " ")}
           </div>
           
           {/* Table Number (if Dine In) */}
           {order.orderType === "dine_in" && (
-            <div style={{ fontSize: "20px", fontWeight: "900", margin: "4px 0" }}>
+            <div style={{ fontSize: "18px", fontWeight: "900", marginBottom: "8px" }}>
               {order.tableNumber ? (/^table/i.test(order.tableNumber) ? order.tableNumber : `Table ${order.tableNumber}`) : "Table N/A"}
-              {order.tableZone === "family" ? " (Family Hall)" : order.tableZone === "outdoor" ? " (OutDoor)" : ""}
+              {order.tableZone === "family" ? " (Family Hall)" : order.tableZone === "outdoor" ? " (Outdoor)" : ""}
             </div>
           )}
           
-          {/* Order number + recall */}
-          <div style={{ marginTop: "4px", marginBottom: "8px" }}>
-            <span style={{ fontSize: "22px", fontWeight: "900" }}>{order.id.split("-").pop()}</span>
-            {isUpdated && <span style={{ fontSize: "18px", fontWeight: "800", marginLeft: "8px" }}>(Recall)</span>}
+          {/* Order number + recall + Date block */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px dashed #000", borderBottom: "1px dashed #000", padding: "6px 0", marginBottom: "8px" }}>
+            <div style={{ textAlign: "left" }}>
+              <div style={{ fontSize: "20px", fontWeight: "900" }}>#{order.id.split("-").pop()}</div>
+              {isUpdated && <div style={{ fontSize: "14px", fontWeight: "bold", marginTop: "2px" }}>(Recall)</div>}
+            </div>
+            <div style={{ fontSize: "13px", textAlign: "right", fontWeight: "600", lineHeight: "1.4" }}>
+              {format(order.createdAt || new Date(), "dd/MM/yyyy")}
+              <br />
+              {format(order.createdAt || new Date(), "hh:mm a")}
+            </div>
           </div>
         </div>
         
-        {/* Customer & Date */}
-        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", marginBottom: "8px" }}>
-          <div style={{ flex: 1, paddingRight: "8px" }}>
-            {order.orderType === "delivery" ? (
-              <>
-                <div style={{ fontWeight: "900", fontSize: "16px" }}>{order.customerName || "Customer"}</div>
-                {order.customerPhone && <div style={{ fontWeight: "900", fontSize: "16px" }}>{formatPhone(order.customerPhone)}</div>}
-                {order.deliveryAddress && <div style={{ fontWeight: "900", fontSize: "16px", marginTop: "2px" }}>{order.deliveryAddress}</div>}
-              </>
-            ) : order.orderType === "dine_in" ? (
-              <>
-                <div style={{ fontSize: "14px", fontWeight: "700" }}>Waiter: {order.waiterName || "—"}</div>
-              </>
-            ) : (
-              <>
-                <div style={{ fontWeight: "800", fontSize: "14px" }}>{order.customerName || "Customer"}</div>
-                {order.customerPhone && <div style={{ fontWeight: "800", fontSize: "14px" }}>{formatPhone(order.customerPhone)}</div>}
-              </>
-            )}
-          </div>
-          <div style={{ textAlign: "right", whiteSpace: "nowrap" }}>
-            {format(order.createdAt || new Date(), "dd/MM/yyyy hh:mm a")}
-          </div>
+        {/* Customer Info */}
+        <div style={{ fontSize: "13px", marginBottom: "8px", textTransform: "capitalize", width: "100%" }}>
+          {order.orderType === "delivery" ? (
+            <>
+              <div style={{ fontWeight: "900", fontSize: "16px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                {order.customerName || "Customer"}
+              </div>
+              {order.customerPhone && (
+                <div style={{ fontWeight: "900", fontSize: "16px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {formatPhone(order.customerPhone)}
+                </div>
+              )}
+              {order.deliveryAddress && (
+                <div style={{ fontWeight: "900", fontSize: "16px", marginTop: "2px", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                  {order.deliveryAddress}
+                </div>
+              )}
+            </>
+          ) : order.orderType === "dine_in" ? (
+            <>
+              <div style={{ fontSize: "14px", fontWeight: "700" }}>Waiter: {order.waiterName || "—"}</div>
+            </>
+          ) : (
+            <>
+              <div style={{ fontWeight: "800", fontSize: "14px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                {order.customerName || "Customer"}
+              </div>
+              {order.customerPhone && (
+                <div style={{ fontWeight: "800", fontSize: "14px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {formatPhone(order.customerPhone)}
+                </div>
+              )}
+            </>
+          )}
         </div>
 
         {/* TABLE HEADER */}
@@ -1306,87 +1324,116 @@ export const KanbanCard = React.memo(function KanbanCard({
       {/* ── Hidden Kitchen Slip Template ── */}
       {isPrintingKitchenSlip && (
         <div id={`kitchen-slip-${order.id}`} style={{ display: "none" }}>
-        <div style={{ width: "100%", padding: "10px", color: "#000", backgroundColor: "#fff", fontFamily: "sans-serif" }}>
-          
-          {/* Header - Just Order Number & Type */}
-          <div style={{ textAlign: "center", marginBottom: "16px" }}>
-            <div style={{ fontSize: "46px", fontWeight: "900", letterSpacing: "1px", borderBottom: "4px solid #000", paddingBottom: "12px", marginBottom: "12px" }}>
-              #{order.id.split("-").pop()}
-            </div>
+          <div style={{ width: "80mm", margin: "0", padding: "8px", color: "#000", backgroundColor: "#fff", fontFamily: "sans-serif", fontSize: "14px", lineHeight: "1.2" }}>
             
-            <div style={{ fontSize: "24px", fontWeight: "800", display: "flex", justifyContent: "center", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-              <span>{order.orderType.replace("_", " ").toUpperCase()}</span>
-              {isDineIn && (
-                <span>- {order.tableNumber ? (/^table/i.test(order.tableNumber) ? order.tableNumber.toUpperCase() : `TABLE ${order.tableNumber}`) : "TABLE N/A"}{order.tableZone === 'family' ? " (FAMILY HALL)" : order.tableZone === 'outdoor' ? " (OUTDOOR)" : ""}</span>
-              )}
-              {isUpdated && (
-                <span style={{ backgroundColor: "#000", color: "#fff", padding: "2px 8px", borderRadius: "4px", fontSize: "18px" }}>RECALL</span>
-              )}
+            <div style={{ textAlign: "center", fontWeight: "900", fontSize: "24px", textTransform: "uppercase", letterSpacing: "2px", marginBottom: "16px" }}>
+              KOT
             </div>
-            
-            <div style={{ fontSize: "16px", fontWeight: "700", marginTop: "8px" }}>
-              {order.createdAt ? new Date(order.createdAt).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: true }) : "N/A"}
-            </div>
-          </div>
-          
-          {/* Items */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "24px", marginTop: "24px" }}>
-            {order.items.map((item, idx) => {
-              const isDeal = item.itemName.includes("[DEAL]");
-              const dealName = isDeal ? item.itemName.replace(/^\[DEAL\]\s*/, "") : null;
-              let dealSelections: any = null;
-              if (isDeal && item.dealSelections) {
-                try { dealSelections = typeof item.dealSelections === "string" ? JSON.parse(item.dealSelections) : item.dealSelections; } catch(e){}
-              }
-              let addOns: any = [];
-              if (item.selectedAddOns) {
-                 try { addOns = Array.isArray(item.selectedAddOns) ? item.selectedAddOns : (typeof item.selectedAddOns === 'string' ? JSON.parse(item.selectedAddOns) : []); } catch(e) {}
-              }
 
-              return (
-                <div key={idx} style={{ display: "flex", flexDirection: "column" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "16px" }}>
-                    {/* Left: Quantity */}
-                    <div style={{ fontSize: "28px", fontWeight: "900", minWidth: "45px" }}>{item.quantity}x</div>
-                    
-                    {/* Right: Item Name & Details */}
-                    <div style={{ flex: 1, textAlign: "right" }}>
-                      <div style={{ fontSize: "26px", fontWeight: "900", lineHeight: "1.2" }}>
-                        {isDeal ? dealName : item.itemName}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "4px", fontSize: "13px" }}>
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                <span style={{ fontWeight: "bold", fontSize: "16px" }}>#{order.id.toUpperCase()}</span>
+              </div>
+              <span>{order.createdAt ? new Date(order.createdAt).toLocaleString("en-US", { month: "2-digit", day: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: true }).replace(",", "") : "N/A"}</span>
+            </div>
+
+            <div style={{ borderBottom: "1px solid #000", marginBottom: "6px" }}></div>
+
+            <div style={{ fontSize: "13px", marginBottom: "6px", lineHeight: "1.5" }}>
+              <div style={{ display: "flex" }}>
+                <span style={{ width: "85px" }}>Type</span>
+                <span style={{ fontWeight: "bold", display: "flex", alignItems: "center", gap: "4px" }}>
+                  : {order.orderType.replace("_", " ").toUpperCase()}
+                  {isUpdated && <span>(Recall)</span>}
+                </span>
+              </div>
+              <div style={{ display: "flex" }}>
+                <span style={{ width: "85px" }}>Customer</span>
+                <span style={{ textTransform: "capitalize" }}>: {order.customerName || "Walk-in"}</span>
+              </div>
+              {(order.orderType === "dine_in" || order.orderType === "dine-in") && (
+                <div style={{ display: "flex" }}>
+                  <span style={{ width: "85px" }}>Table No.</span>
+                  <span>: {order.tableNumber || "N/A"} {order.tableZone ? `(${order.tableZone.toUpperCase()})` : ""}</span>
+                </div>
+              )}
+            </div>
+
+            <div style={{ borderBottom: "1px solid #000", marginBottom: "4px" }}></div>
+
+            <table style={{ width: "100%", textAlign: "left", fontSize: "13px", borderCollapse: "collapse" }}>
+              <thead>
+                <tr>
+                  <th style={{ padding: "4px 0", fontWeight: "bold", width: "48px", textAlign: "center" }}>Sl.No</th>
+                  <th style={{ padding: "4px 0 4px 8px", fontWeight: "bold", textAlign: "left" }}>Item Name</th>
+                  <th style={{ padding: "4px 0", fontWeight: "bold", textAlign: "center", width: "48px" }}>Qty.</th>
+                </tr>
+              </thead>
+            </table>
+
+            <div style={{ borderBottom: "1px solid #000", marginBottom: "4px" }}></div>
+
+            <table style={{ width: "100%", textAlign: "left", fontSize: "13px", borderCollapse: "collapse", marginBottom: "4px" }}>
+              <tbody>
+                {order.items.map((item, idx) => {
+                  const isDeal = item.itemName.includes("[DEAL]");
+                  const dealName = isDeal ? item.itemName.replace(/^\[DEAL\]\s*/, "") : null;
+                  let dealSelections: any = null;
+                  if (isDeal && item.dealSelections) {
+                    try { dealSelections = typeof item.dealSelections === "string" ? JSON.parse(item.dealSelections) : item.dealSelections; } catch(e){}
+                  }
+                  let addOns: any = [];
+                  if (item.selectedAddOns) {
+                     try { addOns = Array.isArray(item.selectedAddOns) ? item.selectedAddOns : (typeof item.selectedAddOns === 'string' ? JSON.parse(item.selectedAddOns) : []); } catch(e) {}
+                  }
+
+                  return (
+                    <tr key={idx} style={{ verticalAlign: "top" }}>
+                      <td style={{ padding: "4px 0", width: "48px", textAlign: "center" }}>{idx + 1}</td>
+                      <td style={{ padding: "4px 0 4px 8px", textAlign: "left" }}>
+                        <div>
+                          {isUpdated && <span style={{ fontWeight: "bold", marginRight: "4px" }}>[R{item.roundNumber || 1}]</span>}
+                          {isDeal ? dealName : item.itemName}
+                        </div>
                         {!isDeal && item.variantName && item.variantName !== "Deal" && (
-                          <span style={{ fontWeight: "700", fontSize: "20px" }}> ({item.variantName})</span>
+                          <div>- {item.variantName}</div>
                         )}
-                      </div>
-                      
-                      {/* Instructions / Addons */}
-                      <div style={{ marginTop: "6px", fontSize: "18px", fontWeight: "800" }}>
+                        
                         {isDeal && dealSelections && dealSelections.length > 0 && (
-                          dealSelections.map((sel: any, i: number) => <div key={i} style={{ marginTop: "4px" }}>• {sel.name}</div>)
+                          dealSelections.map((sel: any, i: number) => <div key={i} style={{ fontSize: "11px", color: "#374151", fontStyle: "italic" }}>- {sel.name}</div>)
                         )}
                         
                         {!isDeal && addOns.length > 0 && (
-                          <div style={{ marginTop: "4px" }}>+ {addOns.map((a: any) => a.name).join(", ")}</div>
+                          addOns.map((a: any, i: number) => <div key={i} style={{ fontSize: "11px", color: "#374151", fontStyle: "italic" }}>+ {a.name}</div>)
                         )}
                         
                         {!isDeal && item.specialInstructions && (
                           item.specialInstructions.split(" • ").map((inst, i) => (
-                            <div key={i} style={{ marginTop: "6px", fontSize: "20px" }}>
-                              *** {inst.toUpperCase()} ***
+                            <div key={i} style={{ fontSize: "11px", marginTop: "2px", fontWeight: "bold", textTransform: "uppercase", fontStyle: "italic" }}>
+                              ** {inst}
                             </div>
                           ))
                         )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+                      </td>
+                      <td style={{ padding: "4px 0", width: "48px", textAlign: "center" }}>{item.quantity}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+
+            <div style={{ borderBottom: "1px solid #000", marginBottom: "6px" }}></div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", fontSize: "14px", marginBottom: "8px", paddingRight: "4px" }}>
+              <span style={{ fontWeight: "bold", marginRight: "8px" }}>Total Items :</span>
+              <span style={{ fontWeight: "bold", width: "40px", textAlign: "center" }}>
+                {order.items.reduce((sum, item) => sum + item.quantity, 0)}
+              </span>
+            </div>
+
+            <div style={{ borderBottom: "1px dashed #000", marginTop: "8px" }}></div>
           </div>
-          
-          <div style={{ borderBottom: "4px solid #000", marginTop: "24px", marginBottom: "16px" }} />
-          
         </div>
-      </div>
       )}
 
       <VoidReasonDialog

@@ -87,12 +87,15 @@ function OrderCard({ order, now, updateItemMutation, bumpMutation }: OrderCardPr
     customerName: order.customerName,
     orderType: order.orderType,
     tableNumber: order.tableNumber,
+    tableZone: order.tableZone,
+    isUpdated: order.rounds ? Object.keys(order.rounds).length > 1 : false,
     items: order.items.map((i) => ({
       itemName: i.itemName,
       variantName: i.variantName,
       quantity: i.quantity,
       specialInstructions: i.specialInstructions,
       selectedAddOns: i.selectedAddOns,
+      roundNumber: i.roundNumber,
     })),
     createdAt: order.createdAt,
   };
