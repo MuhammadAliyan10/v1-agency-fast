@@ -2,8 +2,8 @@
 
 import crypto from "crypto";
 import { db } from "@/database/db";
-import { orders, orderItems, users, menuItems, itemVariants, itemAddOns, restaurantTables } from "@/database/schema";
-import { inArray, notInArray, eq, asc, desc, and, sql } from "drizzle-orm";
+import { orders, orderItems, users, menuItems, itemVariants, itemAddOns, restaurantTables, deals } from "@/database/schema";
+import { inArray, notInArray, eq, asc, desc, and, sql, or, gt } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { registerShifts } from "@/database/schema";
 import { revalidatePath, unstable_noStore as noStore } from "next/cache";
@@ -53,6 +53,7 @@ export type LiveOrderProjection = {
   estimatedReadyAt: Date | null;
   waiterName: string | null;
   tableHallType: "general" | "family" | null;
+  tableZone: "general" | "outdoor" | "family" | null;
   rider: { name: string; phone: string } | null;
   items: {
     id: string;
@@ -72,117 +73,63 @@ export type LiveOrderProjection = {
 
 export type LiveOrder = LiveOrderProjection;
 
-export async function getLiveOrders() {
-  await requireAdmin();
+export async function getLiveOrders(_ts?: number) {
+  await requireManagerPermission("orders", "read");
   noStore();
   try {
-    const ridersAlias = alias(users, "ridersAlias");
-    const waitersAlias = alias(users, "waitersAlias");
+    const liveOrdersData = await db.query.orders.findMany({
+      where: or(
+        notInArray(orders.status, ["delivered", "cancelled", "rejected"]),
+        and(
+          eq(orders.status, "delivered"),
+          gt(orders.updatedAt, new Date(Date.now() - 4 * 60 * 60 * 1000))
+        )
+      ),
+      with: {
+        items: true,
+        rider: true,
+        waiter: true,
+        table: true,
+        customer: true,
+      },
+      orderBy: [desc(orders.createdAt)],
+      limit: 100,
+    });
 
-    const liveOrdersData = await db
-      .select({
-        id: orders.id,
-        status: orders.status,
-        orderType: orders.orderType,
-        totalAmount: orders.totalAmount,
-        subtotal: orders.subtotal,
-        deliveryFee: orders.deliveryFee,
-        discountAmount: orders.discountAmount,
-        tableId: orders.tableId,
-        tableNumber: orders.tableNumber,
-        waiterId: orders.waiterId,
-        deliveryAddress: orders.deliveryAddress,
-        deliveryNotes: orders.deliveryNotes,
-        latitude: orders.latitude,
-        longitude: orders.longitude,
-        paymentMethod: orders.paymentMethod,
-        source: orders.source,
-        orderVersion: orders.orderVersion,
-        createdAt: orders.createdAt,
-        updatedAt: orders.updatedAt,
-        customerName: orders.customerName,
-        customerPhone: orders.customerPhone,
-        paymentStatus: orders.paymentStatus,
-        estimatedReadyAt: orders.estimatedReadyAt,
-        customer: {
-          id: users.id,
-          name: users.name,
-          phone: users.phone,
-        },
-        rider: {
-          id: ridersAlias.id,
-          name: ridersAlias.name,
-          phone: ridersAlias.phone,
-        },
-        waiter: {
-          name: waitersAlias.name,
-        },
-        tableHallType: restaurantTables.hallType,
-      })
-      .from(orders)
-      .leftJoin(users, eq(orders.customerId, users.id))
-      .leftJoin(ridersAlias, eq(orders.riderId, ridersAlias.id))
-      .leftJoin(waitersAlias, eq(orders.waiterId, waitersAlias.id))
-      .leftJoin(restaurantTables, eq(orders.tableId, restaurantTables.id))
-      .where(notInArray(orders.status, ["delivered", "cancelled", "rejected"]))
-      .orderBy(desc(orders.createdAt));
-
-    const liveOrderIds = liveOrdersData.map((o) => o.id);
-
-    if (liveOrderIds.length === 0) {
+    if (liveOrdersData.length === 0) {
       return { success: true, data: [] as LiveOrderProjection[] };
     }
 
-    const itemsData = await db
-      .select({
-        id: orderItems.id,
-        orderId: orderItems.orderId,
-        itemName: orderItems.itemName,
-        quantity: orderItems.quantity,
-        status: orderItems.status,
-        variantName: orderItems.variantName,
-        unitPrice: orderItems.unitPrice,
-        subtotal: orderItems.subtotal,
-        selectedAddOns: orderItems.selectedAddOns,
-        specialInstructions: orderItems.specialInstructions,
-        roundNumber: orderItems.roundNumber,
-        dealSelections: orderItems.dealSelections,
-      })
-      .from(orderItems)
-      .where(inArray(orderItems.orderId, liveOrderIds));
-
-    const formattedOrders: LiveOrderProjection[] = liveOrdersData.map((row) => {
-      const items = itemsData.filter((i) => i.orderId === row.id);
-      return {
-        id: row.id,
-        status: row.status,
-        orderType: row.orderType,
-        totalAmount: row.totalAmount,
-        subtotal: row.subtotal,
-        deliveryFee: row.deliveryFee,
-        discountAmount: row.discountAmount,
-        tableId: row.tableId,
-        tableNumber: row.tableNumber,
-        waiterId: row.waiterId,
-        deliveryAddress: row.deliveryAddress,
-        deliveryNotes: row.deliveryNotes,
-        latitude: row.latitude,
-        longitude: row.longitude,
-        paymentMethod: row.paymentMethod,
-        source: row.source,
-        orderVersion: row.orderVersion,
-        createdAt: row.createdAt,
-        updatedAt: row.updatedAt,
-        customerName: row.customerName || row.customer?.name || "Guest",
-        customerPhone: row.customerPhone || row.customer?.phone || "N/A",
-        paymentStatus: row.paymentStatus,
-        estimatedReadyAt: row.estimatedReadyAt,
-        waiterName: row.waiter?.name || null,
-        tableHallType: (row.tableHallType as "general" | "family" | null) ?? null,
-        rider: row.rider?.id ? { name: row.rider.name, phone: row.rider.phone } : null,
-        items,
-      };
-    });
+    const formattedOrders: LiveOrderProjection[] = liveOrdersData.map((row) => ({
+      id: row.id,
+      status: row.status,
+      orderType: row.orderType,
+      totalAmount: row.totalAmount,
+      subtotal: row.subtotal,
+      deliveryFee: row.deliveryFee,
+      discountAmount: row.discountAmount,
+      tableId: row.tableId,
+      tableNumber: row.tableNumber,
+      waiterId: row.waiterId,
+      deliveryAddress: row.deliveryAddress,
+      deliveryNotes: row.deliveryNotes,
+      latitude: row.latitude,
+      longitude: row.longitude,
+      paymentMethod: row.paymentMethod,
+      source: row.source,
+      orderVersion: row.orderVersion,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      customerName: row.customerName || row.customer?.name || "Guest",
+      customerPhone: row.customerPhone || row.customer?.phone || "",
+      paymentStatus: row.paymentStatus,
+      estimatedReadyAt: row.estimatedReadyAt,
+      waiterName: row.waiter?.name || null,
+      tableHallType: (row.table?.hallType as "general" | "family" | null) ?? null,
+      tableZone: (row.table?.tableZone as "general" | "outdoor" | "family" | null) ?? null,
+      rider: row.rider?.id ? { name: row.rider.name, phone: row.rider.phone } : null,
+      items: row.items,
+    }));
 
     return { success: true, data: formattedOrders };
   } catch (error) {
@@ -233,14 +180,29 @@ export async function updateLiveOrderStatus(
     
     await logActivity(session.id, "Order Status Updated", "order", orderId, { newStatus, etaMinutes });
 
-    revalidatePath("/admin/orders");
     return { success: true };
-  } catch (error) {
-    console.error("Error updating order status:", error);
-    return {
-      success: false,
-      message: error instanceof Error ? error.message : "Failed to update status",
-    };
+  } catch (error: any) {
+    return { success: false, message: error.message };
+  }
+}
+
+export async function archiveLiveOrder(orderId: string, currentVersion: number) {
+  await requireManagerPermission("orders", "update");
+  try {
+    // Setting updatedAt to 5 hours ago ensures it drops off the Kanban board immediately
+    const archiveDate = new Date(Date.now() - 5 * 60 * 60 * 1000); 
+    const result = await db.update(orders)
+      .set({ updatedAt: archiveDate, orderVersion: sql`${orders.orderVersion} + 1` as any })
+      .where(and(eq(orders.id, orderId), eq(orders.orderVersion, currentVersion)))
+      .returning();
+      
+    if (result.length === 0) {
+      throw new Error("CONCURRENCY_CONFLICT: This order was modified by another user. Please refresh.");
+    }
+    
+    return { success: true, message: "Order archived successfully" };
+  } catch (error: any) {
+    return { success: false, message: error.message };
   }
 }
 
@@ -256,7 +218,6 @@ export async function updateOrderItemStatus(
       
     await logActivity(session.id, "Order Item Status Updated", "order_item", itemId, { newStatus });
       
-    revalidatePath("/admin/orders");
     return { success: true };
   } catch (error) {
     console.error("Error updating item status:", error);
@@ -336,7 +297,6 @@ export async function appendItemsToOrder(
       }
     });
 
-    revalidatePath("/admin/orders");
     return { success: true };
   } catch (error) {
     console.error("Error appending items:", error);
@@ -358,7 +318,6 @@ export async function markOrderPaid(orderId: string, currentVersion: number) {
     if (result.length === 0) {
       throw new Error("CONCURRENCY_CONFLICT: This order was modified by another user. Please refresh.");
     }
-    revalidatePath("/admin/orders");
     return { success: true };
   } catch (error) {
     console.error("Error marking order paid:", error);
@@ -406,8 +365,6 @@ export async function assignRiderToOrder(orderId: string, currentVersion: number
       throw new Error("CONCURRENCY_CONFLICT: This order was modified by another user. Please refresh.");
     }
 
-    revalidatePath("/admin/orders");
-
     // Return rider phone so UI can open WhatsApp link
     return { success: true, riderPhone: rider?.phone ?? null, riderName: rider?.name ?? null };
   } catch (error) {
@@ -450,7 +407,7 @@ export async function getStaffWaiters() {
     const staff = await db
       .select({ id: users.id, name: users.name })
       .from(users)
-      .where(eq(users.role, "waiter"))
+      .where(and(eq(users.role, "waiter"), eq(users.isActive, true)))
       .orderBy(asc(users.name));
     return { success: true, data: staff };
   } catch (error) {
@@ -655,7 +612,7 @@ export async function createManualOrder(payload: z.infer<typeof manualOrderSchem
       finalCustomerName = upsertedCustomer.name || finalCustomerName;
     }
     
-    const orderId = `ORD-${Math.floor(100000 + Math.random() * 900000)}`;
+    const orderId = `ORD-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
     
     let finalWaiterId = validated.waiterId || null;
     if (!finalWaiterId && session.role === "waiter") {
@@ -708,19 +665,29 @@ export async function createManualOrder(payload: z.infer<typeof manualOrderSchem
 const addItemsSchema = z.object({
   orderId: z.string(),
   currentVersion: z.number(),
+  /** New items to append (can be empty if only removing). */
   items: z.array(z.object({
     menuItemId: z.string(),
+    name: z.string().optional(),
     variantId: z.string().optional().nullable(),
     quantity: z.number().min(1),
     selectedAddOns: z.array(z.string()).optional(),
     specialInstructions: z.string().optional(),
-  })).min(1),
+    dealSelections: z.array(z.any()).optional().nullable(),
+  })),
+  /** IDs of existing order_items rows to soft-delete (quantity set to 0 & subtracted). */
+  removeItemIds: z.array(z.string()).optional().default([]),
 });
 
 export async function addItemsToExistingOrder(data: z.infer<typeof addItemsSchema>) {
-  const session = await requireAdmin();
+  const session = await requireManagerPermission("orders", "update");
   try {
     const validated = addItemsSchema.parse(data);
+
+    // Must have at least one add or one remove
+    if (validated.items.length === 0 && (!validated.removeItemIds || validated.removeItemIds.length === 0)) {
+      return { success: false, error: "Nothing to update — provide items to add or remove." };
+    }
     
     const existingOrderArr = await db.select().from(orders).where(eq(orders.id, validated.orderId)).limit(1);
     if (existingOrderArr.length === 0) {
@@ -728,17 +695,36 @@ export async function addItemsToExistingOrder(data: z.infer<typeof addItemsSchem
     }
     const existingOrder = existingOrderArr[0];
     
-    // STRICT EDIT LOCK
+    // STRICT EDIT LOCK — managers cannot remove items from late-stage orders
     if (session.role === "manager" && ["preparing", "ready_for_pickup", "out_for_delivery", "delivered"].includes(existingOrder.status)) {
-      throw new Error("UNAUTHORIZED: Managers cannot edit orders that are already preparing or dispatched.");
+      if (validated.removeItemIds && validated.removeItemIds.length > 0) {
+        throw new Error("UNAUTHORIZED: Managers cannot remove items from orders that are already preparing or dispatched. You may only add new items.");
+      }
     }
     
-    const menuItemIds = validated.items.map(i => i.menuItemId);
-    const [dbItems, dbVariants, dbAddOns] = await Promise.all([
-      db.select().from(menuItems).where(inArray(menuItems.id, menuItemIds)),
-      db.select().from(itemVariants).where(inArray(itemVariants.menuItemId, menuItemIds)),
-      db.select().from(itemAddOns).where(inArray(itemAddOns.menuItemId, menuItemIds)),
-    ]);
+    // ── Resolve items being REMOVED ───────────────────────────────────────────
+    let removedSubtotal = 0;
+    const itemsToRemove: string[] = validated.removeItemIds ?? [];
+    if (itemsToRemove.length > 0) {
+      const rows = await db
+        .select({ id: orderItems.id, subtotal: orderItems.subtotal })
+        .from(orderItems)
+        .where(and(eq(orderItems.orderId, validated.orderId), inArray(orderItems.id, itemsToRemove)));
+      removedSubtotal = rows.reduce((s, r) => s + r.subtotal, 0);
+    }
+
+    // ── Resolve items being ADDED ─────────────────────────────────────────────
+    const menuItemIds = validated.items
+      .map(i => i.menuItemId)
+      .filter(id => !id.startsWith("deal-"));
+    
+    const [dbItems, dbVariants, dbAddOns] = menuItemIds.length > 0
+      ? await Promise.all([
+          db.select().from(menuItems).where(inArray(menuItems.id, menuItemIds)),
+          db.select().from(itemVariants).where(inArray(itemVariants.menuItemId, menuItemIds)),
+          db.select().from(itemAddOns).where(inArray(itemAddOns.menuItemId, menuItemIds)),
+        ])
+      : [[], [], []];
 
     let newSubtotal = 0;
     const orderItemsToInsert: {
@@ -751,6 +737,7 @@ export async function addItemsToExistingOrder(data: z.infer<typeof addItemsSchem
       unitPrice: number;
       selectedAddOns: { id: string; name: string; price: number }[] | null;
       specialInstructions: string | null;
+      dealSelections: any | null;
       subtotal: number;
       status: "pending";
       roundNumber: number;
@@ -767,35 +754,48 @@ export async function addItemsToExistingOrder(data: z.infer<typeof addItemsSchem
     const newRoundNumber = maxRound + 1;
     
     for (const item of validated.items) {
-      const dbItem = dbItems.find(i => i.id === item.menuItemId);
-      if (!dbItem) throw new Error(`Menu item ${item.menuItemId} not found`);
-      
-      let itemPrice = dbItem.basePrice;
-      let itemName = dbItem.name;
-      let variantName = null;
-      
-      if (item.variantId) {
-        const dbVariant = dbVariants.find(v => v.id === item.variantId);
-        if (dbVariant) {
-          itemPrice = dbVariant.price;
-          variantName = dbVariant.name;
+      // Deal item — unit price comes straight from the cart
+      const isDeal = item.menuItemId.startsWith("deal-");
+
+      let itemPrice = 0;
+      let itemName = item.name || item.menuItemId;
+      let variantName: string | null = null;
+
+      if (isDeal) {
+        const dealId = item.menuItemId.replace("deal-", "");
+        const dbDeal = await db.query.deals.findFirst({ where: eq(deals.id, dealId) });
+        if (!dbDeal) throw new Error(`Deal not found: ${dealId}`);
+        itemName = dbDeal.name;
+        itemPrice = dbDeal.dealPrice;
+        variantName = "Deal";
+      } else {
+        const dbItem = dbItems.find(i => i.id === item.menuItemId);
+        if (!dbItem) throw new Error(`Menu item ${item.menuItemId} not found`);
+        itemName = dbItem.name;
+        itemPrice = dbItem.basePrice;
+
+        if (item.variantId) {
+          const dbVariant = dbVariants.find(v => v.id === item.variantId);
+          if (dbVariant) { itemPrice = dbVariant.price; variantName = dbVariant.name; }
         }
-      }
-      
-      const selectedAddOnObjects: { id: string; name: string; price: number }[] = [];
-      let addOnPriceTotal = 0;
-      
-      if (item.selectedAddOns && item.selectedAddOns.length > 0) {
-        for (const addOnId of item.selectedAddOns) {
-          const dbAddOn = dbAddOns.find(a => a.id === addOnId);
-          if (dbAddOn) {
-            addOnPriceTotal += dbAddOn.price;
-            selectedAddOnObjects.push({ id: dbAddOn.id, name: dbAddOn.name, price: dbAddOn.price });
+
+        if (item.selectedAddOns && item.selectedAddOns.length > 0) {
+          for (const addOnId of item.selectedAddOns) {
+            const dbAddOn = dbAddOns.find(a => a.id === addOnId);
+            if (dbAddOn) itemPrice += dbAddOn.price;
           }
         }
       }
-      
-      const itemSubtotal = (itemPrice + addOnPriceTotal) * item.quantity;
+
+      const selectedAddOnObjects: { id: string; name: string; price: number }[] = [];
+      if (!isDeal && item.selectedAddOns && item.selectedAddOns.length > 0) {
+        for (const addOnId of item.selectedAddOns) {
+          const dbAddOn = dbAddOns.find(a => a.id === addOnId);
+          if (dbAddOn) selectedAddOnObjects.push({ id: dbAddOn.id, name: dbAddOn.name, price: dbAddOn.price });
+        }
+      }
+
+      const itemSubtotal = itemPrice * item.quantity;
       newSubtotal += itemSubtotal;
       
       orderItemsToInsert.push({
@@ -808,6 +808,7 @@ export async function addItemsToExistingOrder(data: z.infer<typeof addItemsSchem
         unitPrice: itemPrice,
         selectedAddOns: selectedAddOnObjects.length > 0 ? selectedAddOnObjects : null,
         specialInstructions: item.specialInstructions || null,
+        dealSelections: item.dealSelections || null,
         subtotal: itemSubtotal,
         status: "pending" as const,
         roundNumber: newRoundNumber,
@@ -816,53 +817,53 @@ export async function addItemsToExistingOrder(data: z.infer<typeof addItemsSchem
     
     await db.transaction(async (tx) => {
       // ── OCC check FIRST — verify version before writing anything ──────────
-      // Using FOR UPDATE to pessimistically lock the row inside the transaction,
-      // preventing another concurrent tx from modifying between our read and write.
       const lockedRows = await tx
         .select({ id: orders.id })
         .from(orders)
-        .where(
-          and(
-            eq(orders.id, validated.orderId),
-            eq(orders.orderVersion, validated.currentVersion)
-          )
-        )
+        .where(and(eq(orders.id, validated.orderId), eq(orders.orderVersion, validated.currentVersion)))
         .for("update");
 
       if (lockedRows.length === 0) {
-        throw new Error(
-          "CONCURRENCY_CONFLICT: This order was modified by another user. Please refresh."
-        );
+        throw new Error("CONCURRENCY_CONFLICT: This order was modified by another user. Please refresh.");
       }
 
-      // ── Safe to insert — version is confirmed and row is locked ───────────
+      // ── Delete removed items ─────────────────────────────────────────────
+      if (itemsToRemove.length > 0) {
+        await tx.delete(orderItems)
+          .where(and(
+            eq(orderItems.orderId, validated.orderId),
+            inArray(orderItems.id, itemsToRemove)
+          ));
+      }
+
+      // ── Insert new items ──────────────────────────────────────────────────
       if (orderItemsToInsert.length > 0) {
         await tx.insert(orderItems).values(orderItemsToInsert);
       }
 
       // ── Bump version and update totals atomically ─────────────────────────
+      const netDelta = newSubtotal - removedSubtotal;
       await tx
         .update(orders)
         .set({
-          subtotal: existingOrder.subtotal + newSubtotal,
-          totalAmount: existingOrder.totalAmount + newSubtotal,
+          subtotal: sql`${orders.subtotal} + ${netDelta}`,
+          totalAmount: sql`${orders.totalAmount} + ${netDelta}`,
           updatedAt: new Date(),
           orderVersion: sql`${orders.orderVersion} + 1` as any,
         })
         .where(eq(orders.id, validated.orderId));
     });
 
-    revalidatePath("/admin/orders");
     return { success: true, orderId: validated.orderId };
     
   } catch (error) {
-    console.error("Error adding items to order:", error);
-    return { success: false, error: error instanceof Error ? error.message : "Failed to add items" };
+    console.error("Error updating order items:", error);
+    return { success: false, error: error instanceof Error ? error.message : "Failed to update items" };
   }
 }
 
 export async function cancelLiveOrder(orderId: string, currentVersion: number, voidReason?: string, isWaste?: boolean) {
-  const session = await requireManagerPermission("orders", "delete");
+  const session = await requireManagerPermission("orders", "update");
   try {
     const currentOrder = await db.query.orders.findFirst({ where: eq(orders.id, orderId) });
     if (!currentOrder) throw new Error("Order not found");
@@ -885,7 +886,6 @@ export async function cancelLiveOrder(orderId: string, currentVersion: number, v
       throw new Error("CONCURRENCY_CONFLICT: This order was modified by another user. Please refresh.");
     }
     await logActivity(session.id, "Order Cancelled", "order", orderId);
-    revalidatePath("/admin/orders");
     return { success: true };
   } catch (error) {
     console.error("Error cancelling order:", error);
@@ -908,7 +908,6 @@ export async function updateTableNumber(orderId: string, currentVersion: number,
       throw new Error("CONCURRENCY_CONFLICT: This order was modified by another user. Please refresh.");
     }
     await logActivity(session.id, "Order Table Updated", "order", orderId, { tableNumber });
-    revalidatePath("/admin/orders");
     return { success: true };
   } catch (error) {
     console.error("Error updating table number:", error);
@@ -962,10 +961,42 @@ export async function removeOrderItem(orderId: string, currentVersion: number, i
     
     await logActivity(session.id, "Order Item Removed", "order", orderId, { itemId });
 
-    revalidatePath("/admin/orders");
     return { success: true };
   } catch (error) {
     console.error("Error removing order item:", error);
     return { success: false, error: error instanceof Error ? error.message : "Failed to remove item" };
+  }
+}
+
+export async function rejectLiveOrder(orderId: string, currentVersion: number, reason: string) {
+  const session = await requireManagerPermission("orders", "update");
+  try {
+    const currentOrder = await db.query.orders.findFirst({ where: eq(orders.id, orderId) });
+    if (!currentOrder) throw new Error("Order not found");
+    if (!canTransition(currentOrder.status, "rejected")) {
+      throw new Error(`INVALID_STATE_TRANSITION: Cannot transition from ${currentOrder.status} to rejected`);
+    }
+
+    const result = await db.update(orders)
+      .set({ 
+        status: "rejected", 
+        updatedAt: new Date(), 
+        orderVersion: sql`${orders.orderVersion} + 1` as any,
+        rejectionReason: reason || null
+      })
+      .where(and(eq(orders.id, orderId), eq(orders.orderVersion, currentVersion)))
+      .returning();
+
+    if (result.length === 0) {
+      throw new Error("CONCURRENCY_CONFLICT: This order was modified by another user. Please refresh.");
+    }
+    await logActivity(session.id, "Order Rejected", "order", orderId, { reason });
+    return { success: true };
+  } catch (error) {
+    console.error("Error rejecting order:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to reject order",
+    };
   }
 }

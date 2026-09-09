@@ -19,6 +19,7 @@ const statusConfig: Record<string, { label: string; color: string; borderColor: 
   preparing: { label: "Preparing", color: "bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300", borderColor: "border-purple-400 dark:border-purple-500" },
   ready_for_pickup: { label: "Ready", color: "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300", borderColor: "border-emerald-400 dark:border-emerald-500" },
   out_for_delivery: { label: "Out for Delivery", color: "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300", borderColor: "border-indigo-400 dark:border-indigo-500" },
+  delivered: { label: "Completed / Delivered", color: "bg-zinc-200 dark:bg-zinc-800/50 text-zinc-700 dark:text-zinc-300", borderColor: "border-zinc-500 dark:border-zinc-500" },
 };
 
 export function KanbanColumn({ status, orders, role, onStatusChange }: KanbanColumnProps) {

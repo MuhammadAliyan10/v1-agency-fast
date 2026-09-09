@@ -2,8 +2,8 @@
 
 import { db } from "@/database/db";
 import { restaurantTables, orders } from "@/database/schema";
-import { eq, inArray, and } from "drizzle-orm";
-import { requireAdmin, requireWaiter } from "@/lib/auth/session";
+import { eq, inArray, and, sql } from "drizzle-orm";
+import { requireAdmin, requireWaiter, requireManagerPermission } from "@/lib/auth/session";
 
 export type TableStatus = {
   id: string;
@@ -62,7 +62,7 @@ export async function getTablesWithStatus(): Promise<{ success: boolean; data?: 
 
 export async function transferTable(orderId: string, newTableId: string): Promise<{ success: boolean; error?: string }> {
   try {
-    await requireAdmin();
+    await requireManagerPermission("orders", "update");
     
     const table = await db.query.restaurantTables.findFirst({
       where: eq(restaurantTables.id, newTableId)
@@ -73,7 +73,9 @@ export async function transferTable(orderId: string, newTableId: string): Promis
     await db.update(orders)
       .set({ 
         tableId: newTableId, 
-        tableNumber: table.name // keep legacy column in sync
+        tableNumber: table.name, // keep legacy column in sync
+        updatedAt: new Date(),
+        orderVersion: sql`${orders.orderVersion} + 1` as any
       })
       .where(eq(orders.id, orderId));
 

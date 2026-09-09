@@ -36,13 +36,14 @@ interface LiveOrdersBoardProps {
   role: "admin" | "manager" | "kitchen" | "cashier";
 }
 
-const KITCHEN_COLUMNS: OrderStatus[] = ["preparing", "ready_for_pickup"];
+const KITCHEN_COLUMNS: OrderStatus[] = ["approved", "preparing", "ready_for_pickup"];
 const ADMIN_COLUMNS: OrderStatus[] = [
   "pending",
   "approved",
   "preparing",
   "ready_for_pickup",
   "out_for_delivery",
+  "delivered",
 ];
 
 export function LiveOrdersBoard({ role }: LiveOrdersBoardProps) {
@@ -73,8 +74,12 @@ export function LiveOrdersBoard({ role }: LiveOrdersBoardProps) {
   // Fetch orders with polling
   const { data: result, isLoading } = useQuery({
     queryKey: ["live-orders"],
-    queryFn: () => getLiveOrders(),
-    refetchInterval: 5000, // Explicitly configure polling interval
+    queryFn: () => getLiveOrders(Date.now()),
+    refetchInterval: (query) => {
+      const data = query.state.data as { data?: LiveOrderProjection[] } | undefined;
+      const hasActive = data?.data?.some(o => o.status === 'pending' || o.status === 'approved');
+      return hasActive ? 5000 : 15000;
+    },
   });
 
   // Pause polling when tab is hidden to save DB connections
@@ -187,11 +192,8 @@ export function LiveOrdersBoard({ role }: LiveOrdersBoardProps) {
       const order = cached?.data?.find((o) => o.id === orderId);
       if (!order) return;
 
-      // Prompt for ETA when moving from pending → approved or preparing
-      if (
-        order.status === "pending" &&
-        (newStatus === "approved" || newStatus === "preparing")
-      ) {
+      // Prompt for ETA when moving to preparing
+      if (newStatus === "preparing") {
         setEtaDialog({ isOpen: true, orderId, newStatus, minutes: "30" });
         return;
       }

@@ -13,6 +13,7 @@ import { getPOSMenuData } from "@/server/actions/menu";
 import { getPublicDeals } from "@/server/actions/deals";
 import { createManualOrder, getStaffWaiters, addItemsToExistingOrder, LiveOrder } from "@/server/actions/live-orders";
 import { getTablesWithStatus } from "@/server/actions/tables";
+import { Trash2 } from "lucide-react";
 import {
   deals as dealsTable,
   dealSlots as dealSlotsTable,
@@ -148,6 +149,11 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
   const [isOpen, setIsOpen] = useState(false);
   const queryClient = useQueryClient();
   const session = useSession();
+  const isManagerEditingLateStage = !!(
+    existingOrder &&
+    session?.role === "manager" &&
+    ["preparing", "ready_for_pickup", "out_for_delivery", "delivered"].includes(existingOrder.status)
+  );
 
   const form = useForm<ManualOrderFormValues>({
     resolver: zodResolver(manualOrderSchema) as any,
@@ -192,6 +198,8 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
   const [pendingTableId, setPendingTableId] = useState<string | null>(null);
   const [splitCheckModalOpen, setSplitCheckModalOpen] = useState(false);
   const [discountType, setDiscountType] = useState<"flat" | "percent">("flat");
+  /** IDs of existing order_items the user wants to remove. */
+  const [itemsToRemove, setItemsToRemove] = useState<Set<string>>(new Set());
   
   // Calculate max allowed discount percentage for this user
   const maxAllowedPercent = session?.role === "admin" 
@@ -221,11 +229,11 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
     if (currentItems.length > 0) return;
 
     if (existingOrder) {
+      // Use the actual order type for the append dialog (support pickup/delivery too)
       form.reset({
-        orderType: "dine_in",
+        orderType: (existingOrder.orderType as any) || "dine_in",
         customerName: existingOrder.customerName || "",
-        // Treat the old "00000000000" placeholder as blank — it would fail phone validation
-        customerPhone: (existingOrder.customerPhone && existingOrder.customerPhone !== "00000000000") ? existingOrder.customerPhone : "",
+        customerPhone: (existingOrder.customerPhone && existingOrder.customerPhone !== "00000000000" && existingOrder.customerPhone !== "N/A") ? existingOrder.customerPhone : "",
         tableId: existingOrder.tableId || "",
         tableNumber: existingOrder.tableNumber || "",
         waiterId: existingOrder.waiterId || "",
@@ -235,6 +243,7 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
         paymentStatus: "unpaid",
         items: [],
       });
+      setItemsToRemove(new Set());
     } else {
       form.reset({
         orderType: "dine_in",
@@ -263,8 +272,7 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
       return res.data;
     },
     enabled: isOpen,
-    staleTime: 1000 * 60 * 60,
-    gcTime: 1000 * 60 * 60 * 24,
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: dealsData, isLoading: isDealsLoading } = useQuery({
@@ -597,8 +605,14 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
   };
 
   const onSubmit = async (data: ManualOrderFormValues) => {
-      if (data.items.length === 0) {
+      // For new orders: cart must not be empty
+      // For edits: at least one of (new items | removals) must be pending
+      if (!existingOrder && data.items.length === 0) {
         toast.error("Cart is empty");
+        return;
+      }
+      if (existingOrder && data.items.length === 0 && itemsToRemove.size === 0) {
+        toast.error("No changes made — add items or mark items for removal.");
         return;
       }
       
@@ -616,7 +630,8 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
               selectedAddOns: c.selectedAddOns || [],
               specialInstructions: c.specialInstructions,
               dealSelections: c.dealSelections || null,
-            }))
+            })),
+            removeItemIds: Array.from(itemsToRemove),
           };
           const res = await addItemsToExistingOrder(payload);
           if (!res.success) throw new Error(res.error);
@@ -644,16 +659,25 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
         queryClient.invalidateQueries({ queryKey: ["live-orders"] });
         setIsOpen(false);
 
-        toast.success(existingOrder ? "Items Added to Order" : "Order Placed Successfully", {
-          duration: 5000,
-        });
+        const added = data.items.length;
+        const removed = itemsToRemove.size;
+        const msg = existingOrder
+          ? [
+              added > 0 && `${added} item${added !== 1 ? "s" : ""} added`,
+              removed > 0 && `${removed} item${removed !== 1 ? "s" : ""} removed`,
+            ].filter(Boolean).join(", ") + " — Order Updated"
+          : "Order Placed Successfully";
+
+        toast.success(msg, { duration: 5000 });
 
         form.reset();
         setCashTendered("");
+        setItemsToRemove(new Set());
       } catch (err: any) {
-        toast.error(err.message || "Failed to place order");
+        toast.error(err.message || "Failed to update order");
       }
   };
+
 
   useEffect(() => {
     if (orderType === "delivery") {
@@ -715,11 +739,12 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
                   <Tabs value={orderType} onValueChange={(v) => form.setValue("orderType", v as any)}>
                     <TabsList className="w-full justify-start h-auto p-0 bg-transparent rounded-none border-b">
                       {existingOrder ? (
+                        // For existing orders: show the actual order type label but don't allow switching
                         <TabsTrigger 
-                          value="dine_in" 
+                          value={existingOrder.orderType}
                           className="text-sm font-semibold rounded-none bg-transparent border-transparent border-t-0 border-l-0 border-r-0 border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-6 py-2 transition-none"
                         >
-                          Dine-In (Append)
+                          {existingOrder.orderType === "dine_in" ? "Dine-In" : existingOrder.orderType === "pickup" ? "Pickup" : "Delivery"} (Edit Order)
                         </TabsTrigger>
                       ) : (
                         <>
@@ -921,35 +946,70 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
                   )}
                 </div>
 
-                {/* Existing Items History */}
+                {/* Existing Items — with remove capability */}
                 {existingOrder && existingOrder.items && existingOrder.items.length > 0 && (
                   <div className="space-y-3 mb-6">
                     <h3 className="font-bold flex items-center gap-2 border-b pb-2 text-muted-foreground">
-                      <ShoppingBag className="h-4 w-4" /> Previously Ordered
+                      <ShoppingBag className="h-4 w-4" /> Order Items
+                      <span className="ml-auto text-[10px] font-normal text-rose-500">
+                        Click 🗑 to remove an item
+                      </span>
                     </h3>
-                    <div className="opacity-70 space-y-2 pointer-events-none">
-                      {existingOrder.items.map(item => (
-                        <div key={item.id} className="flex gap-3 items-start justify-between bg-muted/10 p-2 border border-dashed rounded-none">
-                          <div className="flex-1">
-                            <div className="font-bold text-sm">{item.itemName}</div>
-                            {item.variantName && <div className="text-xs text-muted-foreground">{item.variantName}</div>}
-                            {Array.isArray(item.selectedAddOns) && item.selectedAddOns.map((a: any, i) => (
-                              <div key={i} className="text-xs text-muted-foreground">+ {a.name || ""}</div>
-                            ))}
-                            {item.specialInstructions && !(item.specialInstructions.startsWith("[DEAL:") && item.specialInstructions.endsWith("]")) && (
-                              <div className="text-[11px] text-amber-600 font-semibold mt-0.5 border border-amber-200 bg-amber-50/50 px-1 inline-block rounded-none">
-                                ⚠️ {item.specialInstructions}
-                              </div>
+                    <div className="space-y-2">
+                      {existingOrder.items.map(item => {
+                        const isMarkedForRemoval = itemsToRemove.has(item.id);
+                        return (
+                          <div
+                            key={item.id}
+                            className={cn(
+                              "flex gap-3 items-start justify-between p-2 border rounded-none transition-all",
+                              isMarkedForRemoval
+                                ? "opacity-40 border-rose-300 bg-rose-50/50 line-through"
+                                : "border-dashed bg-muted/10"
                             )}
-                            <div className="text-sm font-semibold mt-1">Rs. {item.unitPrice}</div>
+                          >
+                            <div className="flex-1">
+                              <div className="font-bold text-sm">{item.itemName}</div>
+                              {item.variantName && <div className="text-xs text-muted-foreground">{item.variantName}</div>}
+                              {Array.isArray(item.selectedAddOns) && item.selectedAddOns.map((a: any, i) => (
+                                <div key={i} className="text-xs text-muted-foreground">+ {a.name || ""}</div>
+                              ))}
+                              {item.specialInstructions && !item.specialInstructions.startsWith("[DEAL:") && (
+                                <div className="text-[11px] text-amber-600 font-semibold mt-0.5">⚠️ {item.specialInstructions}</div>
+                              )}
+                              <div className="text-xs text-muted-foreground mt-0.5">
+                                {item.quantity}x &middot; Rs. {item.unitPrice} = Rs. {item.subtotal}
+                              </div>
+                            </div>
+                            {!isManagerEditingLateStage && (
+                              <button
+                                type="button"
+                                title={isMarkedForRemoval ? "Undo remove" : "Remove item"}
+                                onClick={() => setItemsToRemove(prev => {
+                                  const next = new Set(prev);
+                                  if (next.has(item.id)) next.delete(item.id);
+                                  else next.add(item.id);
+                                  return next;
+                                })}
+                                className={cn(
+                                  "p-1.5 rounded-none transition-colors shrink-0 mt-0.5",
+                                  isMarkedForRemoval
+                                    ? "text-rose-600 bg-rose-100 hover:bg-rose-200"
+                                    : "text-muted-foreground hover:text-rose-600 hover:bg-rose-50"
+                                )}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                           </div>
-                          <div className="flex items-center justify-center bg-background border h-7 px-2 rounded-none">
-                            <span className="text-xs font-bold text-center">{item.quantity}x</span>
-                          </div>
-                          <div className="w-16 text-right font-bold text-sm text-muted-foreground">Rs. {String(item.subtotal)}</div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
+                    {itemsToRemove.size > 0 && (
+                      <p className="text-xs text-rose-600 font-semibold">
+                        {itemsToRemove.size} item{itemsToRemove.size !== 1 ? "s" : ""} marked for removal
+                      </p>
+                    )}
                   </div>
                 )}
 
@@ -1167,7 +1227,14 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
                 <Button 
                   type="submit"
                   className="w-full h-14 text-lg font-bold gap-2" 
-                  disabled={items.length === 0 || form.formState.isSubmitting || !isFormValid}
+                  disabled={
+                    // For new orders: cart must not be empty
+                    // For edits: at least one new item OR one removal must be pending
+                    (!existingOrder && items.length === 0) ||
+                    (existingOrder && items.length === 0 && itemsToRemove.size === 0) ||
+                    !isFormValid ||
+                    form.formState.isSubmitting
+                  }
                 >
                   {form.formState.isSubmitting ? (
                     <Loader2 className="h-5 w-5 animate-spin" />
@@ -1176,7 +1243,9 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
                   )}
                   {form.formState.isSubmitting 
                     ? "Processing..." 
-                    : "Place Order"}
+                    : existingOrder
+                      ? `Update Order${itemsToRemove.size > 0 ? ` (-${itemsToRemove.size})` : ""}${items.length > 0 ? ` (+${items.length})` : ""}`
+                      : "Place Order"}
                 </Button>
               </div>
             </form>

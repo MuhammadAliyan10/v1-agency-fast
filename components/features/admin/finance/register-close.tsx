@@ -604,92 +604,172 @@ export function RegisterClose({ data }: { data: RegisterCloseData }) {
       {/* ── Print-only: 80mm Thermal Receipt ───────────────────────────────────────────── */}
       <style dangerouslySetInnerHTML={{__html: `
         @media print {
-          body * { visibility: hidden; }
-          .print-section, .print-section * { visibility: visible; }
-          .print-section {
+          body * { visibility: hidden !important; }
+          .register-print-slip, .register-print-slip * { visibility: visible !important; }
+          .register-print-slip {
             position: absolute;
             left: 0;
             top: 0;
             width: 80mm;
-            padding: 0;
+            padding: 3mm 4mm;
             margin: 0;
-            font-family: monospace;
-            color: black;
-            font-size: 12px;
-            line-height: 1.2;
+            font-family: 'Courier New', monospace;
+            color: #000;
+            background: #fff;
+            font-size: 11px;
+            line-height: 1.3;
+            print-color-adjust: exact;
+            -webkit-print-color-adjust: exact;
           }
-          .print-section h1 { font-size: 16px; font-weight: bold; text-align: center; margin: 0 0 10px; }
-          .print-section h2 { font-size: 14px; font-weight: bold; border-bottom: 1px dashed black; padding-bottom: 4px; margin: 10px 0 5px; }
-          .print-section .row { display: flex; justify-content: space-between; margin: 2px 0; }
-          .print-section .bold { font-weight: bold; }
-          .print-section .dashed-line { border-bottom: 1px dashed black; margin: 6px 0; }
+          @page { margin: 0; size: 80mm auto; }
         }
       `}} />
 
-      <div className="hidden print:block print-section">
-        <h1>REGISTER CLOSE</h1>
-        <div className="row">
-          <span>Opened:</span>
-          <span>{format(new Date(data.shift.openedAt), "dd/MM/yy HH:mm")}</span>
-        </div>
-        <div className="row">
-          <span>Printed:</span>
-          <span>{format(new Date(), "dd/MM/yy HH:mm")}</span>
-        </div>
-
-        <h2>SALES SUMMARY</h2>
-        <div className="row">
-          <span>Total Sales</span>
-          <span>{data.totalPaidSales}</span>
-        </div>
-        <div className="row">
-          <span>Cash Sales</span>
-          <span>{data.totalCashPaid}</span>
-        </div>
-        <div className="row">
-          <span>Digital Sales</span>
-          <span>{data.totalDigitalPaid}</span>
+      <div className="hidden print:block register-print-slip">
+        {/* ── Header ── */}
+        <div style={{ textAlign: "center", marginBottom: "8px" }}>
+          <img
+            src={`${typeof window !== "undefined" ? window.location.origin : ""}/slip/Slip.jpeg`}
+            alt="Header"
+            loading="eager"
+            style={{ width: "100%", display: "block", margin: "0 auto 8px" }}
+          />
+          <div style={{ borderBottom: "2px dashed #000", margin: "6px 0" }} />
+          <div style={{ fontSize: "16px", fontWeight: "900", letterSpacing: "2px" }}>
+            END OF SHIFT REPORT
+          </div>
+          <div style={{ borderBottom: "2px dashed #000", margin: "6px 0" }} />
         </div>
 
-        <h2>CASH RECONCILIATION</h2>
-        <div className="row">
-          <span>Starting Float</span>
-          <span>{data.shift.startingFloat}</span>
+        {/* ── Shift Metadata ── */}
+        <div style={{ marginBottom: "8px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", margin: "3px 0" }}>
+            <span style={{ fontWeight: "700" }}>Shift Opened:</span>
+            <span>{format(new Date(data.shift.openedAt), "dd/MM/yyyy hh:mm a")}</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", margin: "3px 0" }}>
+            <span style={{ fontWeight: "700" }}>Printed:</span>
+            <span>{format(new Date(), "dd/MM/yyyy hh:mm a")}</span>
+          </div>
         </div>
-        <div className="row">
-          <span>(+) Gross Cash Sales</span>
-          <span>{grossCashSales}</span>
+
+        <div style={{ borderBottom: "1px dashed #000", margin: "6px 0" }} />
+
+        {/* ── Sales Summary ── */}
+        <div style={{ marginBottom: "8px" }}>
+          <div style={{ fontSize: "14px", fontWeight: "900", marginBottom: "6px", textAlign: "center" }}>
+            SALES SUMMARY
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", margin: "4px 0", fontSize: "13px" }}>
+            <span style={{ fontWeight: "700" }}>Total Paid Sales</span>
+            <span style={{ fontWeight: "900" }}>Rs {data.totalPaidSales.toLocaleString()}</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", margin: "4px 0", fontSize: "13px" }}>
+            <span style={{ fontWeight: "700" }}>Unpaid / Credit</span>
+            <span style={{ fontWeight: "900" }}>Rs {data.totalUnpaidCredit.toLocaleString()}</span>
+          </div>
         </div>
-        <div className="row">
-          <span>(-) With Riders</span>
-          <span>{cashWithRiders}</span>
+
+        <div style={{ borderBottom: "1px dashed #000", margin: "6px 0" }} />
+
+        {/* ── Payment Method Breakdown ── */}
+        <div style={{ marginBottom: "8px" }}>
+          <div style={{ fontSize: "14px", fontWeight: "900", marginBottom: "6px", textAlign: "center" }}>
+            PAYMENT BREAKDOWN
+          </div>
+
+          {/* Table Header */}
+          <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #000", paddingBottom: "3px", marginBottom: "4px", fontSize: "11px", fontWeight: "900" }}>
+            <span style={{ flex: 1 }}>Method</span>
+            <span style={{ width: "40px", textAlign: "center" }}>Qty</span>
+            <span style={{ width: "70px", textAlign: "right" }}>Amount</span>
+          </div>
+
+          {data.paymentMethodTotals.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "4px 0", fontSize: "11px" }}>No orders</div>
+          ) : (
+            [...data.paymentMethodTotals]
+              .sort((a, b) => b.paid - a.paid)
+              .map(m => (
+                <div key={m.method} style={{ display: "flex", justifyContent: "space-between", margin: "3px 0", fontSize: "12px" }}>
+                  <span style={{ flex: 1, fontWeight: "700" }}>{m.method}</span>
+                  <span style={{ width: "40px", textAlign: "center" }}>{m.orderCount}</span>
+                  <span style={{ width: "70px", textAlign: "right", fontWeight: "800" }}>Rs {m.paid.toLocaleString()}</span>
+                </div>
+              ))
+          )}
+
+          <div style={{ borderTop: "1px solid #000", marginTop: "4px", paddingTop: "4px", display: "flex", justifyContent: "space-between", fontSize: "13px", fontWeight: "900" }}>
+            <span>TOTAL</span>
+            <span>Rs {data.totalPaidSales.toLocaleString()}</span>
+          </div>
         </div>
-        <div className="row">
-          <span>(-) With Waiters</span>
-          <span>{cashWithWaiters}</span>
+
+        <div style={{ borderBottom: "2px dashed #000", margin: "6px 0" }} />
+
+        {/* ── Cash Reconciliation ── */}
+        <div style={{ marginBottom: "8px" }}>
+          <div style={{ fontSize: "14px", fontWeight: "900", marginBottom: "6px", textAlign: "center" }}>
+            CASH RECONCILIATION
+          </div>
+
+          <div style={{ display: "flex", justifyContent: "space-between", margin: "3px 0" }}>
+            <span>Starting Float</span>
+            <span style={{ fontWeight: "800" }}>Rs {data.shift.startingFloat.toLocaleString()}</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", margin: "3px 0" }}>
+            <span>(+) Cash Sales</span>
+            <span style={{ fontWeight: "800" }}>Rs {grossCashSales.toLocaleString()}</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", margin: "3px 0" }}>
+            <span>(-) With Riders</span>
+            <span style={{ fontWeight: "800" }}>Rs {cashWithRiders.toLocaleString()}</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", margin: "3px 0" }}>
+            <span>(-) With Waiters</span>
+            <span style={{ fontWeight: "800" }}>Rs {cashWithWaiters.toLocaleString()}</span>
+          </div>
+
+          <div style={{ borderTop: "1px dashed #000", marginTop: "4px", paddingTop: "4px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", margin: "3px 0", fontSize: "13px", fontWeight: "900" }}>
+              <span>Expected Cash</span>
+              <span>Rs {Math.max(0, expectedCash).toLocaleString()}</span>
+            </div>
+          </div>
+
+          <div style={{ borderTop: "1px dashed #000", marginTop: "4px", paddingTop: "4px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", margin: "3px 0", fontSize: "13px" }}>
+              <span style={{ fontWeight: "700" }}>Actual Counted</span>
+              <span style={{ fontWeight: "900" }}>{actualCash ? `Rs ${Number(actualCash).toLocaleString()}` : "____________"}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", margin: "3px 0", fontSize: "13px" }}>
+              <span style={{ fontWeight: "700" }}>Variance</span>
+              <span style={{ fontWeight: "900" }}>
+                {actualCash
+                  ? `Rs ${(Number(actualCash) - expectedCash).toLocaleString()} ${(Number(actualCash) - expectedCash) >= 0 ? "(OVER)" : "(SHORT)"}`
+                  : "____________"}
+              </span>
+            </div>
+          </div>
         </div>
-        <div className="dashed-line"></div>
-        <div className="row bold">
-          <span>Expected Cash</span>
-          <span>{expectedCash}</span>
+
+        <div style={{ borderBottom: "2px dashed #000", margin: "8px 0" }} />
+
+        {/* ── Declaration ── */}
+        <div style={{ textAlign: "center", marginTop: "16px" }}>
+          <div style={{ fontSize: "12px", fontWeight: "700", marginBottom: "20px" }}>DECLARATION</div>
+          <div style={{ margin: "24px 0 8px" }}>
+            <div style={{ borderBottom: "1px solid #000", width: "70%", margin: "0 auto" }} />
+            <div style={{ fontSize: "11px", fontWeight: "700", marginTop: "4px" }}>Manager Signature</div>
+          </div>
+          <div style={{ margin: "24px 0 8px" }}>
+            <div style={{ borderBottom: "1px solid #000", width: "70%", margin: "0 auto" }} />
+            <div style={{ fontSize: "11px", fontWeight: "700", marginTop: "4px" }}>Date</div>
+          </div>
         </div>
-        
-        <h2>DECLARATION</h2>
-        <div className="row">
-          <span>Counted Cash</span>
-          <span>______________</span>
-        </div>
-        <div className="row">
-          <span>Variance</span>
-          <span>______________</span>
-        </div>
-        
-        <div className="dashed-line"></div>
-        <div style={{ textAlign: "center", marginTop: "20px" }}>
-          <p>Manager Signature</p>
-          <p>___________________</p>
-        </div>
-        <div style={{ textAlign: "center", marginTop: "15px", fontSize: "10px" }}>
+
+        <div style={{ borderBottom: "1px dashed #000", margin: "8px 0" }} />
+        <div style={{ textAlign: "center", fontSize: "10px", marginTop: "8px", fontWeight: "600" }}>
           End of Report
         </div>
       </div>

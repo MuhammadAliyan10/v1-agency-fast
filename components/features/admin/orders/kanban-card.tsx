@@ -8,7 +8,7 @@ import { formatDistanceToNow, format } from "date-fns";
 import {
   MessageCircle, MapPin, Printer, Plus, UtensilsCrossed, User, Phone,
   Bike, Receipt, CircleCheck, AlertCircle, Banknote, MapPinned,
-  UserCircle2, Loader2, CheckCircle2,
+  UserCircle2, Loader2, CheckCircle2, ChefHat,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
@@ -25,7 +25,7 @@ import { Input } from "@/components/ui/input";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import {
   cancelLiveOrder, updateTableNumber, removeOrderItem, markOrderPaid,
-  assignRiderToOrder, getAvailableRiders,
+  assignRiderToOrder, getAvailableRiders, rejectLiveOrder, archiveLiveOrder
 } from "@/server/actions/live-orders";
 import { getTablesWithStatus, transferTable } from "@/server/actions/tables";
 import { MoreVertical, Trash2, ArrowRightLeft } from "lucide-react";
@@ -140,12 +140,16 @@ export const KanbanCard = React.memo(function KanbanCard({
       return res.data;
     },
     enabled: isSheetOpen && order.orderType === "delivery",
+    staleTime: 2 * 60 * 1000,
   });
 
   // ── Mutations ─────────────────────────────────────────────────────────────────
   const cancelMutation = useMutation({
-    mutationFn: ({ id, reason, isWaste }: { id: string; reason: string; isWaste: boolean }) =>
-      cancelLiveOrder(id, order.orderVersion, reason, isWaste),
+    mutationFn: ({ id, reason, isWaste }: { id: string; reason: string; isWaste: boolean }) => {
+      const cached = queryClient.getQueryData<{ data: LiveOrderProjection[] }>(["live-orders"]);
+      const activeOrder = cached?.data?.find(o => o.id === id);
+      return cancelLiveOrder(id, activeOrder?.orderVersion ?? order.orderVersion, reason, isWaste);
+    },
     onMutate: async ({ id }) => {
       await queryClient.cancelQueries({ queryKey: ["live-orders"] });
       const prev = queryClient.getQueryData(["live-orders"]);
@@ -165,7 +169,11 @@ export const KanbanCard = React.memo(function KanbanCard({
   });
 
   const markPaidMutation = useMutation({
-    mutationFn: (id: string) => markOrderPaid(id, order.orderVersion),
+    mutationFn: (id: string) => {
+      const cached = queryClient.getQueryData<{ data: LiveOrderProjection[] }>(["live-orders"]);
+      const activeOrder = cached?.data?.find(o => o.id === id);
+      return markOrderPaid(id, activeOrder?.orderVersion ?? order.orderVersion);
+    },
     onMutate: async (id) => {
       await queryClient.cancelQueries({ queryKey: ["live-orders"] });
       const prev = queryClient.getQueryData(["live-orders"]);
@@ -252,8 +260,71 @@ export const KanbanCard = React.memo(function KanbanCard({
     onError: () => toast.error("Failed to assign rider"),
   });
 
+  const archiveMutation = useMutation({
+    mutationFn: () => archiveLiveOrder(order.id, order.orderVersion),
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ["live-orders"] });
+      const prev = queryClient.getQueryData(["live-orders"]);
+      queryClient.setQueryData(["live-orders"], (old: any) =>
+        old?.data ? { ...old, data: old.data.filter((o: any) => o.id !== order.id) } : old
+      );
+      return { prev };
+    },
+    onError: (err: any, _vars, ctx) => {
+      queryClient.setQueryData(["live-orders"], ctx?.prev);
+      toast.error(err.message?.includes("CONCURRENCY_CONFLICT") ? "Order modified by someone else." : "Failed to archive order");
+      queryClient.invalidateQueries({ queryKey: ["live-orders"] });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["live-orders"] });
+      setIsSheetOpen(false);
+    }
+  });
+
   // ── Helpers ───────────────────────────────────────────────────────────────────
-  const printReceipt = () => buildAndPrint(`receipt-${order.id}`);
+  const [isPrintingReceipt, setIsPrintingReceipt] = useState(false);
+  const [isPrintingKitchenSlip, setIsPrintingKitchenSlip] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
+
+  const printReceipt = () => {
+    setIsPrintingReceipt(true);
+    setTimeout(() => {
+      buildAndPrint(`receipt-${order.id}`);
+      setIsPrintingReceipt(false);
+    }, 0);
+  };
+
+  const printKitchenSlip = () => {
+    setIsPrintingKitchenSlip(true);
+    setTimeout(() => {
+      buildAndPrint(`kitchen-slip-${order.id}`);
+      setIsPrintingKitchenSlip(false);
+    }, 0);
+  };
+
+  const rejectMutation = useMutation({
+    mutationFn: (reason: string) => {
+      const cached = queryClient.getQueryData<{ data: LiveOrderProjection[] }>(["live-orders"]);
+      const activeOrder = cached?.data?.find(o => o.id === order.id);
+      return rejectLiveOrder(order.id, activeOrder?.orderVersion ?? order.orderVersion, reason);
+    },
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ["live-orders"] });
+      const prev = queryClient.getQueryData(["live-orders"]);
+      queryClient.setQueryData(["live-orders"], (old: any) =>
+        old?.data ? { ...old, data: old.data.filter((o: any) => o.id !== order.id) } : old
+      );
+      return { prev };
+    },
+    onError: (err: any, _vars, ctx) => {
+      queryClient.setQueryData(["live-orders"], ctx?.prev);
+      toast.error(err.message?.includes("CONCURRENCY_CONFLICT")
+        ? "Order was modified by someone else. Refreshing..."
+        : "Failed to reject order");
+      queryClient.invalidateQueries({ queryKey: ["live-orders"] });
+    },
+    onSettled: () => { queryClient.invalidateQueries({ queryKey: ["live-orders"] }); },
+  });
 
   const getNextStatus = (current: OrderStatus): { label: string; status: OrderStatus } | null => {
     switch (current) {
@@ -263,7 +334,7 @@ export const KanbanCard = React.memo(function KanbanCard({
       case "ready_for_pickup":
         if (order.orderType === "delivery") return { label: "Out for Delivery", status: "out_for_delivery" };
         return { label: "Complete Order", status: "delivered" };
-      case "out_for_delivery": return { label: "Complete Order",    status: "delivered" };
+      case "out_for_delivery": return { label: "Mark as Delivered", status: "delivered" };
       case "delayed":          return { label: "Back to Preparing", status: "preparing" };
       default:                 return null;
     }
@@ -320,9 +391,10 @@ export const KanbanCard = React.memo(function KanbanCard({
           order.status === "preparing"        && "border-purple-300/60 dark:border-purple-800/40" && "bg-[#F3E7FF] dark:bg-purple-950/30",
           order.status === "ready_for_pickup" && "bg-emerald-50/80 dark:bg-emerald-950/20 border-emerald-300/60 dark:border-emerald-800/40",
           order.status === "out_for_delivery" && "bg-indigo-50/80 dark:bg-indigo-950/20 border-indigo-200/60 dark:border-indigo-900/40",
+          order.status === "delivered"        && "bg-zinc-100/80 dark:bg-zinc-900/40 border-zinc-300/60 dark:border-zinc-700/40",
           order.status === "delayed"          && "bg-orange-50/80 dark:bg-orange-950/20 border-orange-300/60 dark:border-orange-800/40",
           // Fallback for other statuses
-          !["pending","approved","preparing","ready_for_pickup","out_for_delivery","delayed"].includes(order.status) && "bg-white dark:bg-zinc-950 border-black/5 dark:border-white/5",
+          !["pending","approved","preparing","ready_for_pickup","out_for_delivery","delivered","delayed"].includes(order.status) && "bg-white dark:bg-zinc-950 border-black/5 dark:border-white/5",
           isDragging && "opacity-50 ring-2 ring-primary shadow-2xl",
           isOverlay && "ring-2 ring-primary shadow-xl rotate-2",
           order.status === "delayed" && "ring-2 ring-orange-400",
@@ -350,11 +422,11 @@ export const KanbanCard = React.memo(function KanbanCard({
                         )}
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
-                            <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-rose-600 focus:text-rose-600 focus:bg-rose-50 cursor-pointer font-semibold">
+                            <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-rose-600 focus:text-rose-600 focus:bg-rose-50 cursor-pointer font-semibold rounded-none">
                               <Trash2 className="w-4 h-4 mr-2" /> Cancel Order
                             </DropdownMenuItem>
                           </AlertDialogTrigger>
-                          <AlertDialogContent>
+                          <AlertDialogContent className="rounded-none">
                             <AlertDialogHeader>
                               <AlertDialogTitle>Cancel Order?</AlertDialogTitle>
                               <AlertDialogDescription>
@@ -362,13 +434,51 @@ export const KanbanCard = React.memo(function KanbanCard({
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
-                              <AlertDialogCancel>Keep Order</AlertDialogCancel>
-                              <AlertDialogAction className="bg-rose-600 hover:bg-rose-700 text-white" onClick={() => { setVoidTarget({ type: "order" }); setIsVoidDialogOpen(true); }}>
+                              <AlertDialogCancel className="rounded-none">Keep Order</AlertDialogCancel>
+                              <AlertDialogAction className="rounded-none bg-rose-600 hover:bg-rose-700 text-white" onClick={() => { setVoidTarget({ type: "order" }); setIsVoidDialogOpen(true); }}>
                                 Yes, Cancel Order
                               </AlertDialogAction>
                             </AlertDialogFooter>
                           </AlertDialogContent>
                         </AlertDialog>
+                        {order.status === "pending" && (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive focus:bg-destructive/10 cursor-pointer font-semibold rounded-none">
+                                <AlertCircle className="w-4 h-4 mr-2" /> Reject Order
+                              </DropdownMenuItem>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent className="rounded-none">
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Reject Order</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Please provide a reason for rejecting this order (e.g., Out of Stock).
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <div className="py-2">
+                                <Input 
+                                  placeholder="Rejection Reason" 
+                                  className="rounded-none"
+                                  value={rejectReason} 
+                                  onChange={(e) => setRejectReason(e.target.value)} 
+                                />
+                              </div>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel className="rounded-none" onClick={() => setRejectReason("")}>Cancel</AlertDialogCancel>
+                                <AlertDialogAction 
+                                  className="rounded-none bg-destructive text-destructive-foreground hover:bg-destructive/90" 
+                                  disabled={!rejectReason.trim()}
+                                  onClick={() => {
+                                    rejectMutation.mutate(rejectReason);
+                                    setRejectReason("");
+                                  }}
+                                >
+                                  Reject Order
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
@@ -742,20 +852,26 @@ export const KanbanCard = React.memo(function KanbanCard({
 
                   {/* Actions */}
                   <div className="flex flex-col gap-2">
-                    {isDineIn && (
-                      <div className="grid grid-cols-2 gap-2 mb-1">
-                        <div onClick={(e) => e.stopPropagation()}>
+                    {/* Always show Edit Order & Print Bill for all order types */}
+                    <div className="flex gap-2 mb-1 w-full">
+                      {!(role === "manager" && !["pending", "approved"].includes(order.status)) && (
+                        <div onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} className="shrink-0">
                           <ManualOrderDialog existingOrder={order}>
-                            <Button variant="outline" className="w-full h-10 font-bold text-sm shadow-sm hover:shadow-md">
-                              <Plus className="w-4 h-4 mr-2" /> Add Items
+                            <Button variant="outline" className="h-10 px-3 font-bold text-sm rounded-none shadow-sm hover:shadow-md">
+                              <Plus className="w-4 h-4 mr-1" /> Edit
                             </Button>
                           </ManualOrderDialog>
                         </div>
-                        <Button variant="default" className="w-full h-10 font-bold text-sm shadow-sm hover:shadow-md" onClick={(e) => { e.stopPropagation(); printReceipt(); }}>
-                          <Printer className="w-4 h-4 mr-2" /> Print Bill
+                      )}
+                      {order.status === "approved" && (
+                        <Button variant="secondary" className="shrink-0 h-10 px-3 font-bold text-sm rounded-none shadow-sm hover:shadow-md bg-orange-100 hover:bg-orange-200 text-orange-800" onClick={(e) => { e.stopPropagation(); printKitchenSlip(); }}>
+                          <ChefHat className="w-4 h-4 mr-1" /> Slip
                         </Button>
-                      </div>
-                    )}
+                      )}
+                      <Button variant="default" className="flex-1 h-10 font-bold text-sm rounded-none shadow-sm hover:shadow-md" onClick={(e) => { e.stopPropagation(); printReceipt(); }}>
+                        <Printer className="w-4 h-4 mr-2" /> {isKitchen ? "Print KOT" : "Print Receipt"}
+                      </Button>
+                    </div>
                     {order.paymentStatus === "unpaid" && (
                       <Button variant="default" className="w-full h-10 font-bold text-sm shadow-md bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => markPaidMutation.mutate(order.id)}>
                         <Banknote className="w-4 h-4 mr-2" /> Mark as Paid
@@ -773,24 +889,21 @@ export const KanbanCard = React.memo(function KanbanCard({
                         {isDeliveryReadyNoRider && <span className="ml-2 text-[10px] opacity-70">(assign rider first)</span>}
                       </Button>
                     )}
-                    {/* Print slip — available at every state for delivery and pickup orders */}
-                    {order.orderType !== "dine_in" && (
+                    {order.status === "delivered" && (
                       <Button
-                        variant="outline"
-                        className={cn(
-                          "w-full h-10 font-semibold text-sm shadow-sm",
-                          order.orderType === "delivery" && order.status === "ready_for_pickup"
-                            ? "border-amber-300 text-amber-700 hover:bg-amber-50"
-                            : ""
-                        )}
-                        onClick={(e) => { e.stopPropagation(); printReceipt(); }}
+                        variant="secondary"
+                        className="w-full h-10 font-bold text-sm shadow-md transition-all bg-rose-500 hover:bg-rose-600 text-white border-0"
+                        onClick={() => archiveMutation.mutate()}
+                        disabled={archiveMutation.isPending}
                       >
-                        <Printer className="w-4 h-4 mr-2" />
-                        {order.orderType === "delivery" && order.status === "ready_for_pickup"
-                          ? "Print Delivery Slip"
-                          : "Print Slip"}
+                        {archiveMutation.isPending ? (
+                          <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Archiving...</>
+                        ) : (
+                          <><Trash2 className="w-4 h-4 mr-2 opacity-70" /> Clear from Board</>
+                        )}
                       </Button>
                     )}
+                    {/* Bottom buttons removed to deduplicate Print UI */}
                     {prevAction && (
                       <Button variant="ghost" size="sm" className="w-full h-8 text-xs text-muted-foreground hover:text-foreground" onClick={() => { onStatusChange?.(order.id, prevAction.status); setIsSheetOpen(false); }}>
                         ← {prevAction.label}
@@ -810,6 +923,15 @@ export const KanbanCard = React.memo(function KanbanCard({
           <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-dashed border-black/20 dark:border-white/20">
             <span className={cn("font-black tracking-tight leading-none", isKitchen ? "text-3xl" : "text-xl")}>#{order.id}</span>
             <div className="flex items-center gap-1.5 shrink-0">
+              {order.status === "pending" && (
+                (() => {
+                  if (!order.createdAt) return null;
+                  const diffMins = (Date.now() - new Date(order.createdAt).getTime()) / 60000;
+                  if (diffMins > 15) return <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" title="> 15 mins" />;
+                  if (diffMins > 5) return <div className="w-2.5 h-2.5 rounded-full bg-amber-500" title="5-15 mins" />;
+                  return <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" title="< 5 mins" />;
+                })()
+              )}
               <div className="text-xs font-bold bg-muted/80 text-muted-foreground border border-black/5 dark:border-white/5 px-2 py-0.5 rounded whitespace-nowrap">
                 <LiveTime date={order.createdAt || new Date()} /> ago
               </div>
@@ -822,9 +944,9 @@ export const KanbanCard = React.memo(function KanbanCard({
           </div>
 
           {/* Row 2: Status + Type — always on ONE line, no wrap */}
-          <div className="flex items-center gap-2 px-4 py-2.5 border-b border-black/5 dark:border-white/5">
+          <div className="flex items-center gap-2 px-4 py-2 border-b border-black/5 dark:border-white/5">
             <Badge className={cn("text-[11px] uppercase font-black tracking-widest px-2.5 py-0.5 text-white hover:text-white border-0 shrink-0", getBgColor(borderColor))}>
-              {order.status.replace(/_/g, " ")}
+              {order.status === "delivered" && order.orderType === "dine_in" ? "Served" : order.status.replace(/_/g, " ")}
             </Badge>
             <Badge variant="outline" className={cn("text-[11px] uppercase font-black tracking-widest px-2.5 py-0.5 shrink-0", getOrderTypeColor(order.orderType))}>
               {order.orderType.replace(/_/g, " ")}
@@ -844,7 +966,7 @@ export const KanbanCard = React.memo(function KanbanCard({
 
           {/* Details block */}
           {!isKitchen && (
-            <div className="px-4 py-3 space-y-2 border-b border-dashed border-black/20 dark:border-white/20">
+            <div className="px-4 py-2.5 space-y-2 border-b border-dashed border-black/20 dark:border-white/20">
               {isDineIn ? (
                 <div className="flex flex-col gap-2">
                   <div className="flex items-center gap-2 text-sm font-bold text-purple-600 dark:text-purple-400">
@@ -923,7 +1045,7 @@ export const KanbanCard = React.memo(function KanbanCard({
           )}
 
           {/* Items */}
-          <div className="px-4 pt-3 pb-1 space-y-3">
+          <div className={cn("px-4 py-3 space-y-2.5", isKitchen ? "pb-4" : "")}>
             {Object.entries(rounds).map(([roundNum, roundItems]) => (
               <div key={roundNum} className="space-y-2.5">
                 {Object.keys(rounds).length > 1 && (
@@ -959,7 +1081,7 @@ export const KanbanCard = React.memo(function KanbanCard({
 
           {/* Card footer */}
           {!isKitchen && (
-            <div className="px-4 pb-5 pt-3 border-t-2 border-dashed border-black/20 dark:border-white/20 space-y-1.5">
+            <div className="px-4 pt-3 pb-2 border-t-2 border-dashed border-black/20 dark:border-white/20 space-y-2">
               {(order.deliveryFee ?? 0) > 0 && (
                 <div className="flex justify-between items-center text-sm text-muted-foreground">
                   <span className="font-medium">Delivery</span>
@@ -972,29 +1094,35 @@ export const KanbanCard = React.memo(function KanbanCard({
                   <span className="font-semibold">− Rs. {order.discountAmount?.toLocaleString()}</span>
                 </div>
               )}
-              <div className="flex justify-between items-center pt-1">
+              <div className="flex justify-between items-center pt-0.5">
                 <span className="text-base font-bold text-foreground">Total</span>
                 <span className="text-2xl font-black text-primary">Rs. {order.totalAmount.toLocaleString()}</span>
               </div>
-              {isDineIn && (
-                <div className="flex gap-2 pt-2">
-                  <div onClick={(e) => e.stopPropagation()} className="w-full">
+              {/* Always show Edit & Bill for all order types in summary view */}
+              <div className="flex gap-2 pt-1.5 w-full">
+                {!(role === "manager" && !["pending", "approved"].includes(order.status)) && (
+                  <div onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} className="shrink-0">
                     <ManualOrderDialog existingOrder={order}>
-                      <Button variant="outline" size="sm" className="w-full text-xs h-8">
-                        <Plus className="h-3 w-3 mr-1" /> Add
+                      <Button variant="outline" size="sm" className="h-8 px-2 text-xs">
+                        <Plus className="h-3 w-3 mr-1" /> Edit
                       </Button>
                     </ManualOrderDialog>
                   </div>
-                  <Button variant="default" size="sm" className="w-full text-xs h-8" onClick={(e) => { e.stopPropagation(); printReceipt(); }}>
-                    <Printer className="h-3 w-3 mr-1" /> Bill
+                )}
+                {order.status === "approved" && (
+                  <Button variant="secondary" size="sm" className="shrink-0 text-xs h-8 px-2 bg-orange-100 hover:bg-orange-200 text-orange-800" onClick={(e) => { e.stopPropagation(); printKitchenSlip(); }}>
+                    <ChefHat className="h-3 w-3 mr-1" /> Slip
                   </Button>
-                </div>
-              )}
+                )}
+                <Button variant="default" size="sm" className="flex-1 text-xs h-8 rounded-none" onClick={(e) => { e.stopPropagation(); printReceipt(); }}>
+                  <Printer className="h-3 w-3 mr-1" /> {isKitchen ? "KOT" : "Receipt"}
+                </Button>
+              </div>
             </div>
           )}
 
-          {/* Dark shadow at card bottom for depth/separation */}
-          <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-black/25 dark:from-black/50 to-transparent" />
+          {/* Subtle shadow limited to zig-zag bottom curves */}
+          <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-3 bg-gradient-to-t from-black/25 dark:from-black/50 to-transparent" />
         </div>
       </div>
 
@@ -1003,7 +1131,7 @@ export const KanbanCard = React.memo(function KanbanCard({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Transfer Table</DialogTitle>
-            <DialogDescription>Move this order to another table. Only free tables are selectable.</DialogDescription>
+            <DialogDescription>Move this order to another free table in the same hall.</DialogDescription>
           </DialogHeader>
           <div className="py-4">
             <Select value={selectedTransferTableId} onValueChange={setSelectedTransferTableId}>
@@ -1011,12 +1139,13 @@ export const KanbanCard = React.memo(function KanbanCard({
                 <SelectValue placeholder="Select new table..." />
               </SelectTrigger>
               <SelectContent>
-                {tablesData?.map(table => (
-                  <SelectItem key={table.id} value={table.id} disabled={table.isOccupied}>
+                {tablesData
+                  ?.filter(t => !t.isOccupied && (!order.tableHallType || t.hallType === order.tableHallType))
+                  .map(table => (
+                  <SelectItem key={table.id} value={table.id}>
                    {table.name}
                     {table.tableZone === "outdoor" ? " (OutDoor)" : ""}
                     {table.tableZone === "family"  ? " (Family Hall)" : ""}
-                    {table.isOccupied ? " (Occupied)" : ""}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -1032,55 +1161,65 @@ export const KanbanCard = React.memo(function KanbanCard({
       </Dialog>
 
       {/* ── Hidden Receipt Template ── */}
-      <div id={`receipt-${order.id}`} style={{ display: "none" }}>
+      {isPrintingReceipt && (
+        <div id={`receipt-${order.id}`} style={{ display: "none" }}>
         {/* HEADER */}
-        <div style={{ textAlign: "center", marginBottom: "4px" }}>
-          <img src={`${typeof window !== "undefined" ? window.location.origin : ""}/logo.png`} className="logo" alt="Logo" style={{ width: "52px", height: "52px", display: "block", margin: "0 auto 4px" }} onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-          <div className="bold xl center" style={{ letterSpacing: "1px" }}>CLASSY CRAVE</div>
-          <div className="sm center" style={{ letterSpacing: "3px", marginBottom: "6px" }}>SOPHISTICATION IN EVERY BITE</div>
-          <div className="dash" />
+        <div style={{ textAlign: "center", marginBottom: "8px" }}>
+          <img src={`${typeof window !== "undefined" ? window.location.origin : ""}/slip/FullLogo.png`} alt="Header" style={{ width: "80%", maxWidth: "250px", display: "block", margin: "0 auto 8px" }} />
+          <div style={{ borderBottom: "1px dashed #000", margin: "8px 0" }} />
+          
           {/* Order type */}
-          <div className="type-banner center">{order.orderType.replace("_", " ")}</div>
-          {/* Dine-in: table + hall */}
-          {isDineIn && (
-            <div style={{ marginTop: "4px" }}>
-              <div className="xxl bold center">{order.tableNumber || "N/A"}</div>
-              {order.tableHallType === "family" && <div className="hall-tag center">FAMILY HALL</div>}
+          <div style={{ fontSize: "16px", fontWeight: "700", textTransform: "capitalize" }}>
+            {order.orderType.replace("_", " ")}
+          </div>
+          
+          {/* Table Number (if Dine In) */}
+          {order.orderType === "dine_in" && (
+            <div style={{ fontSize: "20px", fontWeight: "900", margin: "4px 0" }}>
+              {order.tableNumber ? (/^table/i.test(order.tableNumber) ? order.tableNumber : `Table ${order.tableNumber}`) : "Table N/A"}
+              {order.tableZone === "family" ? " (Family Hall)" : order.tableZone === "outdoor" ? " (OutDoor)" : ""}
             </div>
           )}
+          
           {/* Order number + recall */}
-          <div style={{ marginTop: "6px" }}>
-            <span className="order-num bold">#{order.id}</span>
-            {isUpdated && <span className="recall bold" style={{ marginLeft: "8px" }}>(RECALL)</span>}
+          <div style={{ marginTop: "4px", marginBottom: "8px" }}>
+            <span style={{ fontSize: "22px", fontWeight: "900" }}>{order.id.split("-").pop()}</span>
+            {isUpdated && <span style={{ fontSize: "18px", fontWeight: "800", marginLeft: "8px" }}>(Recall)</span>}
           </div>
         </div>
-        <div className="dash" style={{ margin: "6px 0" }} />
+        
+        {/* Customer & Date */}
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", marginBottom: "8px" }}>
+          <div style={{ flex: 1, paddingRight: "8px" }}>
+            {order.orderType === "delivery" ? (
+              <>
+                <div style={{ fontWeight: "900", fontSize: "16px" }}>{order.customerName || "Customer"}</div>
+                {order.customerPhone && <div style={{ fontWeight: "900", fontSize: "16px" }}>{formatPhone(order.customerPhone)}</div>}
+                {order.deliveryAddress && <div style={{ fontWeight: "900", fontSize: "16px", marginTop: "2px" }}>{order.deliveryAddress}</div>}
+              </>
+            ) : order.orderType === "dine_in" ? (
+              <>
+                <div style={{ fontSize: "14px", fontWeight: "700" }}>Waiter: {order.waiterName || "—"}</div>
+              </>
+            ) : (
+              <>
+                <div style={{ fontWeight: "800", fontSize: "14px" }}>{order.customerName || "Customer"}</div>
+                {order.customerPhone && <div style={{ fontWeight: "800", fontSize: "14px" }}>{formatPhone(order.customerPhone)}</div>}
+              </>
+            )}
+          </div>
+          <div style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+            {format(order.createdAt || new Date(), "dd/MM/yyyy hh:mm a")}
+          </div>
+        </div>
 
-        {/* DELIVERY DETAILS — big for rider */}
-        {order.orderType === "delivery" && (
-          <div style={{ marginBottom: "6px" }}>
-            {order.customerName && <div className="delivery-detail bold">{order.customerName}</div>}
-            {order.customerPhone && <div className="delivery-detail bold">{formatPhone(order.customerPhone)}</div>}
-            {order.deliveryAddress && <div className="delivery-detail bold" style={{ fontSize: "14px" }}>{order.deliveryAddress}</div>}
-            {order.rider && <div className="delivery-detail-sm bold" style={{ marginTop: "4px" }}>Rider: {order.rider.name}</div>}
-          </div>
-        )}
-        {/* Pickup / Dine-In: compact customer */}
-        {order.orderType !== "delivery" && (
-          <div style={{ marginBottom: "4px", fontSize: "11px" }}>
-            {order.orderType === "dine_in"
-              ? <div>Waiter: {order.waiterName || "—"}</div>
-              : <>
-                  {order.customerName && <div className="bold">{order.customerName}</div>}
-                  {order.customerPhone && <div>{formatPhone(order.customerPhone)}</div>}
-                </>
-            }
-          </div>
-        )}
-        <div style={{ fontSize: "9px", marginBottom: "4px" }}>
-          {format(order.createdAt || new Date(), "dd MMM yyyy  h:mm a")}
+        {/* TABLE HEADER */}
+        <div style={{ display: "flex", justifyContent: "space-between", backgroundColor: "#ddd", color: "#000", padding: "6px 4px", fontSize: "14px", fontWeight: "bold", marginBottom: "6px", WebkitPrintColorAdjust: "exact", borderTop: "1px solid #000", borderBottom: "1px solid #000" }}>
+          <div style={{ width: "40px", textAlign: "left" }}>Qty</div>
+          <div style={{ flex: 1, paddingLeft: "8px" }}>Product</div>
+          <div style={{ width: "55px", textAlign: "right" }}>Price</div>
+          <div style={{ width: "55px", textAlign: "right" }}>Sub</div>
         </div>
-        <div className="dash" />
 
         {/* ITEMS */}
         <div style={{ margin: "5px 0" }}>
@@ -1091,92 +1230,164 @@ export const KanbanCard = React.memo(function KanbanCard({
             const dealSelections = isDeal && item.dealSelections ? item.dealSelections : null;
             
             return (
-              <div key={idx} style={{ marginBottom: "6px" }}>
-                {isDeal ? (
-                  <>
-                    <div className="row" style={{ marginBottom: "3px" }}>
-                      <div className="qty">{item.quantity}x</div>
-                      <div className="iname" style={{ fontWeight: "700", fontSize: "13px", color: "#333" }}>
-                        {dealName}
-                      </div>
-                      <div className="iprice" style={{ fontWeight: "700" }}>Rs.{item.subtotal}</div>
+              <div key={idx} style={{ marginBottom: "8px" }}>
+                <div style={{ display: "flex", alignItems: "flex-start" }}>
+                  <div style={{ width: "40px", fontSize: "20px", fontWeight: "900", textAlign: "left" }}>{item.quantity}x</div>
+                  <div style={{ flex: 1, paddingLeft: "8px" }}>
+                    <div style={{ fontWeight: "800", fontSize: "16px", marginBottom: "4px" }}>
+                      {isDeal ? dealName : item.itemName}
+                      {!isDeal && item.variantName && item.variantName !== "Deal" && <span style={{ fontWeight: "normal", fontSize: "14px" }}> ({item.variantName})</span>}
                     </div>
-                    {dealSelections && dealSelections.length > 0 ? (
-                      <div style={{ marginLeft: "22px", marginTop: "3px" }}>
-                        {dealSelections.map((sel: any, lineIdx: any) => (
-                          <div key={lineIdx} style={{ fontSize: "11px", fontWeight: "600", color: "#555", marginBottom: "2px" }}>
-                            • {sel.name}
-                          </div>
+                    
+                    {dealSelections && dealSelections.length > 0 && (
+                      <div style={{ fontSize: "14px", color: "#333", marginBottom: "4px" }}>
+                        {dealSelections.map((sel: any, i: number) => (
+                          <div key={i}>• {sel.name}</div>
                         ))}
                       </div>
-                    ) : item.specialInstructions ? (
-                      <div style={{ marginLeft: "22px", marginTop: "3px" }}>
-                        {item.specialInstructions.split(" • ").map((itemLine, lineIdx) => (
-                          <div key={lineIdx} style={{ fontSize: "11px", fontWeight: "600", color: "#555", marginBottom: "2px" }}>
-                            • {itemLine}
-                          </div>
-                        ))}
+                    )}
+                    {!isDeal && addOns.length > 0 && (
+                      <div style={{ fontSize: "14px", color: "#333", marginBottom: "4px" }}>
+                        + {addOns.map((a: any) => a.name).join(", ")}
                       </div>
-                    ) : null}
-                  </>
-                ) : (
-                  <>
-                    <div className="row">
-                      <div className="qty">{item.quantity}x</div>
-                      <div className="iname">
-                        {item.itemName}
-                        {item.variantName && item.variantName !== "Deal" && <span style={{ fontWeight: "normal", fontSize: "11px" }}> ({item.variantName})</span>}
+                    )}
+                    {item.specialInstructions && (
+                      <div style={{ fontSize: "14px", fontWeight: "700", marginBottom: "4px" }}>
+                        *** {item.specialInstructions}
                       </div>
-                      <div className="iprice">Rs.{item.subtotal}</div>
-                    </div>
-                    {addOns.length > 0 && <div className="addon">+ {addOns.map((a) => String(a.name || "")).join(", ")}</div>}
-                    {item.specialInstructions && <div className="inote">*** {item.specialInstructions}</div>}
-                  </>
-                )}
+                    )}
+                  </div>
+                </div>
+                
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", fontSize: "16px", fontWeight: "700", marginBottom: "6px" }}>
+                  <div style={{ width: "55px", textAlign: "right" }}>{(item.unitPrice || (item.subtotal/item.quantity)).toLocaleString()}</div>
+                  <div style={{ width: "55px", textAlign: "right" }}>{item.subtotal.toLocaleString()}</div>
+                </div>
+                
+                <div style={{ borderBottom: "1px solid #000" }} />
               </div>
             );
           })}
         </div>
-        <div className="dash" />
 
         {/* TOTALS */}
-        <div style={{ margin: "5px 0" }}>
+        <div style={{ marginTop: "8px" }}>
           {(order.deliveryFee ?? 0) > 0 && (
-            <div className="total-row" style={{ fontSize: "11px" }}>
-              <span>Delivery Fee</span><span>Rs.{order.deliveryFee}</span>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", fontSize: "16px", fontWeight: "700", marginBottom: "4px" }}>
+              <div style={{ flex: 1, textAlign: "right" }}>Delivery Fee:</div>
+              <div style={{ width: "70px", textAlign: "right" }}>Rs {order.deliveryFee.toLocaleString()}</div>
             </div>
           )}
           {(order.discountAmount ?? 0) > 0 && (
-            <div className="total-row" style={{ fontSize: "11px" }}>
-              <span>Discount</span><span>- Rs.{order.discountAmount}</span>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", fontSize: "16px", fontWeight: "700", marginBottom: "4px" }}>
+              <div style={{ flex: 1, textAlign: "right" }}>Discount:</div>
+              <div style={{ width: "70px", textAlign: "right" }}>- Rs {order.discountAmount?.toLocaleString()}</div>
             </div>
           )}
-          <div className="total-row" style={{ marginTop: "4px", borderTop: "1px dashed #000", paddingTop: "4px" }}>
-            <span className="grand bold">TOTAL</span>
-            <span className="grand bold">Rs.{order.totalAmount.toLocaleString()}</span>
+          
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "18px", fontWeight: "900", marginTop: "8px" }}>
+            <div style={{ textAlign: "right", flex: 1, paddingRight: "20px" }}>
+              <div>Amount:</div>
+              <div style={{ fontSize: "16px", fontWeight: "900", marginTop: "4px", ...(order.paymentStatus === 'paid' ? { padding: "2px 8px", backgroundColor: "#000", color: "#fff", display: "inline-block", borderRadius: "4px" } : {}) }}>
+                {order.paymentStatus === "paid" ? `PAID (${order.paymentMethod})` : "Total Due"}
+              </div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div>Rs {order.totalAmount.toLocaleString()}</div>
+              {order.paymentStatus !== "paid" && (
+                <div style={{ fontSize: "14px", fontWeight: "600", marginTop: "4px" }}>Rs {order.totalAmount.toLocaleString()}</div>
+              )}
+            </div>
           </div>
         </div>
-
-        {/* PAYMENT STATUS */}
-        {order.paymentStatus === "unpaid" ? (
-          <div className="due-box bold" style={{ fontSize: "16px" }}>
-            AMOUNT DUE: Rs.{order.totalAmount.toLocaleString()}
-          </div>
-        ) : (
-          <div style={{ textAlign: "center", fontSize: "13px", fontWeight: "700", margin: "6px 0" }}>
-            ✓ PAID — {order.paymentMethod}
-          </div>
-        )}
-        {order.paymentStatus === "paid" && (
-          <div style={{ textAlign: "center", fontSize: "10px", marginBottom: "4px" }}>Payment: {order.paymentMethod}</div>
-        )}
-
-        <div className="dash" style={{ margin: "6px 0" }} />
-
-        {/* FOOTER */}
-        <div style={{ textAlign: "center", fontSize: "11px", fontWeight: "700" }}>Thank you for dining with us!</div>
-        <div style={{ textAlign: "center", fontSize: "9px", marginTop: "3px" }}>Classy Crave</div>
       </div>
+      )}
+
+      {/* ── Hidden Kitchen Slip Template ── */}
+      {isPrintingKitchenSlip && (
+        <div id={`kitchen-slip-${order.id}`} style={{ display: "none" }}>
+        <div style={{ width: "100%", padding: "10px", color: "#000", backgroundColor: "#fff", fontFamily: "sans-serif" }}>
+          
+          {/* Header - Just Order Number & Type */}
+          <div style={{ textAlign: "center", marginBottom: "16px" }}>
+            <div style={{ fontSize: "46px", fontWeight: "900", letterSpacing: "1px", borderBottom: "4px solid #000", paddingBottom: "12px", marginBottom: "12px" }}>
+              #{order.id.split("-").pop()}
+            </div>
+            
+            <div style={{ fontSize: "24px", fontWeight: "800", display: "flex", justifyContent: "center", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+              <span>{order.orderType.replace("_", " ").toUpperCase()}</span>
+              {isDineIn && (
+                <span>- {order.tableNumber ? (/^table/i.test(order.tableNumber) ? order.tableNumber.toUpperCase() : `TABLE ${order.tableNumber}`) : "TABLE N/A"}{order.tableZone === 'family' ? " (FAMILY HALL)" : order.tableZone === 'outdoor' ? " (OUTDOOR)" : ""}</span>
+              )}
+              {isUpdated && (
+                <span style={{ backgroundColor: "#000", color: "#fff", padding: "2px 8px", borderRadius: "4px", fontSize: "18px" }}>RECALL</span>
+              )}
+            </div>
+            
+            <div style={{ fontSize: "16px", fontWeight: "700", marginTop: "8px" }}>
+              {order.createdAt ? new Date(order.createdAt).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: true }) : "N/A"}
+            </div>
+          </div>
+          
+          {/* Items */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "24px", marginTop: "24px" }}>
+            {order.items.map((item, idx) => {
+              const isDeal = item.itemName.includes("[DEAL]");
+              const dealName = isDeal ? item.itemName.replace(/^\[DEAL\]\s*/, "") : null;
+              let dealSelections: any = null;
+              if (isDeal && item.dealSelections) {
+                try { dealSelections = typeof item.dealSelections === "string" ? JSON.parse(item.dealSelections) : item.dealSelections; } catch(e){}
+              }
+              let addOns: any = [];
+              if (item.selectedAddOns) {
+                 try { addOns = Array.isArray(item.selectedAddOns) ? item.selectedAddOns : (typeof item.selectedAddOns === 'string' ? JSON.parse(item.selectedAddOns) : []); } catch(e) {}
+              }
+
+              return (
+                <div key={idx} style={{ display: "flex", flexDirection: "column" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "16px" }}>
+                    {/* Left: Quantity */}
+                    <div style={{ fontSize: "28px", fontWeight: "900", minWidth: "45px" }}>{item.quantity}x</div>
+                    
+                    {/* Right: Item Name & Details */}
+                    <div style={{ flex: 1, textAlign: "right" }}>
+                      <div style={{ fontSize: "26px", fontWeight: "900", lineHeight: "1.2" }}>
+                        {isDeal ? dealName : item.itemName}
+                        {!isDeal && item.variantName && item.variantName !== "Deal" && (
+                          <span style={{ fontWeight: "700", fontSize: "20px" }}> ({item.variantName})</span>
+                        )}
+                      </div>
+                      
+                      {/* Instructions / Addons */}
+                      <div style={{ marginTop: "6px", fontSize: "18px", fontWeight: "800" }}>
+                        {isDeal && dealSelections && dealSelections.length > 0 && (
+                          dealSelections.map((sel: any, i: number) => <div key={i} style={{ marginTop: "4px" }}>• {sel.name}</div>)
+                        )}
+                        
+                        {!isDeal && addOns.length > 0 && (
+                          <div style={{ marginTop: "4px" }}>+ {addOns.map((a: any) => a.name).join(", ")}</div>
+                        )}
+                        
+                        {!isDeal && item.specialInstructions && (
+                          item.specialInstructions.split(" • ").map((inst, i) => (
+                            <div key={i} style={{ marginTop: "6px", fontSize: "20px" }}>
+                              *** {inst.toUpperCase()} ***
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          
+          <div style={{ borderBottom: "4px solid #000", marginTop: "24px", marginBottom: "16px" }} />
+          
+        </div>
+      </div>
+      )}
 
       <VoidReasonDialog
         open={isVoidDialogOpen}
@@ -1197,6 +1408,8 @@ export const KanbanCard = React.memo(function KanbanCard({
     prevProps.order.items.length === nextProps.order.items.length &&
     prevProps.order.rider?.name === nextProps.order.rider?.name &&
     prevProps.order.tableHallType === nextProps.order.tableHallType &&
+    prevProps.order.tableId === nextProps.order.tableId &&
+    prevProps.order.tableNumber === nextProps.order.tableNumber &&
     prevProps.isOverlay === nextProps.isOverlay &&
     prevProps.role === nextProps.role &&
     prevProps.borderColor === nextProps.borderColor

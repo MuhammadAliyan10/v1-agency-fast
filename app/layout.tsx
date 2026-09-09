@@ -32,7 +32,7 @@ const figtree = Figtree({
 export const metadata: Metadata = {
   metadataBase: new URL("https://classycrave.pk"),
   title: {
-    default: "Classy Crave — Premium Fast Food | Order Online in Sillanwali",
+    default: "Classy Crave | Premium Fast Food | Order Online in Sillanwali",
     template: "%s | Classy Crave",
   },
   description:
@@ -79,7 +79,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Classy Crave — Premium Fast Food",
+    title: "Classy Crave | Premium Fast Food",
     description: "Order burgers, pizza & more online from Classy Crave, Sillanwali.",
     images: ["/og-image.jpg"],
   },
