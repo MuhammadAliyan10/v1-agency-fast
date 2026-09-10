@@ -72,13 +72,20 @@ export async function settleRiderCash(riderUserId: string) {
   }
 }
 
-export async function updateRiderStatus(riderId: string, status: "available" | "busy" | "offline") {
+export async function updateRiderStatus(userId: string, status: "available" | "busy" | "offline") {
   await requireManagerPermission("staff", "update");
   try {
     await db
-      .update(riderProfiles)
-      .set({ status })
-      .where(eq(riderProfiles.id, riderId));
+      .insert(riderProfiles)
+      .values({
+        userId,
+        status,
+        vehicleType: "bike",
+      })
+      .onConflictDoUpdate({
+        target: riderProfiles.userId,
+        set: { status },
+      });
     revalidatePath("/admin/riders");
     return { success: true };
   } catch (error) {

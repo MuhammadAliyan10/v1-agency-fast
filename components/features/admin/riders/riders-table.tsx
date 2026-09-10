@@ -151,7 +151,7 @@ export function RidersTable({ data }: RidersTableProps) {
               </TableRow>
             ) : (
               filtered.map((rider) => {
-                const isThisUpdating = updatingId === rider.riderId;
+                const isThisUpdating = updatingId === rider.id;
                 const statusCfg = riderStatusConfig[rider.status ?? "offline"];
                 return (
                   <TableRow
@@ -201,51 +201,42 @@ export function RidersTable({ data }: RidersTableProps) {
                       )}
                     </TableCell>
                     <TableCell>
-                      {rider.riderId ? (
-                        <div className="flex items-center gap-2">
-                          {isThisUpdating ? (
-                            <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-                          ) : null}
-                          <Select
-                            value={rider.status ?? "offline"}
-                            onValueChange={(val) =>
-                              handleStatusChange(rider.riderId, val as any)
-                            }
-                            disabled={isPending || !rider.isActive}
-                          >
-                            <SelectTrigger className="h-8 w-[140px]">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="available">
-                                <div className="flex items-center gap-2">
-                                  <Circle className="w-2.5 h-2.5 fill-green-500 text-green-500" />
-                                  Available
-                                </div>
-                              </SelectItem>
-                              <SelectItem value="busy">
-                                <div className="flex items-center gap-2">
-                                  <Circle className="w-2.5 h-2.5 fill-blue-500 text-blue-500" />
-                                  On Delivery
-                                </div>
-                              </SelectItem>
-                              <SelectItem value="offline">
-                                <div className="flex items-center gap-2">
-                                  <Circle className="w-2.5 h-2.5 fill-slate-400 text-slate-400" />
-                                  Offline
-                                </div>
-                              </SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      ) : (
-                        <Badge variant="outline" className={statusCfg.className}>
-                          <span className="flex items-center gap-1.5">
-                            {statusCfg.icon}
-                            {statusCfg.label}
-                          </span>
-                        </Badge>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {isThisUpdating ? (
+                          <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                        ) : null}
+                        <Select
+                          value={rider.status ?? "offline"}
+                          onValueChange={(val) =>
+                            handleStatusChange(rider.id, val as any)
+                          }
+                          disabled={isPending || !rider.isActive}
+                        >
+                          <SelectTrigger className="h-8 w-[140px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="available">
+                              <div className="flex items-center gap-2">
+                                <Circle className="w-2.5 h-2.5 fill-green-500 text-green-500" />
+                                Available
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="busy">
+                              <div className="flex items-center gap-2">
+                                <Circle className="w-2.5 h-2.5 fill-blue-500 text-blue-500" />
+                                On Delivery
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="offline">
+                              <div className="flex items-center gap-2">
+                                <Circle className="w-2.5 h-2.5 fill-slate-400 text-slate-400" />
+                                Offline
+                              </div>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col items-start gap-2">
