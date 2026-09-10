@@ -783,7 +783,7 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
                         // For existing orders: show the actual order type label but don't allow switching
                         <TabsTrigger 
                           value={existingOrder.orderType}
-                          className="text-sm font-semibold rounded-none bg-transparent border-transparent border-t-0 border-l-0 border-r-0 border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-6 py-2 transition-none"
+                          className="text-lg font-bold rounded-none bg-transparent border-transparent border-t-0 border-l-0 border-r-0 border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-6 py-2 transition-none"
                         >
                           {existingOrder.orderType === "dine_in" ? "Dine-In" : existingOrder.orderType === "pickup" ? "Pickup" : "Delivery"} (Edit Order)
                         </TabsTrigger>
@@ -791,19 +791,19 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
                         <>
                           <TabsTrigger 
                             value="dine_in" 
-                            className="text-sm font-semibold rounded-none bg-transparent border-transparent border-t-0 border-l-0 border-r-0 border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-6 py-2 transition-none"
+                            className="text-lg font-bold rounded-none bg-transparent border-transparent border-t-0 border-l-0 border-r-0 border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-6 py-2 transition-none"
                           >
                             Dine-In
                           </TabsTrigger>
                           <TabsTrigger 
                             value="pickup" 
-                            className="text-sm font-semibold rounded-none bg-transparent border-transparent border-t-0 border-l-0 border-r-0 border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-6 py-2 transition-none"
+                            className="text-lg font-bold rounded-none bg-transparent border-transparent border-t-0 border-l-0 border-r-0 border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-6 py-2 transition-none"
                           >
                             Pickup
                           </TabsTrigger>
                           <TabsTrigger 
                             value="delivery" 
-                            className="text-sm font-semibold rounded-none bg-transparent border-transparent border-t-0 border-l-0 border-r-0 border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-6 py-2 transition-none"
+                            className="text-lg font-bold rounded-none bg-transparent border-transparent border-t-0 border-l-0 border-r-0 border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-6 py-2 transition-none"
                           >
                             Delivery
                           </TabsTrigger>
