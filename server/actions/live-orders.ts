@@ -2,7 +2,7 @@
 
 import crypto from "crypto";
 import { db } from "@/database/db";
-import { orders, orderItems, users, menuItems, itemVariants, itemAddOns, restaurantTables, deals } from "@/database/schema";
+import { orders, orderItems, users, menuItems, itemVariants, itemAddOns, restaurantTables, deals, orderStatusHistory } from "@/database/schema";
 import { inArray, notInArray, eq, asc, desc, and, sql, or, gt } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { registerShifts } from "@/database/schema";
@@ -720,7 +720,10 @@ export async function addItemsToExistingOrder(data: z.infer<typeof addItemsSchem
     
     const [dbItems, dbVariants, dbAddOns] = menuItemIds.length > 0
       ? await Promise.all([
-          db.select().from(menuItems).where(inArray(menuItems.id, menuItemIds)),
+          db.query.menuItems.findMany({
+            where: inArray(menuItems.id, menuItemIds),
+            with: { category: true },
+          }),
           db.select().from(itemVariants).where(inArray(itemVariants.menuItemId, menuItemIds)),
           db.select().from(itemAddOns).where(inArray(itemAddOns.menuItemId, menuItemIds)),
         ])
@@ -841,17 +844,55 @@ export async function addItemsToExistingOrder(data: z.infer<typeof addItemsSchem
         await tx.insert(orderItems).values(orderItemsToInsert);
       }
 
-      // ── Bump version and update totals atomically ─────────────────────────
+      // ── Bump version, update totals, and maybe update status atomically ──
       const netDelta = newSubtotal - removedSubtotal;
+      
+      // Determine if we added anything other than cold drinks
+      let addedSignificantItems = false;
+      if (orderItemsToInsert.length > 0) {
+        for (const inserted of orderItemsToInsert) {
+          const isDeal = inserted.menuItemId.startsWith("deal-");
+          if (isDeal) {
+            addedSignificantItems = true;
+            break;
+          } else {
+            const dbItem = dbItems.find(i => i.id === inserted.menuItemId);
+            const catName = dbItem?.category?.name?.toLowerCase() || "";
+            if (!catName.includes("cold drink") && !catName.includes("beverage") && !catName.includes("drinks") && !catName.includes("colddrink")) {
+              addedSignificantItems = true;
+              break;
+            }
+          }
+        }
+      }
+
+      const shouldMoveToApproved = addedSignificantItems && ["pending", "ready_for_pickup", "delayed"].includes(existingOrder.status);
+
+      const updateData: any = {
+        subtotal: sql`${orders.subtotal} + ${netDelta}`,
+        totalAmount: sql`${orders.totalAmount} + ${netDelta}`,
+        orderVersion: sql`${orders.orderVersion} + 1` as any,
+        updatedAt: new Date(),
+      };
+
+      if (shouldMoveToApproved) {
+        updateData.status = "approved";
+      }
+
       await tx
         .update(orders)
-        .set({
-          subtotal: sql`${orders.subtotal} + ${netDelta}`,
-          totalAmount: sql`${orders.totalAmount} + ${netDelta}`,
-          updatedAt: new Date(),
-          orderVersion: sql`${orders.orderVersion} + 1` as any,
-        })
+        .set(updateData)
         .where(eq(orders.id, validated.orderId));
+
+      // If we moved it to approved, log it in orderStatusHistory
+      if (shouldMoveToApproved) {
+        await tx.insert(orderStatusHistory).values({
+          orderId: validated.orderId,
+          toStatus: "approved",
+          fromStatus: existingOrder.status,
+          changedBy: session.id,
+        });
+      }
     });
 
     return { success: true, orderId: validated.orderId };

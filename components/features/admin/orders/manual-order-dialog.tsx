@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -67,8 +67,8 @@ type PosPublicDeal = Pick<
 const manualOrderSchema = z.object({
   orderType: z.enum(["delivery", "pickup", "dine_in"]),
   customerPhone: z.string().optional().refine(
-    (val) => !val || val.trim() === "" || /^03[0-9]{9}$/.test(val.trim()),
-    { message: "Phone must be in format 03XXXXXXXXX (11 digits)" }
+    (val) => !val || val.trim() === "" || /^(03|923|\+923)[0-9]{9}$/.test(val.trim().replace(/\s+/g, '')),
+    { message: "Phone must be in format 03XXXXXXXXX or 923XXXXXXXXX" }
   ),
   customerName: z.string().optional(),
   deliveryAddress: z.string().optional(),
@@ -219,6 +219,45 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
   const [dealSlotSelections, setDealSlotSelections] = useState<Record<string, { menuItemId: string; name: string; variantId: string | null; variantName: string | null }>>({});
   const [dealQuantity, setDealQuantity] = useState(1);
 
+  // Custom Resizer State
+  // The user requested 35% to be the standard width, with 5-10% adjustability
+  const [leftWidth, setLeftWidth] = useState(35); 
+  const isResizing = useRef(false);
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    isResizing.current = true;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+  };
+
+  useEffect(() => {
+    const handlePointerMove = (e: PointerEvent) => {
+      if (!isResizing.current) return;
+      // Calculate width percentage relative to window width
+      const newWidth = (e.clientX / window.innerWidth) * 100;
+      // Constrain between 25% and 45% (about +/- 10% from 35%)
+      if (newWidth >= 25 && newWidth <= 45) {
+        setLeftWidth(newWidth);
+      }
+    };
+
+    const handlePointerUp = () => {
+      if (isResizing.current) {
+        isResizing.current = false;
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+      }
+    };
+
+    document.addEventListener("pointermove", handlePointerMove);
+    document.addEventListener("pointerup", handlePointerUp);
+
+    return () => {
+      document.removeEventListener("pointermove", handlePointerMove);
+      document.removeEventListener("pointerup", handlePointerUp);
+    };
+  }, []);
+
   // Initialize form when dialog opens.
   // If the cart already has items (user accidentally closed), preserve them — don't wipe.
   useEffect(() => {
@@ -234,6 +273,7 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
         orderType: (existingOrder.orderType as any) || "dine_in",
         customerName: existingOrder.customerName || "",
         customerPhone: (existingOrder.customerPhone && existingOrder.customerPhone !== "00000000000" && existingOrder.customerPhone !== "N/A") ? existingOrder.customerPhone : "",
+        deliveryAddress: existingOrder.deliveryAddress || "",
         tableId: existingOrder.tableId || "",
         tableNumber: existingOrder.tableNumber || "",
         waiterId: existingOrder.waiterId || "",
@@ -699,8 +739,8 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
       <DialogContent
         className="!max-w-[95vw] w-full h-[95vh] p-0 flex flex-col overflow-hidden bg-background"
         onInteractOutside={(e) => {
-          // Prevent accidental close when the cart has unsaved items
-          if (form.getValues("items").length > 0) e.preventDefault();
+          // Prevent accidental close when resizing or interacting outside
+          e.preventDefault();
         }}
         onEscapeKeyDown={(e) => {
           if (form.getValues("items").length > 0) e.preventDefault();
@@ -729,11 +769,12 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
           )}
         </DialogHeader>
 
-        <div className="flex-1 flex overflow-hidden">
+        <div className="flex-1 flex overflow-hidden w-full h-full relative">
           {/* LEFT PANEL: Cart & Form */}
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="w-[40%] xl:w-[35%] flex flex-col bg-background border-r">
-              <div className="flex-1 p-3 border-b overflow-y-auto">
+          <div style={{ width: `${leftWidth}%` }} className="flex flex-col bg-background shrink-0">
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="h-full flex flex-col">
+                <div className="flex-1 p-3 overflow-y-auto">
                 <div className="mb-4 space-y-2">
                   <Label className="text-sm font-bold">Order Type</Label>
                   <Tabs value={orderType} onValueChange={(v) => form.setValue("orderType", v as any)}>
@@ -1250,9 +1291,18 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
               </div>
             </form>
           </Form>
+          </div>
+
+          {/* Draggable Divider */}
+          <div
+            className="w-1.5 cursor-col-resize bg-border hover:bg-primary/50 transition-colors shrink-0 z-50 flex items-center justify-center relative select-none"
+            onPointerDown={handlePointerDown}
+          >
+            <div className="h-8 w-1 rounded-full bg-muted-foreground/30" />
+          </div>
 
           {/* RIGHT PANEL: Menu + Deals */}
-          <div className="w-[60%] xl:w-[65%] flex flex-col bg-muted/10 relative">
+          <div style={{ width: `${100 - leftWidth}%` }} className="flex flex-col bg-muted/10 relative min-w-0">
             {isMenuLoading && (
               <div className="absolute inset-0 z-10 bg-background/50 flex items-center justify-center backdrop-blur-sm">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />

@@ -26,6 +26,8 @@ export const adminNavConfig = {
     { title: "Dashboard", url: "/admin/dashboard", icon: LayoutDashboard },
     { title: "Live Orders", url: "/admin/orders", icon: ShoppingBag },
     { title: "Order History", url: "/admin/orders/history", icon: History },
+  ],
+  finance: [
     { title: "Finance", url: "/admin/finance", icon: TrendingUp, permission: "canViewFinance" },
     { title: "Daily Register", url: "/admin/finance/register", icon: Calculator, permission: "canViewFinance" },
   ],
@@ -33,7 +35,6 @@ export const adminNavConfig = {
     { title: "Menu Items", url: "/admin/menu", icon: UtensilsCrossed, permission: "canManageMenu" },
     { title: "Categories", url: "/admin/categories", icon: FolderTree, permission: "canManageMenu" },
     { title: "Deals", url: "/admin/deals", icon: Tag, permission: "canManageMenu" },
-    { title: "Coupons", url: "/admin/coupons", icon: Ticket, permission: "canManageCoupons" },
     { title: "Inventory", url: "/admin/inventory", icon: Package, permission: "canViewInventory" },
   ],
   people: [

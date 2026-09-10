@@ -9,10 +9,12 @@ import { SessionProvider } from "@/lib/auth/session-context";
 
 export function AdminLayoutClient({
   children,
-  session
+  session,
+  defaultOpen = true,
 }: {
   children: React.ReactNode;
   session: SessionPayload | null;
+  defaultOpen?: boolean;
 }) {
   const pathname = usePathname();
 
@@ -29,7 +31,7 @@ export function AdminLayoutClient({
 
   return (
     <SessionProvider session={session}>
-      <SidebarProvider>
+      <SidebarProvider defaultOpen={defaultOpen}>
         <div className="admin-theme flex w-full min-h-screen">
           <AppSidebar session={session} />
           <main className="flex-1 flex flex-col min-h-screen bg-background w-full">
