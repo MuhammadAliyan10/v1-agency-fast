@@ -169,12 +169,9 @@ export function Navbar() {
           </div>
 
           {/* Center: Brand */}
-          <div className="absolute left-1/2 -translate-x-1/2 flex items-center justify-center gap-2 min-h-[48px]">
-            <Link href="/" className="flex items-center gap-2">
-              <Image src="/logo.png" alt="Classy Crave" width={32} height={32} className="rounded-none object-contain" />
-              <span className="font-serif text-xl md:text-2xl tracking-wider transition-colors duration-300 text-zinc-950">
-                Classy Crave
-              </span>
+          <div className="absolute left-1/2 -translate-x-1/2 flex items-center justify-center min-h-[48px]">
+            <Link href="/" className="flex items-center">
+              <Image src="/slip/FullLogo.png" alt="Classy Crave" width={140} height={40} className="object-contain h-10 w-auto" />
             </Link>
           </div>
           
