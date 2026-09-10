@@ -629,7 +629,7 @@ export function RegisterClose({ data }: { data: RegisterCloseData }) {
         {/* ── Header ── */}
         <div style={{ textAlign: "center", marginBottom: "8px" }}>
           <img
-            src={`${typeof window !== "undefined" ? window.location.origin : ""}/slip/Slip.jpeg`}
+            src={`${typeof window !== "undefined" ? window.location.origin : ""}/slip/FullLogo.png`}
             alt="Header"
             loading="eager"
             style={{ width: "100%", display: "block", margin: "0 auto 8px" }}
