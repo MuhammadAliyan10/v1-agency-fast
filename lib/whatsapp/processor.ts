@@ -1194,41 +1194,23 @@ async function handleItemSelection(
     return;
   }
 
-  // Item selected from list → show product detail card with real image.
-  // The card has a button that sends view_item_{id} when tapped — handled above.
+  // Item selected from list → always use reliable interactive button.
+  // If the item has a real uploaded image, send it first as a separate message.
   if (input.startsWith("item_")) {
     const itemId = input.replace("item_", "");
     const dbItem = await db.query.menuItems.findFirst({ where: eq(menuItems.id, itemId) });
     if (!dbItem) return handleGreeting(phone, session, false, false);
 
-    const imageUrl = dbItem.imageUrl ?? `${BASE_URL}/Menu/Items.jpeg`;
-    try {
-      await sendWhatsAppItemCard(
-        phone,
-        dbItem.name,
-        dbItem.basePrice,
-        imageUrl,
-        dbItem.id,
-        lang === "ur" ? "Order Karein" : "Order Now"
-      );
-    } catch {
-      // Image card failed — try interactive button fallback
-      try {
-        await sendWhatsAppInteractiveButtons(
-          phone,
-          `*${dbItem.name}*\nRs. ${dbItem.basePrice}\n\n${lang === "ur" ? "Order karne ke liye tap karein:" : "Tap below to order:"}`,
-          [{ id: `view_item_${dbItem.id}`, title: lang === "ur" ? "Order Karein" : "Order Now" }]
-        );
-      } catch {
-        // Final guaranteed fallback — plain text
-        await sendWhatsAppText(
-          phone,
-          `*${dbItem.name}*\nRs. ${dbItem.basePrice}\n\n${lang === "ur" ? `Order karne ke liye likhein: view_item_${dbItem.id}` : `Reply *1* to add to cart.`}`
-        );
-        // Directly proceed to add item so user isn't stuck
-        return addItemToCartAndProceed(phone, session, dbItem.id, null);
-      }
+    // Send image only when it's a real upload (not null/fallback) to avoid silent API failures
+    if (dbItem.imageUrl) {
+      try { await sendWhatsAppImage(phone, dbItem.imageUrl); } catch { /* ignore — button below always works */ }
     }
+
+    await sendWhatsAppInteractiveButtons(
+      phone,
+      `*${dbItem.name}*\nRs. ${dbItem.basePrice}\n\n${lang === "ur" ? "Order karne ke liye tap karein:" : "Tap below to order:"}`,
+      [{ id: `view_item_${dbItem.id}`, title: lang === "ur" ? "Order Karein" : "Order Now" }]
+    );
     return updateSessionState(session.id, "item_selection", cart, td);
   }
 
@@ -1251,25 +1233,14 @@ async function handleItemSelection(
       return n.includes(input) || input.includes(n.replace(/\s+/g, ""));
     });
     if (match) {
-      const imageUrl = match.imageUrl ?? `${BASE_URL}/Menu/Items.jpeg`;
-      try {
-        await sendWhatsAppItemCard(phone, match.name, match.basePrice, imageUrl, match.id,
-          lang === "ur" ? "Order Karein" : "Order Now");
-      } catch {
-        try {
-          await sendWhatsAppInteractiveButtons(
-            phone,
-            `*${match.name}*\nRs. ${match.basePrice}\n\n${lang === "ur" ? "Order karne ke liye tap karein:" : "Tap below to order:"}`,
-            [{ id: `view_item_${match.id}`, title: lang === "ur" ? "Order Karein" : "Order Now" }]
-          );
-        } catch {
-          await sendWhatsAppText(
-            phone,
-            `*${match.name}*\nRs. ${match.basePrice}\n\n${lang === "ur" ? "Reply karo order ke liye" : "Reply *1* to add to cart."}`
-          );
-          return addItemToCartAndProceed(phone, session, match.id, null);
-        }
+      if (match.imageUrl) {
+        try { await sendWhatsAppImage(phone, match.imageUrl); } catch { /* ignore */ }
       }
+      await sendWhatsAppInteractiveButtons(
+        phone,
+        `*${match.name}*\nRs. ${match.basePrice}\n\n${lang === "ur" ? "Order karne ke liye tap karein:" : "Tap below to order:"}`,
+        [{ id: `view_item_${match.id}`, title: lang === "ur" ? "Order Karein" : "Order Now" }]
+      );
       return updateSessionState(session.id, "item_selection", cart, td);
     }
 
