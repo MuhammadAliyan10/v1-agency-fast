@@ -728,9 +728,11 @@ async function handleGreeting(
     session = { ...session, tempData: td };
   }
 
-  // Website URL — once per session
+  // Website URL + call number — once per session
   const promoLine = (!td.websitePromoted && showWebsite)
-    ? `\n\n_Website pe bhi order kar sakte hain: ${BASE_URL}_`
+    ? lang === "ur"
+      ? `\n\n🌐 _Website pe bhi order kar sakte hain: ${BASE_URL}_\n📞 _Call pe order ke liye: *03441588883*_`
+      : `\n\n🌐 _Order online: ${BASE_URL}_\n📞 _Prefer a call? Ring us on *03441588883*_`
     : "";
 
   if (!td.websitePromoted && showWebsite) {
