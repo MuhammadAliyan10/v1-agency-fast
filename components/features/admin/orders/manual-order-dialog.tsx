@@ -13,6 +13,7 @@ import { getPOSMenuData } from "@/server/actions/menu";
 import { getPublicDeals } from "@/server/actions/deals";
 import { createManualOrder, getStaffWaiters, addItemsToExistingOrder, LiveOrder } from "@/server/actions/live-orders";
 import { getTablesWithStatus } from "@/server/actions/tables";
+import { buildAndPrintKOTFromData } from "@/components/features/admin/orders/print-invoice-button";
 import { Trash2 } from "lucide-react";
 import {
   deals as dealsTable,
@@ -706,10 +707,43 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
           
           const res = await createManualOrder(payload);
           if (!res.success) throw new Error(res.error);
+
+          // Build minimal order object for printing
+          if (res.orderId) {
+            const printOrder = {
+              id: res.orderId,
+              orderType: payload.orderType,
+              customerName: payload.customerName,
+              customerPhone: payload.customerPhone,
+              deliveryAddress: payload.deliveryAddress,
+              tableNumber: payload.tableNumber,
+              paymentMethod: payload.paymentMethod,
+              paymentStatus: payload.paymentStatus,
+              totalAmount: payload.items.reduce((s,i) => s + (i.unitPrice||0)*i.quantity, 0) + (payload.deliveryFee||0) - (payload.discountAmount||0),
+              deliveryFee: payload.deliveryFee,
+              discountAmount: payload.discountAmount,
+              createdAt: new Date(),
+              items: payload.items.map(i => ({
+                quantity: i.quantity,
+                itemName: i.name || "Item",
+                variantName: undefined,
+                subtotal: (i.unitPrice||0)*i.quantity,
+                specialInstructions: i.specialInstructions,
+                selectedAddOns: [], // Optional: fetch names if needed
+                dealSelections: i.dealSelections
+              }))
+            };
+            setTimeout(() => {
+              try { buildAndPrintKOTFromData(printOrder); } catch(e) { console.error("Print failed", e); }
+            }, 500);
+          }
         }
         
-        queryClient.invalidateQueries({ queryKey: ["live-orders"] });
         setIsOpen(false);
+        form.reset();
+        setCashTendered("");
+        setItemsToRemove(new Set());
+        queryClient.invalidateQueries({ queryKey: ["live-orders"] });
 
         const added = data.items.length;
         const removed = itemsToRemove.size;
@@ -721,10 +755,6 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
           : "Order Placed Successfully";
 
         toast.success(msg, { duration: 5000 });
-
-        form.reset();
-        setCashTendered("");
-        setItemsToRemove(new Set());
       } catch (err: any) {
         toast.error(err.message || "Failed to update order");
       }

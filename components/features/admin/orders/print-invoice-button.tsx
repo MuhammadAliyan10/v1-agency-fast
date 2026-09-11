@@ -10,7 +10,7 @@ import { markOrderPaidFromHistory } from "@/server/actions/order-history";
 import { format } from "date-fns";
 
 // ─── Shared print helper (same template as kanban-card.tsx) ──────────────────
-function buildAndPrintFromData(order: any) {
+export function buildAndPrintFromData(order: any) {
   const isDineIn  = order.orderType === "dine_in";
   const isUpdated = (order.items || []).some((i: any) => (i.roundNumber ?? 1) > 1);
 
@@ -181,4 +181,105 @@ export function PrintInvoiceButton({ order }: { order?: any }) {
       <Printer className="w-4 h-4" /> Print Slip
     </Button>
   );
+}
+
+export function buildAndPrintKOTFromData(order: any) {
+  const isUpdated = (order.items || []).some((i: any) => (i.roundNumber ?? 1) > 1);
+  const isDineIn = order.orderType === "dine_in" || order.orderType === "dine-in";
+  
+  const itemsHtml = (order.items || []).map((item: any) => {
+    const addOns = Array.isArray(item.selectedAddOns)
+      ? (item.selectedAddOns as { name: string }[]).map(a => a.name)
+      : [];
+    const isDeal = item.itemName.includes("[DEAL]");
+    const dealName = isDeal ? item.itemName.replace(/^\[DEAL\]\s*/, "") : null;
+    let dealSelections = null;
+    if (isDeal && item.dealSelections) {
+      try { dealSelections = typeof item.dealSelections === "string" ? JSON.parse(item.dealSelections) : item.dealSelections; } catch(e){}
+    }
+    
+    let html = `
+      <div style="margin-bottom:8px;">
+        <div style="display:flex;align-items:flex-start;">
+          <div style="width:40px;font-size:24px;font-weight:900;text-align:left;">${item.quantity}x</div>
+          <div style="flex:1;padding-left:8px;">
+            <div style="font-weight:800;font-size:18px;margin-bottom:4px;">
+              ${isUpdated ? `<span style="margin-right:4px;">[R${item.roundNumber || 1}]</span>` : ""}
+              ${isDeal ? dealName : item.itemName}
+              ${!isDeal && item.variantName && item.variantName !== "Deal" ? `<span style="font-weight:normal;font-size:14px;"> (${item.variantName})</span>` : ""}
+            </div>
+    `;
+    
+    if (dealSelections && dealSelections.length > 0) {
+      html += `<div style="font-size:14px;color:#333;margin-bottom:4px;">`;
+      dealSelections.forEach((sel: any) => {
+        html += `<div style="font-weight:600;font-style:italic;">• ${sel.name}</div>`;
+      });
+      html += `</div>`;
+    }
+    
+    if (!isDeal && addOns.length > 0) {
+      html += `<div style="font-size:14px;color:#333;margin-bottom:4px;font-weight:600;font-style:italic;">+ ${addOns.join(", ")}</div>`;
+    }
+    
+    if (item.specialInstructions) {
+      item.specialInstructions.split(" • ").forEach((inst: string) => {
+        html += `<div style="font-size:14px;font-weight:900;margin-top:2px;text-transform:uppercase;font-style:italic;">*** ${inst}</div>`;
+      });
+    }
+    
+    html += `
+          </div>
+        </div>
+        <div style="border-bottom:1px solid #000;margin-top:4px;"></div>
+      </div>
+    `;
+    return html;
+  }).join("");
+
+  const orderTypeTitle = (order.orderType || "").replace(/_/g, " ").toUpperCase();
+  const dateStr = order.createdAt ? format(new Date(order.createdAt), "MM/dd/yyyy hh:mm a") : "N/A";
+  const customerLine = `<div style="display:flex;"><span style="width:85px;">Customer</span><span style="text-transform:capitalize;font-weight:bold;">: ${order.customerName || "Walk-in"}</span></div>`;
+  const tableLine = isDineIn ? `<div style="display:flex;"><span style="width:85px;">Table No.</span><span style="font-weight:bold;">: ${order.tableNumber || "N/A"} ${order.tableZone ? `(${order.tableZone.toUpperCase()})` : ""}</span></div>` : "";
+
+  const totalQty = (order.items || []).reduce((sum: number, item: any) => sum + (item.quantity || 1), 0);
+
+  const html = `<!DOCTYPE html><html><head><title>KOT ${order.id}</title></head><body style="margin:0;padding:0;">
+    <div style="width:80mm;margin:0;padding:8px;color:#000;background-color:#fff;font-family:'Courier New',Courier,monospace;font-size:14px;line-height:1.2;">
+      <div style="text-align:center;font-weight:900;font-size:24px;text-transform:uppercase;letter-spacing:2px;margin-bottom:8px;">KOT</div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:4px;font-size:13px;">
+        <div style="display:flex;flex-direction:column;">
+          <span style="font-weight:bold;font-size:16px;">#${order.id?.toUpperCase()}</span>
+        </div>
+        <span>${dateStr}</span>
+      </div>
+      <div style="border-bottom:1px solid #000;margin-bottom:6px;"></div>
+      <div style="text-align:center;font-size:20px;font-weight:900;margin-bottom:8px;text-transform:uppercase;">${orderTypeTitle} ${isUpdated ? "(Recall)" : ""}</div>
+      <div style="font-size:13px;margin-bottom:8px;line-height:1.5;">
+        ${customerLine}
+        ${tableLine}
+      </div>
+      <div style="display:flex;justify-content:space-between;background-color:#ddd;color:#000;padding:6px 4px;font-size:14px;font-weight:bold;margin-bottom:6px;-webkit-print-color-adjust:exact;border-top:1px solid #000;border-bottom:1px solid #000;">
+        <div style="width:40px;text-align:left;">Qty</div>
+        <div style="flex:1;padding-left:8px;">Product</div>
+      </div>
+      <div style="margin:5px 0;">${itemsHtml}</div>
+      <div style="display:flex;justify-content:flex-end;align-items:center;font-size:14px;margin-bottom:8px;padding-right:4px;">
+        <span style="font-weight:bold;margin-right:8px;">Total Items :</span>
+        <span style="font-weight:bold;width:40px;text-align:center;">${totalQty}</span>
+      </div>
+      <div style="border-bottom:1px solid #000;margin-top:8px;"></div>
+    </div>
+  </body></html>`;
+
+  const iframe = document.createElement("iframe");
+  iframe.style.display = "none";
+  document.body.appendChild(iframe);
+  iframe.contentWindow?.document.write(html);
+  iframe.contentWindow?.document.close();
+  iframe.contentWindow?.focus();
+  setTimeout(() => {
+    iframe.contentWindow?.print();
+    setTimeout(() => document.body.removeChild(iframe), 500);
+  }, 250);
 }

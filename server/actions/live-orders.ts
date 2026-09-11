@@ -653,7 +653,6 @@ export async function createManualOrder(payload: z.infer<typeof manualOrderSchem
       }
     });
 
-    revalidatePath("/admin/orders");
     return { success: true, orderId };
     
   } catch (error) {
