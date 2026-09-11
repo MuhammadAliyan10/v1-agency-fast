@@ -634,7 +634,7 @@ export async function createManualOrder(payload: z.infer<typeof manualOrderSchem
         createdById: session.id,
         deliveryAddress: validated.deliveryAddress ?? null,
         deliveryNotes: validated.deliveryNotes ?? null,
-        status: "pending",
+        status: "approved",
         source: "admin",
         paymentMethod: validated.paymentMethod,
         paymentStatus: validated.paymentStatus,
