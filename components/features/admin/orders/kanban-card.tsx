@@ -1324,9 +1324,9 @@ export const KanbanCard = React.memo(function KanbanCard({
       {/* ── Hidden Kitchen Slip Template ── */}
       {isPrintingKitchenSlip && (
         <div id={`kitchen-slip-${order.id}`} style={{ display: "none" }}>
-          <div style={{ width: "80mm", margin: "0", padding: "8px", color: "#000", backgroundColor: "#fff", fontFamily: "sans-serif", fontSize: "14px", lineHeight: "1.2" }}>
+          <div style={{ width: "80mm", margin: "0", padding: "8px", color: "#000", backgroundColor: "#fff", fontFamily: "'Courier New', Courier, monospace", fontSize: "14px", lineHeight: "1.2" }}>
             
-            <div style={{ textAlign: "center", fontWeight: "900", fontSize: "24px", textTransform: "uppercase", letterSpacing: "2px", marginBottom: "16px" }}>
+            <div style={{ textAlign: "center", fontWeight: "900", fontSize: "24px", textTransform: "uppercase", letterSpacing: "2px", marginBottom: "8px" }}>
               KOT
             </div>
 
@@ -1339,90 +1339,78 @@ export const KanbanCard = React.memo(function KanbanCard({
 
             <div style={{ borderBottom: "1px solid #000", marginBottom: "6px" }}></div>
 
-            <div style={{ fontSize: "13px", marginBottom: "6px", lineHeight: "1.5" }}>
-              <div style={{ display: "flex" }}>
-                <span style={{ width: "85px" }}>Type</span>
-                <span style={{ fontWeight: "bold", display: "flex", alignItems: "center", gap: "4px" }}>
-                  : {order.orderType.replace("_", " ").toUpperCase()}
-                  {isUpdated && <span>(Recall)</span>}
-                </span>
-              </div>
+            <div style={{ textAlign: "center", fontSize: "20px", fontWeight: "900", marginBottom: "8px", textTransform: "uppercase" }}>
+              {order.orderType.replace("_", " ")} {isUpdated && "(Recall)"}
+            </div>
+
+            <div style={{ fontSize: "13px", marginBottom: "8px", lineHeight: "1.5" }}>
               <div style={{ display: "flex" }}>
                 <span style={{ width: "85px" }}>Customer</span>
-                <span style={{ textTransform: "capitalize" }}>: {order.customerName || "Walk-in"}</span>
+                <span style={{ textTransform: "capitalize", fontWeight: "bold" }}>: {order.customerName || "Walk-in"}</span>
               </div>
               {(order.orderType === "dine_in" || order.orderType === "dine-in") && (
                 <div style={{ display: "flex" }}>
                   <span style={{ width: "85px" }}>Table No.</span>
-                  <span>: {order.tableNumber || "N/A"} {order.tableZone ? `(${order.tableZone.toUpperCase()})` : ""}</span>
+                  <span style={{ fontWeight: "bold" }}>: {order.tableNumber || "N/A"} {order.tableZone ? `(${order.tableZone.toUpperCase()})` : ""}</span>
                 </div>
               )}
             </div>
 
-            <div style={{ borderBottom: "1px solid #000", marginBottom: "4px" }}></div>
+            {/* TABLE HEADER */}
+            <div style={{ display: "flex", justifyContent: "space-between", backgroundColor: "#ddd", color: "#000", padding: "6px 4px", fontSize: "14px", fontWeight: "bold", marginBottom: "6px", WebkitPrintColorAdjust: "exact", borderTop: "1px solid #000", borderBottom: "1px solid #000" }}>
+              <div style={{ width: "40px", textAlign: "left" }}>Qty</div>
+              <div style={{ flex: 1, paddingLeft: "8px" }}>Product</div>
+            </div>
 
-            <table style={{ width: "100%", textAlign: "left", fontSize: "13px", borderCollapse: "collapse" }}>
-              <thead>
-                <tr>
-                  <th style={{ padding: "4px 0", fontWeight: "bold", width: "48px", textAlign: "center" }}>Sl.No</th>
-                  <th style={{ padding: "4px 0 4px 8px", fontWeight: "bold", textAlign: "left" }}>Item Name</th>
-                  <th style={{ padding: "4px 0", fontWeight: "bold", textAlign: "center", width: "48px" }}>Qty.</th>
-                </tr>
-              </thead>
-            </table>
+            {/* ITEMS */}
+            <div style={{ margin: "5px 0" }}>
+              {order.items.map((item, idx) => {
+                const addOns = Array.isArray(item.selectedAddOns) ? (item.selectedAddOns as { name: string }[]) : [];
+                const isDeal = item.itemName.includes("[DEAL]");
+                const dealName = isDeal ? item.itemName.replace(/^\[DEAL\]\s*/, "") : null;
+                let dealSelections: any = null;
+                if (isDeal && item.dealSelections) {
+                  try { dealSelections = typeof item.dealSelections === "string" ? JSON.parse(item.dealSelections) : item.dealSelections; } catch(e){}
+                }
 
-            <div style={{ borderBottom: "1px solid #000", marginBottom: "4px" }}></div>
-
-            <table style={{ width: "100%", textAlign: "left", fontSize: "13px", borderCollapse: "collapse", marginBottom: "4px" }}>
-              <tbody>
-                {order.items.map((item, idx) => {
-                  const isDeal = item.itemName.includes("[DEAL]");
-                  const dealName = isDeal ? item.itemName.replace(/^\[DEAL\]\s*/, "") : null;
-                  let dealSelections: any = null;
-                  if (isDeal && item.dealSelections) {
-                    try { dealSelections = typeof item.dealSelections === "string" ? JSON.parse(item.dealSelections) : item.dealSelections; } catch(e){}
-                  }
-                  let addOns: any = [];
-                  if (item.selectedAddOns) {
-                     try { addOns = Array.isArray(item.selectedAddOns) ? item.selectedAddOns : (typeof item.selectedAddOns === 'string' ? JSON.parse(item.selectedAddOns) : []); } catch(e) {}
-                  }
-
-                  return (
-                    <tr key={idx} style={{ verticalAlign: "top" }}>
-                      <td style={{ padding: "4px 0", width: "48px", textAlign: "center" }}>{idx + 1}</td>
-                      <td style={{ padding: "4px 0 4px 8px", textAlign: "left" }}>
-                        <div>
-                          {isUpdated && <span style={{ fontWeight: "bold", marginRight: "4px" }}>[R{item.roundNumber || 1}]</span>}
+                return (
+                  <div key={idx} style={{ marginBottom: "8px" }}>
+                    <div style={{ display: "flex", alignItems: "flex-start" }}>
+                      <div style={{ width: "40px", fontSize: "24px", fontWeight: "900", textAlign: "left" }}>{item.quantity}x</div>
+                      <div style={{ flex: 1, paddingLeft: "8px" }}>
+                        <div style={{ fontWeight: "800", fontSize: "18px", marginBottom: "4px" }}>
+                          {isUpdated && <span style={{ marginRight: "4px" }}>[R{item.roundNumber || 1}]</span>}
                           {isDeal ? dealName : item.itemName}
+                          {!isDeal && item.variantName && item.variantName !== "Deal" && <span style={{ fontWeight: "normal", fontSize: "14px" }}> ({item.variantName})</span>}
                         </div>
-                        {!isDeal && item.variantName && item.variantName !== "Deal" && (
-                          <div>- {item.variantName}</div>
-                        )}
                         
-                        {isDeal && dealSelections && dealSelections.length > 0 && (
-                          dealSelections.map((sel: any, i: number) => <div key={i} style={{ fontSize: "11px", color: "#374151", fontStyle: "italic" }}>- {sel.name}</div>)
+                        {dealSelections && dealSelections.length > 0 && (
+                          <div style={{ fontSize: "14px", color: "#333", marginBottom: "4px" }}>
+                            {dealSelections.map((sel: any, i: number) => (
+                              <div key={i} style={{ fontWeight: "600", fontStyle: "italic" }}>• {sel.name}</div>
+                            ))}
+                          </div>
                         )}
-                        
                         {!isDeal && addOns.length > 0 && (
-                          addOns.map((a: any, i: number) => <div key={i} style={{ fontSize: "11px", color: "#374151", fontStyle: "italic" }}>+ {a.name}</div>)
+                          <div style={{ fontSize: "14px", color: "#333", marginBottom: "4px", fontWeight: "600", fontStyle: "italic" }}>
+                            + {addOns.map((a: any) => a.name).join(", ")}
+                          </div>
                         )}
-                        
-                        {!isDeal && item.specialInstructions && (
+                        {item.specialInstructions && (
                           item.specialInstructions.split(" • ").map((inst, i) => (
-                            <div key={i} style={{ fontSize: "11px", marginTop: "2px", fontWeight: "bold", textTransform: "uppercase", fontStyle: "italic" }}>
-                              ** {inst}
+                            <div key={i} style={{ fontSize: "14px", fontWeight: "900", marginTop: "2px", textTransform: "uppercase", fontStyle: "italic" }}>
+                              *** {inst}
                             </div>
                           ))
                         )}
-                      </td>
-                      <td style={{ padding: "4px 0", width: "48px", textAlign: "center" }}>{item.quantity}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-
-            <div style={{ borderBottom: "1px solid #000", marginBottom: "6px" }}></div>
+                      </div>
+                    </div>
+                    
+                    <div style={{ borderBottom: "1px solid #000", marginTop: "4px" }} />
+                  </div>
+                );
+              })}
+            </div>
 
             <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", fontSize: "14px", marginBottom: "8px", paddingRight: "4px" }}>
               <span style={{ fontWeight: "bold", marginRight: "8px" }}>Total Items :</span>
@@ -1431,7 +1419,7 @@ export const KanbanCard = React.memo(function KanbanCard({
               </span>
             </div>
 
-            <div style={{ borderBottom: "1px dashed #000", marginTop: "8px" }}></div>
+            <div style={{ borderBottom: "1px solid #000", marginTop: "8px" }}></div>
           </div>
         </div>
       )}
