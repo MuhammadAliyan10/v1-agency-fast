@@ -102,7 +102,7 @@ const manualOrderSchema = z.object({
     unitPrice: z.number().optional(),
     totalPrice: z.number().optional(),
     hash: z.string().optional(),
-  })).min(1, "Cart cannot be empty"),
+  })).default([]),
 }).superRefine((data, ctx) => {
   if (data.orderType === "dine_in") {
     if (!data.waiterId || data.waiterId.trim() === "") {
@@ -268,17 +268,26 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
     if (currentItems.length > 0) return;
 
     if (existingOrder) {
-      // Use the actual order type for the append dialog (support pickup/delivery too)
+      let formattedPhone = "";
+      if (existingOrder.customerPhone && existingOrder.customerPhone !== "00000000000" && existingOrder.customerPhone !== "N/A") {
+        formattedPhone = existingOrder.customerPhone.trim();
+        if (formattedPhone.startsWith("923")) {
+          formattedPhone = "0" + formattedPhone.substring(2);
+        } else if (formattedPhone.startsWith("+923")) {
+          formattedPhone = "0" + formattedPhone.substring(3);
+        }
+      }
+
       form.reset({
         orderType: (existingOrder.orderType as any) || "dine_in",
         customerName: existingOrder.customerName || "",
-        customerPhone: (existingOrder.customerPhone && existingOrder.customerPhone !== "00000000000" && existingOrder.customerPhone !== "N/A") ? existingOrder.customerPhone : "",
+        customerPhone: formattedPhone,
         deliveryAddress: existingOrder.deliveryAddress || "",
         tableId: existingOrder.tableId || "",
         tableNumber: existingOrder.tableNumber || "",
         waiterId: existingOrder.waiterId || "",
-        deliveryFee: 50,
-        discountAmount: 0,
+        deliveryFee: existingOrder.deliveryFee ?? 50,
+        discountAmount: existingOrder.discountAmount ?? 0,
         paymentMethod: "Cash",
         paymentStatus: "unpaid",
         items: [],
@@ -364,7 +373,10 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
   }, [menuData, selectedCategory, searchQuery]);
 
   const items = form.watch("items");
-  const subtotal = items.reduce((acc, item) => acc + (item.totalPrice || 0), 0);
+  const newItemsSubtotal = items.reduce((acc, item) => acc + (item.totalPrice || 0), 0);
+  const existingItemsSubtotal = existingOrder ? (existingOrder.items || []).reduce((acc: number, item: any) => itemsToRemove.has(item.id) ? acc : acc + (item.subtotal || 0), 0) : 0;
+  const subtotal = newItemsSubtotal + existingItemsSubtotal;
+  
   const calculatedDiscount = discountType === "percent" ? Math.round((subtotal * Math.min(discountAmount || 0, 100)) / 100) : Math.round(discountAmount || 0);
   const appliedDeliveryFee = orderType === "delivery" ? deliveryFee : 0;
   const grandTotal = Math.max(0, subtotal + appliedDeliveryFee - calculatedDiscount);

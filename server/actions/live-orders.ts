@@ -665,6 +665,11 @@ export async function createManualOrder(payload: z.infer<typeof manualOrderSchem
 const addItemsSchema = z.object({
   orderId: z.string(),
   currentVersion: z.number(),
+  customerName: z.string().optional(),
+  customerPhone: z.string().optional(),
+  deliveryAddress: z.string().optional(),
+  deliveryFee: z.number().optional(),
+  discountAmount: z.number().optional(),
   /** New items to append (can be empty if only removing). */
   items: z.array(z.object({
     menuItemId: z.string(),
@@ -870,10 +875,28 @@ export async function addItemsToExistingOrder(data: z.infer<typeof addItemsSchem
 
       const updateData: any = {
         subtotal: sql`${orders.subtotal} + ${netDelta}`,
-        totalAmount: sql`${orders.totalAmount} + ${netDelta}`,
         orderVersion: sql`${orders.orderVersion} + 1` as any,
         updatedAt: new Date(),
       };
+
+      if (validated.customerName !== undefined) updateData.customerName = validated.customerName;
+      if (validated.customerPhone !== undefined) updateData.customerPhone = validated.customerPhone;
+      if (validated.deliveryAddress !== undefined) updateData.deliveryAddress = validated.deliveryAddress;
+      
+      let deliveryFeeDelta = 0;
+      if (validated.deliveryFee !== undefined && validated.deliveryFee !== existingOrder.deliveryFee) {
+        updateData.deliveryFee = validated.deliveryFee;
+        deliveryFeeDelta = validated.deliveryFee - existingOrder.deliveryFee;
+      }
+      
+      let discountAmountDelta = 0;
+      if (validated.discountAmount !== undefined && validated.discountAmount !== existingOrder.discountAmount) {
+        updateData.discountAmount = validated.discountAmount;
+        discountAmountDelta = validated.discountAmount - existingOrder.discountAmount;
+      }
+
+      const totalAmountDelta = netDelta + deliveryFeeDelta - discountAmountDelta;
+      updateData.totalAmount = sql`${orders.totalAmount} + ${totalAmountDelta}`;
 
       if (shouldMoveToApproved) {
         updateData.status = "approved";
