@@ -244,7 +244,7 @@ export function buildAndPrintKOTFromData(order: any) {
 
   const totalQty = (order.items || []).reduce((sum: number, item: any) => sum + (item.quantity || 1), 0);
 
-  const html = `<!DOCTYPE html><html><head><title>KOT ${order.id}</title></head><body style="margin:0;padding:0;">
+  const html = `<!DOCTYPE html><html><head><title>KOT ${order.id}</title><style>@page{margin:0;size:80mm 297mm} *{box-sizing:border-box;margin:0;padding:0}</style></head><body style="margin:0;padding:0;">
     <div style="width:80mm;margin:0;padding:8px;color:#000;background-color:#fff;font-family:'Courier New',Courier,monospace;font-size:14px;line-height:1.2;">
       <div style="text-align:center;font-weight:900;font-size:24px;text-transform:uppercase;letter-spacing:2px;margin-bottom:8px;">KOT</div>
       <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:4px;font-size:13px;">
