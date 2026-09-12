@@ -1513,12 +1513,19 @@ async function handleInstructionsInput(
   const checkoutSessionId =
     td.checkoutSessionId ?? `chk_${Date.now()}_${Math.random().toString(36).substring(7)}`;
 
-  const newTd: TempData = { ...td, instructions: input, checkoutSessionId };
+  const noInstrRegex = /^(no|none|nono|nothing|na|nahi|nai|nil|nahe|-|\.|)$/i;
+  const finalInstr = noInstrRegex.test(input.trim()) ? "" : input.trim();
+  const newTd: TempData = { ...td, instructions: finalInstr, checkoutSessionId };
 
   // Build order summary
   const itemIds = cart.map(c => c.menuItemId).filter((id): id is string => id !== null);
   const dbItems = itemIds.length > 0
     ? await db.select().from(menuItems).where(inArray(menuItems.id, itemIds))
+    : [];
+    
+  const variantIds = cart.map(c => c.variantId).filter((id): id is string => !!id);
+  const dbVariants = variantIds.length > 0
+    ? await db.select().from(itemVariants).where(inArray(itemVariants.id, variantIds))
     : [];
 
   let subtotal = 0;
@@ -1527,9 +1534,24 @@ async function handleInstructionsInput(
 
   for (const c of cart) {
     const dbItem = dbItems.find(i => i.id === c.menuItemId);
-    const name = c.name ?? dbItem?.name ?? "Item";
-    const price = c.price ?? dbItem?.basePrice ?? 0;
-    const lineTotal = price * c.quantity;
+    let name = c.name ?? dbItem?.name ?? "Item";
+    let unitPrice = c.price ?? dbItem?.basePrice ?? 0;
+    
+    if (c.isDeal) {
+      // For deals, rely on cart price
+    } else if (c.variantId) {
+      const dbVariant = dbVariants.find(v => v.id === c.variantId);
+      if (dbVariant) {
+        unitPrice = dbVariant.price;
+        name = `${dbItem?.name || "Item"} (${dbVariant.name})`;
+      } else if (dbItem) {
+        unitPrice = dbItem.basePrice;
+      }
+    } else if (dbItem) {
+      unitPrice = dbItem.basePrice;
+    }
+    
+    const lineTotal = unitPrice * c.quantity;
     subtotal += lineTotal;
 
     if (c.isDeal && name.includes("[DEAL:")) {
@@ -1556,15 +1578,17 @@ async function handleInstructionsInput(
   const deliveryFee = STORE_CONSTANTS.WHATSAPP_DELIVERY_FEE;
   const totalAmount = subtotal + deliveryFee;
 
-  const addressDisplay = newTd.address ?? (lang === "ur" ? "Address diya gaya" : "Address provided");
-  const instrLine = input.toLowerCase() !== "none"
-    ? (lang === "ur" ? `Hidayat: ${input}` : `Instructions: ${input}`)
+  const capitalizeWords = (str: string) => str.replace(/\b\w/g, char => char.toUpperCase());
+  
+  const addressDisplay = newTd.address ? capitalizeWords(newTd.address) : (lang === "ur" ? "Address diya gaya" : "Address provided");
+  const instrLine = newTd.instructions
+    ? (lang === "ur" ? `Hidayat: ${newTd.instructions}` : `Instructions: ${newTd.instructions}`)
     : "";
 
   const summaryLines = [
     lang === "ur" ? "*Order Summary*" : "*Order Summary*",
     "",
-    lang === "ur" ? `Naam: *${newTd.name}*` : `Name: *${newTd.name}*`,
+    lang === "ur" ? `Naam: *${capitalizeWords(newTd.name || "")}*` : `Name: *${capitalizeWords(newTd.name || "")}*`,
     lang === "ur" ? `Address: ${addressDisplay}` : `Address: ${addressDisplay}`,
     newTd.altPhone ? (lang === "ur" ? `Contact: ${newTd.altPhone}` : `Contact: ${newTd.altPhone}`) : "",
     instrLine,
