@@ -99,6 +99,7 @@ export function CheckoutDrawer({ open, onOpenChange }: CheckoutDrawerProps) {
 
   const form = useForm<CheckoutValues>({
     resolver: zodResolver(checkoutSchema),
+    mode: "onChange",
     defaultValues: {
       orderType: "delivery",
       customerName: "",
@@ -667,8 +668,8 @@ export function CheckoutDrawer({ open, onOpenChange }: CheckoutDrawerProps) {
 
               <Button
                 type="submit"
-                disabled={form.formState.isSubmitting}
-                className="w-full h-14 rounded-none font-bold text-base tracking-wide active:scale-[0.98] transition-transform"
+                disabled={form.formState.isSubmitting || !form.formState.isValid}
+                className="w-full h-14 rounded-none font-bold text-base tracking-wide active:scale-[0.98] transition-transform disabled:opacity-50"
               >
                 {form.formState.isSubmitting ? (
                   <span className="flex items-center gap-2">

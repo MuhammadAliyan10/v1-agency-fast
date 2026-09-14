@@ -296,6 +296,13 @@ export function buildAndPrintKOTFromData(order: any) {
         ${customerLine}
         ${tableLine}
       </div>
+      
+      ${order.deliveryNotes ? `
+        <div style="font-size: 18px; font-weight: 900; margin-bottom: 8px; text-transform: uppercase;">
+          ${order.deliveryNotes}
+        </div>
+      ` : ""}
+
       <div style="display:flex;justify-content:space-between;background-color:#ddd;color:#000;padding:6px 4px;font-size:14px;font-weight:bold;margin-bottom:6px;-webkit-print-color-adjust:exact;border-top:1px solid #000;border-bottom:1px solid #000;">
         <div style="width:40px;text-align:left;">Qty</div>
         <div style="flex:1;padding-left:8px;">Product</div>

@@ -32,13 +32,14 @@ export async function createOrderFromWhatsApp(phone: string, restaurantId: strin
   const longitude = tempData.long || null;
   
   let deliveryNotes = "";
-  if (alternatePhone) {
+  const normalize = (p: string) => p.replace(/\D/g, '').slice(-10);
+  if (alternatePhone && normalize(alternatePhone) !== normalize(phone)) {
     deliveryNotes = `Alternate Contact: ${alternatePhone}`;
   }
   
   const specialInstructions = tempData.instructions || "";
   if (specialInstructions && specialInstructions.toLowerCase() !== "none") {
-    deliveryNotes += deliveryNotes ? `\nInstructions: ${specialInstructions}` : `Instructions: ${specialInstructions}`;
+    deliveryNotes += deliveryNotes ? `\nInstructions: ${specialInstructions}` : specialInstructions;
   }
 
   const checkoutSessionId = tempData.checkoutSessionId;

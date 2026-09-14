@@ -913,9 +913,12 @@ async function handlePreviousDetailsPrompt(
       long: (prev.longitude as number | null) ?? null,
       altPhone: phone,
     };
-    await sendWhatsAppText(phone, lang === "ur"
-      ? "Kitchen ke liye koi khaas hidayat? (Agar nahi toh *none* likhein)"
-      : "Any special instructions for the kitchen? (Type *none* if not)");
+    await sendWhatsAppInteractiveButtons(phone,
+      lang === "ur"
+        ? "Kitchen ke liye koi khaas hidayat? Likh kar bhejein ya 'None' dabayein."
+        : "Any special instructions for the kitchen? Type it or tap 'None'.",
+      [{ id: "none", title: "None" }]
+    );
     return updateSessionState(session.id, "checkout", cart, newTemp);
   }
 
@@ -1152,36 +1155,7 @@ async function handleItemSelection(
     const itemId = input.replace("view_item_", "");
     const dbItemCheck = await db.query.menuItems.findFirst({ where: eq(menuItems.id, itemId) });
     if (!dbItemCheck) return handleGreeting(phone, session, false, false);
-
-    // Clear any stale pendingItemId so the variant guard below starts fresh
-    const cleanTd: TempData = { ...td };
-    delete cleanTd.pendingItemId;
-
-    const variants = await db.select().from(itemVariants).where(eq(itemVariants.menuItemId, itemId));
-    if (variants.length > 0) {
-      // Has variants — show size selection first
-      const newTd: TempData = { ...cleanTd, pendingItemId: itemId };
-      if (variants.length <= 3) {
-        await sendWhatsAppInteractiveButtons(
-          phone,
-          `*${dbItemCheck.name}*\n\n${lang === "ur" ? "Size chunein:" : "Please choose a size:"}`,
-          variants.slice(0, 3).map(v => ({ id: `var_${v.id}`, title: `${v.name} — Rs.${v.price}` }))
-        );
-      } else {
-        await sendWhatsAppInteractiveList(
-          phone,
-          `*${dbItemCheck.name}*\n\n${lang === "ur" ? "Size chunein:" : "Please choose a size:"}`,
-          lang === "ur" ? "Size Chunein" : "Choose Size",
-          [{
-            title: lang === "ur" ? "Sizes" : "Sizes",
-            rows: variants.slice(0, 10).map(v => ({ id: `var_${v.id}`, title: v.name.substring(0, 24), description: `Rs. ${v.price}` }))
-          }]
-        );
-      }
-      return updateSessionState(session.id, "item_selection", cart, newTd);
-    }
-    // No variants — go straight to quantity
-    return addItemToCartAndProceed(phone, session, itemId, null);
+    return processViewItem(phone, session, itemId, dbItemCheck);
   }
 
   // Variant selection pending — only reached when input is NOT a view_item_ reply
@@ -1203,17 +1177,7 @@ async function handleItemSelection(
     const dbItem = await db.query.menuItems.findFirst({ where: eq(menuItems.id, itemId) });
     if (!dbItem) return handleGreeting(phone, session, false, false);
 
-    // Send image only when it's a real upload (not null/fallback) to avoid silent API failures
-    if (dbItem.imageUrl) {
-      try { await sendWhatsAppImage(phone, dbItem.imageUrl); } catch { /* ignore — button below always works */ }
-    }
-
-    await sendWhatsAppInteractiveButtons(
-      phone,
-      `*${dbItem.name}*\nRs. ${dbItem.basePrice}\n\n${lang === "ur" ? "Order karne ke liye tap karein:" : "Tap below to order:"}`,
-      [{ id: `view_item_${dbItem.id}`, title: lang === "ur" ? "Order Karein" : "Order Now" }]
-    );
-    return updateSessionState(session.id, "item_selection", cart, td);
+    return processViewItem(phone, session, itemId, dbItem);
   }
 
   // Back to menu
@@ -1235,15 +1199,7 @@ async function handleItemSelection(
       return n.includes(input) || input.includes(n.replace(/\s+/g, ""));
     });
     if (match) {
-      if (match.imageUrl) {
-        try { await sendWhatsAppImage(phone, match.imageUrl); } catch { /* ignore */ }
-      }
-      await sendWhatsAppInteractiveButtons(
-        phone,
-        `*${match.name}*\nRs. ${match.basePrice}\n\n${lang === "ur" ? "Order karne ke liye tap karein:" : "Tap below to order:"}`,
-        [{ id: `view_item_${match.id}`, title: lang === "ur" ? "Order Karein" : "Order Now" }]
-      );
-      return updateSessionState(session.id, "item_selection", cart, td);
+      return processViewItem(phone, session, match.id, match);
     }
 
     // Off-topic detection
@@ -1269,6 +1225,53 @@ async function handleItemSelection(
   await sendWhatsAppText(phone, lang === "ur"
     ? "Samajh nahi aaya. Menu dekhne ke liye *Menu* likhein ya item ka naam type karein."
     : "I did not catch that. Type *Menu* to browse, or type the name of what you want.");
+}
+
+// ─── processViewItem ──────────────────────────────────────────────────────────
+
+async function processViewItem(
+  phone: string,
+  session: AppSession,
+  itemId: string,
+  dbItemCheck: any
+): Promise<void> {
+  const lang = session.language ?? "en";
+  const td = (session.tempData ?? {}) as TempData;
+  const cart = (session.cart ?? []) as CartItem[];
+
+  // Clear any stale pendingItemId so the variant guard below starts fresh
+  const cleanTd: TempData = { ...td };
+  delete cleanTd.pendingItemId;
+
+  const variants = await db.select().from(itemVariants).where(eq(itemVariants.menuItemId, itemId));
+  if (variants.length > 0) {
+    // Has variants — show size selection first
+    const newTd: TempData = { ...cleanTd, pendingItemId: itemId };
+    if (variants.length <= 3) {
+      await sendWhatsAppInteractiveButtons(
+        phone,
+        `*${dbItemCheck.name}*\n\n${lang === "ur" ? "Size chunein:" : "Please choose a size:"}`,
+        variants.slice(0, 3).map(v => ({ id: `var_${v.id}`, title: `${v.name} — Rs.${v.price}` })),
+        dbItemCheck.imageUrl || undefined
+      );
+    } else {
+      if (dbItemCheck.imageUrl) {
+        try { await sendWhatsAppImage(phone, dbItemCheck.imageUrl); } catch { /* ignore */ }
+      }
+      await sendWhatsAppInteractiveList(
+        phone,
+        `*${dbItemCheck.name}*\n\n${lang === "ur" ? "Size chunein:" : "Please choose a size:"}`,
+        lang === "ur" ? "Size Chunein" : "Choose Size",
+        [{
+          title: lang === "ur" ? "Sizes" : "Sizes",
+          rows: variants.slice(0, 10).map(v => ({ id: `var_${v.id}`, title: v.name.substring(0, 24), description: `Rs. ${v.price}` }))
+        }]
+      );
+    }
+    return updateSessionState(session.id, "item_selection", cart, newTd);
+  }
+  // No variants — go straight to quantity
+  return addItemToCartAndProceed(phone, session, itemId, null);
 }
 
 // ─── addItemToCartAndProceed ──────────────────────────────────────────────────
@@ -1313,7 +1316,8 @@ async function addItemToCartAndProceed(
       { id: "qty_1", title: "1" },
       { id: "qty_2", title: "2" },
       { id: "qty_3", title: "3" },
-    ]
+    ],
+    item.imageUrl || undefined
   );
   return updateSessionState(session.id, "cart_review", cart, newTd);
 }
@@ -1492,9 +1496,12 @@ async function handleNameInput(
       : "Please enter a valid name.");
     return;
   }
-  await sendWhatsAppText(phone, lang === "ur"
-    ? "Kitchen ke liye koi khaas hidayat? (Agar nahi toh *none* likhein)"
-    : "Any special instructions for the kitchen? (Type *none* if not)");
+  await sendWhatsAppInteractiveButtons(phone,
+    lang === "ur"
+      ? "Kitchen ke liye koi khaas hidayat? Likh kar bhejein ya 'None' dabayein."
+      : "Any special instructions for the kitchen? Type it or tap 'None'.",
+    [{ id: "none", title: "None" }]
+  );
   return updateSessionState(session.id, "checkout", cart, { ...td, name: input });
 }
 

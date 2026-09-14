@@ -100,12 +100,19 @@ export async function sendWhatsAppImage(to: string, url: string, caption?: strin
 export async function sendWhatsAppInteractiveButtons(
   to: string,
   text: string,
-  buttons: { id: string; title: string }[]
+  buttons: { id: string; title: string }[],
+  imageUrl?: string
 ) {
   return sendWhatsAppMessage(to, {
     type: "interactive",
     interactive: {
       type: "button",
+      ...(imageUrl ? {
+        header: {
+          type: "image",
+          image: { link: imageUrl },
+        }
+      } : {}),
       body: { text },
       action: {
         buttons: buttons.map((b) => ({

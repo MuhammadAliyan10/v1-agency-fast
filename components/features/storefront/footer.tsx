@@ -24,6 +24,38 @@ const WhatsAppIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+const InstagramIcon = ({ className }: { className?: string }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
+    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+    <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
+  </svg>
+);
+
+const FacebookIcon = ({ className }: { className?: string }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
+  </svg>
+);
+
 // ---------------------------------------------------------------------------
 // Marquee — pure CSS animation, no framer-motion dependency
 // ---------------------------------------------------------------------------
@@ -96,7 +128,7 @@ export function Footer() {
               </li>
               <li className="flex items-center gap-2">
                 <Clock className="w-3.5 h-3.5 text-primary shrink-0" />
-                <span>12:00 PM – 1:00 AM Daily</span>
+                <span>11:00 AM – 1:00 AM Daily</span>
               </li>
             </ul>
           </div>
@@ -195,7 +227,7 @@ export function Footer() {
                 aria-label="Instagram"
                 className="w-8 h-8 border border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-white hover:border-zinc-600 flex items-center justify-center transition-colors"
               >
-                {/* <Instagram className="w-3.5 h-3.5" /> */}
+                <InstagramIcon className="w-3.5 h-3.5" />
               </a>
               <a
                 href={STORE_CONSTANTS.FACEBOOK_URL}
@@ -204,7 +236,7 @@ export function Footer() {
                 aria-label="Facebook"
                 className="w-8 h-8 border border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-white hover:border-zinc-600 flex items-center justify-center transition-colors"
               >
-                {/* <Facebook className="w-3.5 h-3.5" /> */}
+                <FacebookIcon className="w-3.5 h-3.5" />
               </a>
             </div>
 

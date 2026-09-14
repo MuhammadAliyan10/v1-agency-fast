@@ -8,7 +8,7 @@ import { formatDistanceToNow, format } from "date-fns";
 import {
   MessageCircle, MapPin, Printer, Plus, UtensilsCrossed, User, Phone,
   Bike, Receipt, CircleCheck, AlertCircle, Banknote, MapPinned,
-  UserCircle2, Loader2, CheckCircle2, ChefHat,
+  UserCircle2, Loader2, CheckCircle2, ChefHat, FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
@@ -607,6 +607,16 @@ export const KanbanCard = React.memo(function KanbanCard({
                       )}
                     </>
                   )}
+                  {order.deliveryNotes && (
+                    <div className="col-span-1 md:col-span-2 flex flex-col gap-1 mt-2">
+                      <div className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider flex items-center gap-1.5">
+                        <FileText className="w-3 h-3" /> Special Instructions
+                      </div>
+                      <div className="font-semibold text-xs text-amber-900 bg-amber-100/50 p-2 border border-amber-200 rounded-sm">
+                        {order.deliveryNotes}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* ── Rider Assignment (delivery only, from ready_for_pickup onwards) ── */}
@@ -1044,6 +1054,17 @@ export const KanbanCard = React.memo(function KanbanCard({
             </div>
           )}
 
+          {order.deliveryNotes && (
+            <div className="px-4 py-2 bg-amber-50 dark:bg-amber-900/20 border-b border-dashed border-amber-200 dark:border-amber-900">
+              <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-amber-800 dark:text-amber-500 mb-0.5">
+                <FileText className="w-3 h-3" /> Special Instructions
+              </div>
+              <div className="text-sm font-bold text-amber-950 dark:text-amber-100">
+                {order.deliveryNotes}
+              </div>
+            </div>
+          )}
+
           {/* Items */}
           <div className={cn("px-4 py-3 space-y-2.5", isKitchen ? "pb-4" : "")}>
             {Object.entries(rounds).map(([roundNum, roundItems]) => (
@@ -1355,6 +1376,12 @@ export const KanbanCard = React.memo(function KanbanCard({
                 </div>
               )}
             </div>
+
+            {order.deliveryNotes && (
+              <div style={{ fontSize: "18px", fontWeight: "900", marginBottom: "8px", textTransform: "uppercase" }}>
+                {order.deliveryNotes}
+              </div>
+            )}
 
             {/* TABLE HEADER */}
             <div style={{ display: "flex", justifyContent: "space-between", backgroundColor: "#ddd", color: "#000", padding: "6px 4px", fontSize: "14px", fontWeight: "bold", marginBottom: "6px", WebkitPrintColorAdjust: "exact", borderTop: "1px solid #000", borderBottom: "1px solid #000" }}>
