@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, useDeferredValue } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -225,6 +225,9 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
   const [leftWidth, setLeftWidth] = useState(35); 
   const isResizing = useRef(false);
 
+  const leftPanelRef = useRef<HTMLDivElement>(null);
+  const rightPanelRef = useRef<HTMLDivElement>(null);
+
   const handlePointerDown = (e: React.PointerEvent) => {
     isResizing.current = true;
     document.body.style.cursor = "col-resize";
@@ -238,15 +241,23 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
       const newWidth = (e.clientX / window.innerWidth) * 100;
       // Constrain between 25% and 45% (about +/- 10% from 35%)
       if (newWidth >= 25 && newWidth <= 45) {
-        setLeftWidth(newWidth);
+        if (leftPanelRef.current && rightPanelRef.current) {
+          leftPanelRef.current.style.width = `${newWidth}%`;
+          rightPanelRef.current.style.width = `${100 - newWidth}%`;
+        }
       }
     };
 
-    const handlePointerUp = () => {
+    const handlePointerUp = (e: PointerEvent) => {
       if (isResizing.current) {
         isResizing.current = false;
         document.body.style.cursor = "";
         document.body.style.userSelect = "";
+        
+        const finalWidth = (e.clientX / window.innerWidth) * 100;
+        if (finalWidth >= 25 && finalWidth <= 45) {
+          setLeftWidth(finalWidth);
+        }
       }
     };
 
@@ -353,6 +364,8 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
   });
 
   // Derived Values
+  const deferredSearchQuery = useDeferredValue(searchQuery);
+
   const filteredItems = useMemo(() => {
     if (!menuData) return [];
     let items = menuData.items;
@@ -361,13 +374,13 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
       items = items.filter(i => i.categoryId === selectedCategory);
     }
     
-    if (searchQuery) {
-      const lower = searchQuery.toLowerCase();
+    if (deferredSearchQuery) {
+      const lower = deferredSearchQuery.toLowerCase();
       items = items.filter(i => i.name.toLowerCase().includes(lower));
     }
     
     return items;
-  }, [menuData, selectedCategory, searchQuery]);
+  }, [menuData, selectedCategory, deferredSearchQuery]);
 
   const items = form.watch("items");
   const newItemsSubtotal = items.reduce((acc, item) => acc + (item.totalPrice || 0), 0);
@@ -694,6 +707,7 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
               name: c.name,
               unitPrice: c.unitPrice,
               variantId: c.variantId,
+              variantName: c.variantName,
               quantity: c.quantity,
               selectedAddOns: c.selectedAddOns || [],
               specialInstructions: c.specialInstructions,
@@ -722,10 +736,13 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
               items: payload.items.map(i => ({
                 quantity: i.quantity,
                 itemName: i.name || "Item",
-                variantName: undefined,
+                variantName: (i as any).variantName,
                 subtotal: (i.unitPrice||0)*i.quantity,
                 specialInstructions: i.specialInstructions,
-                selectedAddOns: [], // Optional: fetch names if needed
+                selectedAddOns: (i.selectedAddOns || []).map(id => {
+                  const a = menuData?.addOns.find(addon => addon.id === id);
+                  return a ? { name: a.name } : null;
+                }).filter(Boolean),
                 dealSelections: i.dealSelections
               }))
             };
@@ -809,12 +826,11 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
 
         <div className="flex-1 flex overflow-hidden w-full h-full relative">
           {/* LEFT PANEL: Cart & Form */}
-          <div style={{ width: `${leftWidth}%` }} className="flex flex-col bg-background shrink-0">
+          <div ref={leftPanelRef} style={{ width: `${leftWidth}%` }} className="flex flex-col bg-background shrink-0">
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="h-full flex flex-col">
                 <div className="flex-1 p-3 overflow-y-auto">
-                <div className="mb-4 space-y-2">
-                  <Label className="text-sm font-bold">Order Type</Label>
+                <div className="mb-2">
                   <Tabs value={orderType} onValueChange={(v) => form.setValue("orderType", v as any)}>
                     <TabsList className="w-full justify-start h-auto p-0 bg-transparent rounded-none border-b">
                       {existingOrder ? (
@@ -1340,7 +1356,7 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
           </div>
 
           {/* RIGHT PANEL: Menu + Deals */}
-          <div style={{ width: `${100 - leftWidth}%` }} className="flex flex-col bg-muted/10 relative min-w-0">
+          <div ref={rightPanelRef} style={{ width: `${100 - leftWidth}%` }} className="flex flex-col bg-muted/10 relative min-w-0">
             {isMenuLoading && (
               <div className="absolute inset-0 z-10 bg-background/50 flex items-center justify-center backdrop-blur-sm">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />

@@ -376,10 +376,10 @@ export default async function OrderDetailsPage({
                       <div className="font-black text-lg text-primary">Table {order.tableNumber || "N/A"}</div>
                     </div>
                   </div>
-                  {order.waiterName && (
+                  {(order.waiterName || order.waiter?.name) && (
                     <div className="flex items-center gap-3 mt-2">
                       <UserCircle2 className="w-4 h-4 text-muted-foreground" />
-                      <div className="font-medium text-sm text-muted-foreground">Waiter: <span className="font-bold text-foreground">{order.waiterName}</span></div>
+                      <div className="font-medium text-sm text-muted-foreground">Waiter: <span className="font-bold text-foreground">{order.waiterName || order.waiter?.name}</span></div>
                     </div>
                   )}
                 </>

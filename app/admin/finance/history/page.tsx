@@ -8,6 +8,8 @@ import { getSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/rbac";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
 export const dynamic = "force-dynamic";
 
@@ -41,7 +43,22 @@ export default async function RegisterHistoryPage() {
     .from(registerShifts)
     .leftJoin(users, eq(users.id, registerShifts.closedById))
     .where(isNotNull(registerShifts.closedAt))
-    .orderBy(desc(registerShifts.closedAt));
+    .orderBy(desc(registerShifts.closedAt))
+    .limit(50); // limit to recent 50 to avoid N+1 exploding
+
+  const { getShiftDetails } = await import("@/server/actions/shift-history");
+  const enrichedShifts = await Promise.all(
+    shifts.map(async (shift) => {
+      const details = await getShiftDetails(shift.id);
+      let unpaidCash = 0;
+      let unpaidCount = 0;
+      if (details.success && details.data) {
+        unpaidCash = details.data.aggregates.cashWithRiders + details.data.aggregates.cashWithWaiters + details.data.aggregates.unpaidCredit;
+        unpaidCount = details.data.unpaidDetails.riders.reduce((s: number, r: any) => s + r.orders.length, 0) + details.data.unpaidDetails.waiters.reduce((s: number, w: any) => s + w.orders.length, 0);
+      }
+      return { ...shift, unpaidCash, unpaidCount };
+    })
+  );
 
   return (
     <div className="space-y-6">
@@ -60,18 +77,20 @@ export default async function RegisterHistoryPage() {
               <TableHead>Expected Cash</TableHead>
               <TableHead>Actual Cash</TableHead>
               <TableHead>Variance</TableHead>
+              <TableHead>Unpaid Cash</TableHead>
               <TableHead>Closed By</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {shifts.length === 0 ? (
+            {enrichedShifts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                   No historical shifts found.
                 </TableCell>
               </TableRow>
             ) : (
-              shifts.map((shift) => (
+              enrichedShifts.map((shift) => (
                 <TableRow key={shift.id}>
                   <TableCell>
                     {shift.openedAt ? format(new Date(shift.openedAt), "MMM d, yyyy h:mm a") : "N/A"}
@@ -102,7 +121,23 @@ export default async function RegisterHistoryPage() {
                       "N/A"
                     )}
                   </TableCell>
+                  <TableCell>
+                    {shift.unpaidCash > 0 ? (
+                      <span className="text-orange-600 font-bold bg-orange-500/10 px-2 py-1">
+                        Rs. {shift.unpaidCash.toLocaleString()} ({shift.unpaidCount})
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">None</span>
+                    )}
+                  </TableCell>
                   <TableCell>{shift.closedByName || "Unknown"}</TableCell>
+                  <TableCell className="text-right">
+                    <Link href={`/admin/finance/history/${shift.id}`}>
+                      <Button variant="outline" size="sm" className="rounded-none">
+                        View Details
+                      </Button>
+                    </Link>
+                  </TableCell>
                 </TableRow>
               ))
             )}

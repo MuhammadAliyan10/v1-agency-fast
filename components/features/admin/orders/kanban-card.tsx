@@ -1293,13 +1293,13 @@ export const KanbanCard = React.memo(function KanbanCard({
           {(order.deliveryFee ?? 0) > 0 && (
             <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", fontSize: "16px", fontWeight: "700", marginBottom: "4px" }}>
               <div style={{ flex: 1, textAlign: "right" }}>Delivery Fee:</div>
-              <div style={{ width: "70px", textAlign: "right" }}>Rs {order.deliveryFee.toLocaleString()}</div>
+              <div style={{ width: "auto", textAlign: "right" }}>Rs {order.deliveryFee.toLocaleString()}</div>
             </div>
           )}
           {(order.discountAmount ?? 0) > 0 && (
             <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", fontSize: "16px", fontWeight: "700", marginBottom: "4px" }}>
-              <div style={{ flex: 1, textAlign: "right" }}>Discount:</div>
-              <div style={{ width: "70px", textAlign: "right" }}>- Rs {order.discountAmount?.toLocaleString()}</div>
+              <div style={{ flex: 1, textAlign: "right" }}></div>
+              <div style={{ width: "auto", textAlign: "right" }}>-Rs {order.discountAmount?.toLocaleString()}</div>
             </div>
           )}
           

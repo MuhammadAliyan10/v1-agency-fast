@@ -14,7 +14,7 @@ import {
   DragEndEvent,
 } from "@dnd-kit/core";
 import { SortableContext, arrayMove, horizontalListSortingStrategy } from "@dnd-kit/sortable";
-import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback, useDeferredValue } from "react";
 import { getLiveOrders, updateLiveOrderStatus, OrderStatus, LiveOrderProjection } from "@/server/actions/live-orders";
 import { KanbanColumn } from "./kanban-column";
 import { KanbanCard } from "./kanban-card";
@@ -69,6 +69,7 @@ export function LiveOrdersBoard({ role }: LiveOrdersBoardProps) {
   });
   
   const [searchQuery, setSearchQuery] = useState("");
+  const deferredSearchQuery = useDeferredValue(searchQuery);
   const [typeFilter, setTypeFilter] = useState("all");
 
   // Fetch orders with polling
@@ -102,8 +103,8 @@ export function LiveOrdersBoard({ role }: LiveOrdersBoardProps) {
       filtered = filtered.filter(o => o.orderType === typeFilter);
     }
     
-    if (searchQuery.trim() !== "") {
-      const q = searchQuery.toLowerCase().trim();
+    if (deferredSearchQuery.trim() !== "") {
+      const q = deferredSearchQuery.toLowerCase().trim();
       filtered = filtered.filter(o => 
         o.id.toLowerCase().includes(q) || 
         (o.customerName && o.customerName.toLowerCase().includes(q)) ||
@@ -112,7 +113,7 @@ export function LiveOrdersBoard({ role }: LiveOrdersBoardProps) {
     }
     
     return filtered;
-  }, [orders, searchQuery, typeFilter]);
+  }, [orders, deferredSearchQuery, typeFilter]);
 
   // Audio Alert for New Orders
   const previousAlertCount = useRef(0);
@@ -147,7 +148,7 @@ export function LiveOrdersBoard({ role }: LiveOrdersBoardProps) {
         return {
           ...old,
           data: old.data.map((o: LiveOrderProjection) =>
-            o.id === newOrder.id ? { ...o, status: newOrder.status } : o
+            o.id === newOrder.id ? { ...o, status: newOrder.status, orderVersion: o.orderVersion + 1 } : o
           ),
         };
       });

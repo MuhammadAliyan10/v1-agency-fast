@@ -23,102 +23,140 @@ export function buildAndPrintFromData(order: any) {
   }
 
   const itemsHtml = (order.items || []).map((item: any) => {
-    const addOns = Array.isArray(item.selectedAddOns)
-      ? (item.selectedAddOns as { name: string }[]).map(a => a.name).join(", ")
-      : "";
+    const addOns = Array.isArray(item.selectedAddOns) ? (item.selectedAddOns as { name: string }[]) : [];
     const isDeal = item.itemName.includes("[DEAL]");
-    const dealSelections = isDeal && item.dealSelections ? item.dealSelections : null;
-    const hasNote = item.specialInstructions && !item.specialInstructions.startsWith("[DEAL:");
+    const dealName = isDeal ? item.itemName.replace(/^\[DEAL\]\s*/, "") : null;
+    let dealSelections = null;
+    if (isDeal && item.dealSelections) {
+      try { dealSelections = typeof item.dealSelections === "string" ? JSON.parse(item.dealSelections) : item.dealSelections; } catch(e){}
+    }
     
-    const dealSelectionsHtml = dealSelections && dealSelections.length > 0
-      ? dealSelections.map((sel: any) => `<div class="addon">• ${sel.name}</div>`).join("")
-      : "";
+    let html = `
+      <div style="margin-bottom: 8px;">
+        <div style="display: flex; align-items: flex-start;">
+          <div style="width: 40px; font-size: 20px; font-weight: 900; text-align: left;">${item.quantity}x</div>
+          <div style="flex: 1; padding-left: 8px;">
+            <div style="font-weight: 800; font-size: 16px; margin-bottom: 4px;">
+              ${isDeal ? dealName : item.itemName}
+              ${!isDeal && item.variantName && item.variantName !== "Deal" ? `<span style="font-weight: normal; font-size: 14px;"> (${item.variantName})</span>` : ""}
+            </div>
+    `;
     
-    return `
-      <div style="margin-bottom:5px">
-        <div class="row">
-          <div class="qty">${item.quantity}x</div>
-          <div class="iname">
-            ${item.itemName.replace(/^\[DEAL\]\s*/, "")}
-            ${item.variantName && item.variantName !== "Combo Deal" ? `<span style="font-weight:normal;font-size:11px"> (${item.variantName})</span>` : ""}
+    if (dealSelections && dealSelections.length > 0) {
+      html += `<div style="font-size: 14px; color: #333; margin-bottom: 4px;">`;
+      dealSelections.forEach((sel: any) => { html += `<div>• ${sel.name}</div>`; });
+      html += `</div>`;
+    }
+    
+    if (!isDeal && addOns.length > 0) {
+      html += `<div style="font-size: 14px; color: #333; margin-bottom: 4px;">+ ${addOns.map((a: any) => a.name).join(", ")}</div>`;
+    }
+    
+    if (item.specialInstructions) {
+      html += `<div style="font-size: 14px; font-weight: 700; margin-bottom: 4px;">*** ${item.specialInstructions}</div>`;
+    }
+    
+    html += `
           </div>
-          <div class="iprice">Rs.${item.subtotal?.toLocaleString()}</div>
         </div>
-        ${dealSelectionsHtml || (!isDeal && addOns) ? `<div>${dealSelectionsHtml}${!isDeal && addOns ? `<div class="addon">+ ${addOns}</div>` : ""}</div>` : ""}
-        ${hasNote ? `<div class="inote">*** ${item.specialInstructions}</div>` : ""}
-      </div>`;
+        <div style="display: flex; justify-content: flex-end; gap: 10px; font-size: 16px; font-weight: 700; margin-bottom: 6px;">
+          <div style="width: 55px; text-align: right;">${(item.unitPrice || (item.subtotal/item.quantity)).toLocaleString()}</div>
+          <div style="width: 55px; text-align: right;">${item.subtotal.toLocaleString()}</div>
+        </div>
+        <div style="border-bottom: 1px solid #000;"></div>
+      </div>
+    `;
+    
+    return html;
   }).join("");
 
   const isPaid = order.paymentStatus === "paid";
   const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const tableDisplay = order.tableNumber ? (/^table/i.test(order.tableNumber) ? order.tableNumber : `Table ${order.tableNumber}`) : "Table N/A";
+  const tableZoneDisplay = order.tableZone === "family" ? " (Family Hall)" : order.tableZone === "outdoor" ? " (Outdoor)" : "";
 
   const html = `<!DOCTYPE html><html><head><title>Slip ${order.id}</title><style>
     @page{margin:0;size:80mm 297mm}
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:'Courier New',monospace;font-size:11px;width:80mm;padding:3mm 4mm;color:#000;background:#fff}
-    .center{text-align:center}.bold{font-weight:700}.xl{font-size:22px}.xxl{font-size:28px}.sm{font-size:9px}
-    .dash{border-bottom:1px dashed #000;margin:4px 0}
-    .row{display:flex;justify-content:space-between;align-items:flex-start;margin:3px 0}
-    .qty{width:22px;font-weight:700;font-size:16px}.iname{flex:1;padding-right:6px;font-weight:700;font-size:13px}
-    .iprice{font-weight:700;font-size:13px;text-align:right;min-width:50px}
-    .inote{font-size:10px;margin-left:22px;font-weight:700}.addon{font-size:9px;margin-left:22px;color:#333}
-    .total-row{display:flex;justify-content:space-between;padding:3px 0}.grand{font-size:20px;font-weight:700}
-    .due-box{border:2px solid #000;padding:4px 8px;margin:6px 0;text-align:center}
-    .logo{width:52px;height:52px;display:block;margin:0 auto 4px}
-    .type-banner{font-size:16px;font-weight:700;text-transform:uppercase;letter-spacing:2px;margin:4px 0}
-    .hall-tag{font-size:10px;font-weight:700;border:1px solid #000;display:inline-block;padding:1px 4px;margin-top:2px}
-    .order-num{font-size:20px;font-weight:700}.recall{font-size:14px;font-weight:700}
-    .delivery-detail{font-size:13px;font-weight:700;margin:2px 0}
-    .delivery-detail-sm{font-size:11px;margin:2px 0}
+    body{font-family:'Courier New',Courier,monospace;font-size:14px;width:80mm;padding:8px;color:#000;background:#fff;line-height:1.2;}
   </style></head><body>
-    <div style="text-align:center;margin-bottom:4px">
-      <img src="${origin}/Logo.png" class="logo" alt="Logo" />
-      <div class="bold xl center" style="letter-spacing:1px">CLASSY CRAVE</div>
-      <div class="sm center" style="letter-spacing:3px;margin-bottom:6px">SOPHISTICATION IN EVERY BITE</div>
-      <div class="dash"></div>
-      <div class="type-banner center">${order.orderType?.replace(/_/g, " ") || ""}</div>
+    <div style="text-align: center; margin-bottom: 8px;">
+      <img src="${origin}/slip/FullLogo.png" alt="Header" style="width: 80%; max-width: 250px; display: block; margin: 0 auto 8px;" />
+      <div style="border-bottom: 1px dashed #000; margin: 8px 0;"></div>
+      
+      <div style="font-size: 16px; font-weight: bold; text-transform: uppercase; margin-bottom: 4px;">
+        ${(order.orderType || "").replace(/_/g, " ")}
+      </div>
+      
       ${isDineIn ? `
-        <div style="margin-top:4px">
-          <div class="xxl bold center">${order.tableNumber || "N/A"}</div>
-          ${order.tableHallType === "family" ? '<div class="hall-tag center">FAMILY HALL</div>' : ""}
-        </div>` : ""}
-      <div style="margin-top:6px">
-        <span class="order-num bold">#${order.id}</span>
-        ${isUpdated ? '<span class="recall bold" style="margin-left:8px">(RECALL)</span>' : ""}
+        <div style="font-size: 18px; font-weight: 900; margin-bottom: 8px;">
+          ${tableDisplay}${tableZoneDisplay}
+        </div>
+      ` : ""}
+      
+      <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px dashed #000; border-bottom: 1px dashed #000; padding: 6px 0; margin-bottom: 8px;">
+        <div style="text-align: left;">
+          <div style="font-size: 20px; font-weight: 900;">#${order.id.split("-").pop()}</div>
+          ${isUpdated ? `<div style="font-size: 14px; font-weight: bold; margin-top: 2px;">(Recall)</div>` : ""}
+        </div>
+        <div style="font-size: 13px; text-align: right; font-weight: 600; line-height: 1.4;">
+          ${format(order.createdAt || new Date(), "dd/MM/yyyy")}<br />
+          ${format(order.createdAt || new Date(), "hh:mm a")}
+        </div>
       </div>
     </div>
-    <div class="dash" style="margin:6px 0"></div>
-    ${order.orderType === "delivery" ? `
-      <div style="margin-bottom:6px">
-        ${order.customerName ? `<div class="delivery-detail bold">${order.customerName}</div>` : ""}
-        ${order.customerPhone ? `<div class="delivery-detail bold">${formatPhone(order.customerPhone)}</div>` : ""}
-        ${order.deliveryAddress ? `<div class="delivery-detail bold" style="font-size:14px">${order.deliveryAddress}</div>` : ""}
-        ${order.rider?.name ? `<div class="delivery-detail-sm bold" style="margin-top:4px">Rider: ${order.rider.name}</div>` : ""}
-      </div>` : `
-      <div style="margin-bottom:4px;font-size:11px">
-        ${isDineIn
-          ? `<div>Waiter: ${order.waiter?.name || order.waiterName || "—"}</div>`
-          : `${order.customerName ? `<div class="bold">${order.customerName}</div>` : ""}${order.customerPhone ? `<div>${formatPhone(order.customerPhone)}</div>` : ""}`}
-      </div>`}
-    <div style="font-size:9px;margin-bottom:4px">${order.createdAt ? format(new Date(order.createdAt), "dd MMM yyyy  h:mm a") : ""}</div>
-    <div class="dash"></div>
-    <div style="margin:5px 0">${itemsHtml}</div>
-    <div class="dash"></div>
-    <div style="margin:5px 0">
-      ${(order.deliveryFee ?? 0) > 0 ? `<div class="total-row" style="font-size:11px"><span>Delivery Fee</span><span>Rs.${order.deliveryFee}</span></div>` : ""}
-      ${(order.discountAmount ?? 0) > 0 ? `<div class="total-row" style="font-size:11px"><span>Discount</span><span>- Rs.${order.discountAmount}</span></div>` : ""}
-      <div class="total-row" style="margin-top:4px;border-top:1px dashed #000;padding-top:4px">
-        <span class="grand bold">TOTAL</span>
-        <span class="grand bold">Rs.${order.totalAmount?.toLocaleString()}</span>
+    
+    <div style="font-size: 13px; margin-bottom: 8px; text-transform: capitalize; width: 100%;">
+      ${order.orderType === "delivery" ? `
+        <div style="font-weight: 900; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${order.customerName || "Customer"}</div>
+        ${order.customerPhone ? `<div style="font-weight: 900; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${formatPhone(order.customerPhone)}</div>` : ""}
+        ${order.deliveryAddress ? `<div style="font-weight: 900; font-size: 16px; margin-top: 2px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${order.deliveryAddress}</div>` : ""}
+      ` : isDineIn ? `
+        <div style="font-size: 14px; font-weight: 700;">Waiter: ${order.waiterName || order.waiter?.name || "—"}</div>
+      ` : `
+        <div style="font-weight: 800; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${order.customerName || "Customer"}</div>
+        ${order.customerPhone ? `<div style="font-weight: 800; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${formatPhone(order.customerPhone)}</div>` : ""}
+      `}
+    </div>
+
+    <div style="display: flex; justify-content: space-between; background-color: #ddd; color: #000; padding: 6px 4px; font-size: 14px; font-weight: bold; margin-bottom: 6px; -webkit-print-color-adjust: exact; border-top: 1px solid #000; border-bottom: 1px solid #000;">
+      <div style="width: 40px; text-align: left;">Qty</div>
+      <div style="flex: 1; padding-left: 8px;">Product</div>
+      <div style="width: 55px; text-align: right;">Price</div>
+      <div style="width: 55px; text-align: right;">Sub</div>
+    </div>
+
+    <div style="margin: 5px 0;">
+      ${itemsHtml}
+    </div>
+
+    <div style="margin-top: 8px;">
+      ${(order.deliveryFee ?? 0) > 0 ? `
+        <div style="display: flex; justify-content: flex-end; gap: 10px; font-size: 16px; font-weight: 700; margin-bottom: 4px;">
+          <div style="flex: 1; text-align: right;">Delivery Fee:</div>
+          <div style="width: auto; text-align: right;">Rs ${order.deliveryFee.toLocaleString()}</div>
+        </div>
+      ` : ""}
+      ${(order.discountAmount ?? 0) > 0 ? `
+        <div style="display: flex; justify-content: flex-end; gap: 10px; font-size: 16px; font-weight: 700; margin-bottom: 4px;">
+          <div style="flex: 1; text-align: right;"></div>
+          <div style="width: auto; text-align: right;">-Rs ${order.discountAmount.toLocaleString()}</div>
+        </div>
+      ` : ""}
+      
+      <div style="display: flex; justify-content: space-between; font-size: 18px; font-weight: 900; margin-top: 8px;">
+        <div style="text-align: right; flex: 1; padding-right: 20px;">
+          <div>Amount:</div>
+          <div style="font-size: 16px; font-weight: 900; margin-top: 4px; ${isPaid ? 'padding: 2px 8px; background-color: #000; color: #fff; display: inline-block; border-radius: 4px;' : ''}">
+            ${isPaid ? `PAID (${order.paymentMethod})` : "Total Due"}
+          </div>
+        </div>
+        <div style="text-align: right;">
+          <div>Rs ${order.totalAmount.toLocaleString()}</div>
+          ${!isPaid ? `<div style="font-size: 14px; font-weight: 600; margin-top: 4px;">Rs ${order.totalAmount.toLocaleString()}</div>` : ""}
+        </div>
       </div>
     </div>
-    ${!isPaid
-      ? `<div class="due-box bold" style="font-size:16px">AMOUNT DUE: Rs.${order.totalAmount?.toLocaleString()}</div>`
-      : `<div style="text-align:center;font-size:13px;font-weight:700;margin:6px 0">✓ PAID — ${order.paymentMethod}</div>`}
-    ${isPaid ? `<div style="text-align:center;font-size:10px;margin-bottom:4px">Payment: ${order.paymentMethod}</div>` : ""}
-    <div class="dash" style="margin:6px 0"></div>
-    <div style="text-align:center;font-size:11px;font-weight:700">Thank you for dining with us!</div>
-    <div style="text-align:center;font-size:9px;margin-top:3px">Classy Crave</div>
   </body></html>`;
 
   const iframe = document.createElement("iframe");

@@ -119,6 +119,9 @@ export async function getOrderDetails(orderId: string) {
         items: true,
         rider: {
           columns: { name: true }
+        },
+        waiter: {
+          columns: { name: true }
         }
       },
     });
