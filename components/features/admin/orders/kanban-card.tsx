@@ -1437,14 +1437,12 @@ export const KanbanCard = React.memo(function KanbanCard({
   );
 }, (prevProps, nextProps) => {
   return (
+    prevProps.order.id === nextProps.order.id &&
     prevProps.order.status === nextProps.order.status &&
+    prevProps.order.orderVersion === nextProps.order.orderVersion &&
     prevProps.order.paymentStatus === nextProps.order.paymentStatus &&
-    prevProps.order.updatedAt?.getTime() === nextProps.order.updatedAt?.getTime() &&
     prevProps.order.items.length === nextProps.order.items.length &&
     prevProps.order.rider?.name === nextProps.order.rider?.name &&
-    prevProps.order.tableHallType === nextProps.order.tableHallType &&
-    prevProps.order.tableId === nextProps.order.tableId &&
-    prevProps.order.tableNumber === nextProps.order.tableNumber &&
     prevProps.isOverlay === nextProps.isOverlay &&
     prevProps.role === nextProps.role &&
     prevProps.borderColor === nextProps.borderColor

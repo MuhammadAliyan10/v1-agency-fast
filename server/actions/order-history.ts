@@ -1,10 +1,10 @@
 "use server";
 
 import { db } from "@/database/db";
-import { orders, users } from "@/database/schema";
+import { orders, users, registerShifts, orderItems } from "@/database/schema";
 import { requireAdmin } from "@/lib/auth/session";
 import { desc, eq, or, ilike, sql, and, gte, lte } from "drizzle-orm";
-import { orderItems, users as usersTable } from "@/database/schema";
+import { revalidatePath } from "next/cache";
 
 export interface GetOrderHistoryParams {
   page?: number;
@@ -117,6 +117,9 @@ export async function getOrderDetails(orderId: string) {
       where: eq(orders.id, orderId),
       with: {
         items: true,
+        rider: {
+          columns: { name: true }
+        }
       },
     });
 
@@ -134,15 +137,27 @@ export async function getOrderDetails(orderId: string) {
 export async function markOrderPaidFromHistory(orderId: string) {
   await requireAdmin();
   try {
+    const activeShift = await db.query.registerShifts.findFirst({
+      where: eq(registerShifts.status, "open"),
+    });
+
+    if (!activeShift) {
+      return { success: false, error: "Cannot mark order as paid. No active register shift is open." };
+    }
+
     const result = await db
       .update(orders)
       .set({ paymentStatus: "paid", updatedAt: new Date() })
       .where(eq(orders.id, orderId))
-      .returning({ id: orders.id });
-    if (result.length === 0) return { success: false, error: "Order not found." };
+      .returning();
+
+    if (!result.length) return { success: false, error: "Order not found" };
+
+    revalidatePath("/admin/orders/history");
+    revalidatePath(`/admin/orders/${orderId}`);
     return { success: true };
   } catch (error) {
     console.error("Failed to mark order paid:", error);
-    return { success: false, error: "Failed to mark as paid." };
+    return { success: false, error: "Failed to mark order as paid" };
   }
 }

@@ -321,7 +321,6 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
       if (!res.success) throw new Error(res.error);
       return res.data;
     },
-    enabled: isOpen,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -332,7 +331,6 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
       if (!res.success) throw new Error(res.error);
       return res.data;
     },
-    enabled: isOpen,
     staleTime: 1000 * 60 * 5,
   });
 
@@ -342,8 +340,7 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
       const res = await getStaffWaiters();
       if (!res.success) throw new Error(res.error);
       return res.data;
-    },
-    enabled: isOpen
+    }
   });
 
   const { data: tablesData, isLoading: isTablesLoading } = useQuery({
@@ -352,8 +349,7 @@ export function ManualOrderDialog({ children, existingOrder, defaultTableId, def
       const res = await getTablesWithStatus();
       if (!res.success) throw new Error(res.error);
       return res.data;
-    },
-    enabled: isOpen
+    }
   });
 
   // Derived Values

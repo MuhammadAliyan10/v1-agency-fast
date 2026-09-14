@@ -106,26 +106,48 @@ export default async function FinancePage({
       </Suspense>
 
       {/* Daily Register banner — quick access */}
-      <Link
-        href="/admin/finance/register"
-        className="group flex items-center justify-between gap-4 border border-primary/25 bg-primary/5 hover:bg-primary/10 px-5 py-4 transition-colors print:hidden"
-      >
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-primary/15 text-primary">
-            <Calculator className="w-4 h-4" />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 print:hidden">
+        <Link
+          href="/admin/finance/register"
+          className="group flex items-center justify-between gap-4 border border-primary/25 bg-primary/5 hover:bg-primary/10 px-5 py-4 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-primary/15 text-primary">
+              <Calculator className="w-4 h-4" />
+            </div>
+            <div>
+              <p className="font-black text-sm">Daily Register</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Manage today's active shift
+              </p>
+            </div>
           </div>
-          <div>
-            <p className="font-black text-sm">Daily Register</p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Close today&apos;s register — verify cash, rider collections, waiter reconciliation, and credit orders
-            </p>
+          <div className="flex items-center gap-1.5 text-primary text-xs font-bold shrink-0">
+            Open Register
+            <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
           </div>
-        </div>
-        <div className="flex items-center gap-1.5 text-primary text-xs font-bold shrink-0">
-          Open Register
-          <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-        </div>
-      </Link>
+        </Link>
+        <Link
+          href="/admin/finance/history"
+          className="group flex items-center justify-between gap-4 border border-border bg-card hover:bg-accent/50 px-5 py-4 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-muted text-muted-foreground">
+              <Calculator className="w-4 h-4" />
+            </div>
+            <div>
+              <p className="font-black text-sm">Register History</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Audit past closed shifts
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 text-muted-foreground text-xs font-bold shrink-0">
+            View History
+            <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+          </div>
+        </Link>
+      </div>
 
       {/* Charts */}
       <div className="print:hidden">

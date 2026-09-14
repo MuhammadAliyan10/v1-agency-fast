@@ -19,6 +19,8 @@ import {
   ExternalLink,
   Package,
   Calculator,
+  AlertCircle,
+  Archive,
 } from "lucide-react";
 
 export const adminNavConfig = {
@@ -26,10 +28,12 @@ export const adminNavConfig = {
     { title: "Dashboard", url: "/admin/dashboard", icon: LayoutDashboard },
     { title: "Live Orders", url: "/admin/orders", icon: ShoppingBag },
     { title: "Order History", url: "/admin/orders/history", icon: History },
+    { title: "Exceptions Log", url: "/admin/orders/exceptions", icon: AlertCircle },
   ],
   finance: [
     { title: "Finance", url: "/admin/finance", icon: TrendingUp, permission: "canViewFinance" },
     { title: "Daily Register", url: "/admin/finance/register", icon: Calculator, permission: "canViewFinance" },
+    { title: "Register History", url: "/admin/finance/history", icon: Archive, permission: "canViewFinance" },
   ],
   store: [
     { title: "Menu Items", url: "/admin/menu", icon: UtensilsCrossed, permission: "canManageMenu" },

@@ -390,7 +390,11 @@ export default async function OrderDetailsPage({
                     <Bike className="w-4 h-4 text-indigo-600 shrink-0" />
                     <div>
                       <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider mb-0.5">Rider Assignment</div>
-                      <div className="font-semibold text-sm">{order.riderId ? "Rider Assigned" : "No Rider Assigned"}</div>
+                      <div className="font-semibold text-sm">
+                        {order.riderId 
+                          ? (order.rider?.name || "Rider Assigned") 
+                          : "No Rider Assigned"}
+                      </div>
                     </div>
                   </div>
                 </>

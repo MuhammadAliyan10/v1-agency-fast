@@ -79,48 +79,113 @@ export function ShiftManager() {
         <head>
           <title>Z-Report - ${data.id}</title>
           <style>
-            @page { margin: 0; size: 80mm 297mm; }
-            body { font-family: monospace, sans-serif; font-size: 12px; width: 80mm; padding: 4mm; }
-            .text-center { text-align: center; }
-            .font-bold { font-weight: bold; }
-            .border-b { border-bottom: 1px dashed black; margin-bottom: 8px; padding-bottom: 8px; }
+            @media print {
+              @page { margin: 0; size: 80mm auto; }
+              body {
+                margin: 0;
+                padding: 3mm 4mm;
+                width: 80mm;
+                font-family: 'Courier New', monospace;
+                color: #000;
+                background: #fff;
+                font-size: 11px;
+                line-height: 1.3;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+              }
+              .text-center { text-align: center; }
+              .font-bold { font-weight: bold; }
+              .font-black { font-weight: 900; }
+              .border-b { border-bottom: 1px dashed black; margin: 6px 0; }
+              .flex-between { display: flex; justify-content: space-between; margin: 3px 0; }
+            }
           </style>
         </head>
         <body>
-          <div class="text-center font-bold" style="font-size: 16px;">Z-REPORT (END OF DAY)</div>
-          <div class="text-center border-b">Shift ID: ${data.id.slice(0, 8)}</div>
-          
-          <div style="display: flex; justify-content: space-between; margin-top: 8px;">
-            <span>Starting Float:</span><span>Rs. ${data.startingFloat}</span>
-          </div>
-          <div style="display: flex; justify-content: space-between;">
-            <span>Cash Sales:</span><span>Rs. ${data.cashSales}</span>
-          </div>
-          <div class="border-b" style="display: flex; justify-content: space-between; margin-top: 8px;">
-            <span class="font-bold">System Expected Cash:</span><span class="font-bold">Rs. ${data.expectedCash}</span>
+          <div class="text-center" style="margin-bottom: 8px;">
+            <img src="${window.location.origin}/slip/FullLogo.png" alt="Header" style="width: 100%; display: block; margin: 0 auto 8px;" />
+            <div class="border-b"></div>
+            <div style="font-size: 16px; font-weight: 900; letter-spacing: 2px;">END OF SHIFT REPORT</div>
+            <div class="border-b"></div>
           </div>
           
-          <div style="display: flex; justify-content: space-between; margin-top: 8px;">
-            <span>Actual Counted Cash:</span><span>Rs. ${data.actualCash}</span>
+          <div style="margin-bottom: 8px;">
+            <div class="flex-between">
+              <span class="font-bold">Shift ID:</span>
+              <span>${data.id.slice(0, 8)}</span>
+            </div>
+            <div class="flex-between">
+              <span class="font-bold">Shift Opened:</span>
+              <span>${new Date(data.openedAt).toLocaleString()}</span>
+            </div>
+            <div class="flex-between">
+              <span class="font-bold">Printed:</span>
+              <span>${new Date().toLocaleString()}</span>
+            </div>
           </div>
-          <div class="border-b" style="display: flex; justify-content: space-between;">
-            <span class="font-bold">Variance (Discrepancy):</span><span class="font-bold">Rs. ${data.variance}</span>
+          
+          <div class="border-b"></div>
+          
+          <div style="margin-bottom: 8px;">
+            <div class="text-center font-black" style="font-size: 14px; margin-bottom: 6px;">CASH RECONCILIATION</div>
+            <div class="flex-between">
+              <span class="font-bold">Starting Float</span>
+              <span class="font-bold">Rs ${data.startingFloat.toLocaleString()}</span>
+            </div>
+            <div class="flex-between">
+              <span class="font-bold">Cash Sales</span>
+              <span class="font-bold">Rs ${data.cashSales.toLocaleString()}</span>
+            </div>
+            <div class="border-b"></div>
+            <div class="flex-between">
+              <span class="font-black" style="font-size: 12px;">Expected in Drawer</span>
+              <span class="font-black" style="font-size: 12px;">Rs ${data.expectedCash.toLocaleString()}</span>
+            </div>
+            <div class="flex-between">
+              <span class="font-black" style="font-size: 12px;">Actual Cash Counted</span>
+              <span class="font-black" style="font-size: 12px;">Rs ${data.actualCash.toLocaleString()}</span>
+            </div>
+            <div class="border-b"></div>
+            <div class="flex-between">
+              <span class="font-black" style="font-size: 13px;">Variance</span>
+              <span class="font-black" style="font-size: 13px;">Rs ${data.variance.toLocaleString()}</span>
+            </div>
+          </div>
+          
+          <div class="border-b"></div>
+          
+          <div style="margin-bottom: 8px;">
+            <div class="text-center font-black" style="font-size: 14px; margin-bottom: 6px;">EXCEPTIONS</div>
+            <div class="flex-between">
+              <span class="font-bold">Total Voids</span>
+              <span class="font-bold">Rs ${data.totalVoidAmount.toLocaleString()}</span>
+            </div>
+            <div class="flex-between">
+              <span class="font-bold">Total Waste</span>
+              <span class="font-bold">Rs ${data.totalWasteAmount.toLocaleString()}</span>
+            </div>
+            <div class="flex-between">
+              <span class="font-bold">Void/Waste Items</span>
+              <span class="font-bold">${data.voidCount} items</span>
+            </div>
           </div>
 
-          <div style="display: flex; justify-content: space-between; margin-top: 8px;">
-            <span>Total Voids:</span><span>Rs. ${data.totalVoidAmount}</span>
-          </div>
-          <div style="display: flex; justify-content: space-between;">
-            <span>Total Waste:</span><span>Rs. ${data.totalWasteAmount}</span>
-          </div>
-          <div style="display: flex; justify-content: space-between;">
-            <span>Void/Waste Count:</span><span>${data.voidCount} items</span>
-          </div>
+          <div class="border-b"></div>
 
-          <div style="margin-top: 24px; text-align: center;">
-            Manager Signature<br><br>
-            _________________________
+          <div class="text-center" style="margin-top: 16px;">
+            <div style="font-size: 12px; font-weight: 700; margin-bottom: 20px;">DECLARATION</div>
+            <div style="margin: 24px 0 8px;">
+              <div style="border-bottom: 1px solid #000; width: 70%; margin: 0 auto;"></div>
+              <div style="font-size: 11px; font-weight: 700; margin-top: 4px;">Manager Signature</div>
+            </div>
+            <div style="margin: 24px 0 8px;">
+              <div style="border-bottom: 1px solid #000; width: 70%; margin: 0 auto;"></div>
+              <div style="font-size: 11px; font-weight: 700; margin-top: 4px;">Date</div>
+            </div>
           </div>
+          
+          <div class="border-b"></div>
+          <div class="text-center font-bold" style="font-size: 10px; margin-top: 8px;">End of Report</div>
         </body>
       </html>
     `);

@@ -137,16 +137,16 @@ export function AppSidebar({ session }: { session: SessionPayload | null }) {
                         <SidebarMenuButton 
                           asChild 
                           isActive={isActive}
-                          className={`font-medium transition-colors  ${
+                          className={`font-medium transition-colors ${
                             isActive 
-                              ? "bg-primary/10 text-primary hover:bg-primary/15" 
+                              ? "bg-primary/10 hover:bg-primary/15 text-primary data-[active=true]:bg-primary/10 data-[active=true]:text-primary" 
                               : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
                           }`}
                         >
                           <Link href={item.url} className="flex items-center gap-2.5 w-full">
                             <div className="relative flex items-center justify-center">
                               {/* @ts-ignore */}
-                              <item.icon className="w-4 h-4" />
+                              <item.icon className={isActive ? "w-4 h-4 text-primary" : "w-4 h-4"} />
                               {item.url === "/admin/orders" && pendingOrdersCount > 0 && state === "collapsed" && (
                                 <span className="absolute -top-1.5 -right-2 flex h-3.5 min-w-3.5 px-0.5 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-white z-10 shadow-sm border border-sidebar">
                                   {pendingOrdersCount}

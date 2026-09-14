@@ -570,7 +570,7 @@ export async function openRegister(startingFloat: number) {
   }
 }
 
-export async function closeRegister(shiftId: string, actualCash: number, expectedCash: number) {
+export async function closeRegister(shiftId: string, actualCash: number, expectedCash: number, notes?: string) {
   await requireManagerPermission("finance", "update");
   const session = await getSession();
   if (!session?.id) return { success: false, error: "Unauthorized" };
@@ -586,6 +586,7 @@ export async function closeRegister(shiftId: string, actualCash: number, expecte
         actualCash,
         expectedCash,
         variance,
+        notes: notes || null,
       })
       .where(eq(registerShifts.id, shiftId))
       .returning();
@@ -774,7 +775,20 @@ export async function getRegisterCloseData(shiftId: string): Promise<{ success: 
 export async function markOrderPaid(orderId: string): Promise<{ success: boolean; error?: string }> {
   await requireManagerPermission("finance", "read");
   try {
-    await db.update(orders).set({ paymentStatus: "paid" }).where(eq(orders.id, orderId));
+    const activeShift = await db.query.registerShifts.findFirst({
+      where: eq(registerShifts.status, "open"),
+    });
+
+    if (!activeShift) {
+      return { success: false, error: "Cannot mark order as paid. No active register shift is open." };
+    }
+
+    await db.update(orders)
+      .set({ 
+        paymentStatus: "paid",
+        updatedAt: new Date()
+      })
+      .where(eq(orders.id, orderId));
     return { success: true };
   } catch (error) {
     console.error("Mark paid error:", error);

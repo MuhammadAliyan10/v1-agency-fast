@@ -24,16 +24,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { markOrderPaid, closeRegister } from "@/server/actions/finance";
 import { toast } from "sonner";
@@ -333,6 +332,7 @@ export function RegisterClose({ data }: { data: RegisterCloseData }) {
   const [waiterCash, setWaiterCash] = useState<WaiterCashEntry[]>(data.waiterCash);
 
   const [actualCash, setActualCash] = useState("");
+  const [notes, setNotes] = useState("");
   const [closing, startClosing] = useTransition();
 
   // The initial uncollected cash when the page loads
@@ -362,10 +362,18 @@ export function RegisterClose({ data }: { data: RegisterCloseData }) {
     }
     
     startClosing(async () => {
-      const res = await closeRegister(shift.id, cash, expectedCash);
+      const res = await closeRegister(shift.id, cash, expectedCash, notes);
       if (res.success) {
-        toast.success("Register closed successfully.");
-        router.refresh();
+        toast.success("Register closed successfully. Printing Z-Report...");
+        
+        // Give the DOM a tiny fraction to stabilize, then trigger the print dialog
+        setTimeout(() => {
+          window.print();
+          // Refresh the page AFTER the print dialog is handled so they see the Open Shift screen
+          setTimeout(() => {
+            router.refresh();
+          }, 500);
+        }, 100);
       } else {
         toast.error(res.error || "Failed to close register.");
       }
@@ -554,50 +562,78 @@ export function RegisterClose({ data }: { data: RegisterCloseData }) {
 
         {/* Close Actions */}
         <div className="flex justify-end pt-4 pb-12">
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
+          <Dialog>
+            <DialogTrigger asChild>
               <Button size="lg" className="rounded-none font-bold uppercase tracking-wider h-12 px-8">
                 Close Register
               </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent className="rounded-none">
-              <AlertDialogHeader>
-                <AlertDialogTitle className="font-black uppercase tracking-tight">Close Register</AlertDialogTitle>
-                <AlertDialogDescription>
-                  You are about to close the current register shift. Please count the physical cash in the drawer.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md rounded-none">
+              <DialogHeader>
+                <DialogTitle className="font-black uppercase tracking-tight">Close Shift & Generate Z-Report</DialogTitle>
+                <DialogDescription>
+                  Count the physical cash in the drawer and enter it below. The system will calculate any variance automatically.
+                </DialogDescription>
+              </DialogHeader>
               
-              <div className="my-6">
-                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground block mb-2">
-                  Actual Cash Counted
-                </label>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-muted-foreground">Rs.</span>
-                  <Input 
-                    type="number" 
-                    placeholder="0" 
-                    value={actualCash}
-                    onChange={(e) => setActualCash(e.target.value)}
-                    className="pl-12 h-12 text-xl font-black rounded-none focus-visible:ring-primary"
+              <div className="py-4 space-y-4">
+                <div className="bg-muted/50 p-4 flex items-center justify-between border border-border">
+                  <span className="font-semibold text-sm">Shift Started</span>
+                  <Badge variant="outline" className="rounded-none">{format(new Date(data.shift.openedAt), "MMM d, yyyy h:mm a")}</Badge>
+                </div>
+                
+                <div className="space-y-2">
+                  <label htmlFor="actual" className="text-xs font-bold uppercase tracking-wider text-muted-foreground block">
+                    Actual Counted Cash (Rs.)
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-muted-foreground">Rs.</span>
+                    <Input 
+                      id="actual"
+                      type="number" 
+                      placeholder="Enter exact drawer amount..." 
+                      value={actualCash}
+                      onChange={(e) => setActualCash(e.target.value)}
+                      className="pl-12 h-12 text-xl font-black rounded-none focus-visible:ring-primary"
+                      disabled={closing}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label htmlFor="notes" className="text-xs font-bold uppercase tracking-wider text-muted-foreground block">
+                    Notes (Optional)
+                  </label>
+                  <Textarea 
+                    id="notes" 
+                    placeholder="Reason for missing cash or general shift notes..." 
+                    value={notes} 
+                    onChange={(e) => setNotes(e.target.value)} 
+                    className="rounded-none resize-none focus-visible:ring-primary min-h-[100px]"
                     disabled={closing}
                   />
                 </div>
               </div>
               
-              <AlertDialogFooter>
-                <AlertDialogCancel className="rounded-none font-bold">Cancel</AlertDialogCancel>
+              <DialogFooter>
+                {/* Note: In shadcn Dialog, there is an automatic 'X' to close, but we can also provide a cancel button if we want. We'll use DialogClose if we wanted to, but we rely on the DialogTrigger / default open state handling. Since we just have a Cancel button we can just style it. */}
+                <Button variant="ghost" className="rounded-none font-bold" onClick={(e) => {
+                  // Hack to close dialog by dispatching Escape
+                  document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+                }}>
+                  Keep Shift Open
+                </Button>
                 <Button 
                   onClick={handleCloseRegister} 
                   disabled={closing || !actualCash.trim()}
                   className="rounded-none font-bold"
                 >
                   {closing && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                  Confirm Closure
+                  Close Shift & Print Z-Report
                 </Button>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
