@@ -70,7 +70,7 @@ export default function AdminLoginPage() {
         <div className="flex flex-col items-center text-center mb-8">
           <div className="w-24 h-24 mb-6 relative overflow-hidden group">
             <Image 
-              src="/Logo.png" 
+              src="/logo.png" 
               alt="Classy Crave Logo" 
               fill
               className="object-contain group-hover:scale-105 transition-transform duration-500 ease-out"

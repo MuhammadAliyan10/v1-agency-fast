@@ -216,7 +216,7 @@ export function OrderHistoryTable({ orders, totalCount, totalPages, currentPage 
             <TableBody>
               {orders.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-16 text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center py-16 text-muted-foreground">
                     <div className="flex flex-col items-center gap-3">
                       <History className="w-10 h-10 text-muted-foreground/30" />
                       {searchTerm || statusFilter !== "all" ? (

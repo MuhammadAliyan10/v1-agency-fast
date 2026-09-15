@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Loader2, XCircle, RotateCcw } from "lucide-react";
+import { Loader2, XCircle, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -17,7 +17,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { cancelOrder } from "@/server/actions/storefront";
-import { useCart } from "@/store/use-cart";
+import { STORE_CONSTANTS } from "@/lib/constants";
 
 interface OrderItem {
   menuItemId?: string;
@@ -50,15 +50,13 @@ interface OrderActionsProps {
 // Both actions are only allowed before the kitchen starts: pending & approved only.
 const PRE_COOKING_STATUSES: OrderStatus[] = ["pending", "approved"];
 
-export function OrderActions({ orderId, status, items }: OrderActionsProps) {
+export function OrderActions({ orderId, status }: OrderActionsProps) {
   const router = useRouter();
-  const { clearCart, addItem } = useCart();
   const [isCancelling, setIsCancelling] = useState(false);
-  const [isReordering, setIsReordering] = useState(false);
 
   const isPreCooking = PRE_COOKING_STATUSES.includes(status);
 
-  // Neither button applies once preparing has started
+  // Actions are only shown while the order is pending or approved
   if (!isPreCooking) return null;
 
   const handleCancel = async () => {
@@ -74,59 +72,23 @@ export function OrderActions({ orderId, status, items }: OrderActionsProps) {
     }
   };
 
-  const handleReorder = () => {
-    if (!items || items.length === 0) {
-      toast.error("No items found to reorder.");
-      return;
-    }
-
-    setIsReordering(true);
-    clearCart();
-
-    items.forEach((item) => {
-      addItem({
-        menuItemId: item.menuItem?.id ?? item.menuItemId ?? null,
-        name: item.itemName,
-        variantName: item.variantName ?? undefined,
-        addOns:
-          item.selectedAddOns && item.selectedAddOns.length > 0
-            ? item.selectedAddOns
-            : undefined,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        imageUrl: item.menuItem?.imageUrl ?? undefined,
-      });
-    });
-
-    toast.success(`${items.length} item(s) added to your cart! Keep browsing or open cart to checkout.`);
-
-    // Navigate to the menu — not checkout — so the customer can modify before paying.
-    router.push("/menu");
-  };
-
   return (
-    <div className="flex items-center gap-3 w-full sm:w-auto">
-      {/* Reorder: add items to cart and go to menu */}
-      <Button
-        className="font-bold rounded-none px-6 h-11 transition-all"
-        onClick={handleReorder}
-        disabled={isReordering}
-      >
-        {isReordering ? (
-          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-        ) : (
-          <RotateCcw className="w-4 h-4 mr-2" />
-        )}
-        Reorder
+    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto mt-4 md:mt-0">
+      {/* Call to Modify Button */}
+      <Button asChild className="font-bold rounded-none px-6 h-11 transition-all flex items-center justify-center bg-green-600 hover:bg-green-700 text-white">
+        <a href={`tel:${STORE_CONSTANTS.RAW_PHONE_NUMBER}`}>
+          <Phone className="w-4 h-4 mr-2" />
+          Call to Change Order
+        </a>
       </Button>
 
-      {/* Cancel Order: only when still pending */}
-      {status === "pending" && (
+      {/* Cancel Order: available during pending and approved */}
+      {(status === "pending" || status === "approved") && (
         <AlertDialog>
           <AlertDialogTrigger asChild>
             <Button
               variant="destructive"
-              className="font-bold rounded-none px-6 h-11 transition-all shadow-sm hover:shadow-md"
+              className="font-bold rounded-none px-6 h-11 transition-all shadow-sm hover:shadow-md w-full sm:w-auto"
               disabled={isCancelling}
             >
               {isCancelling ? (
