@@ -1351,20 +1351,22 @@ async function processViewItem(
   if (variants.length > 0) {
     // Has variants — show size selection first
     const newTd: TempData = { ...cleanTd, pendingItemId: itemId };
+    const variantBody = `*${dbItemCheck.name}*\n\n${lang === "ur" ? "Size chunein:" : "Please choose a size:"}`;
     if (variants.length <= 3) {
-      await sendWhatsAppInteractiveButtons(
-        phone,
-        `*${dbItemCheck.name}*\n\n${lang === "ur" ? "Size chunein:" : "Please choose a size:"}`,
-        variants.slice(0, 3).map(v => ({ id: `var_${v.id}`, title: `${v.name} — Rs.${v.price}` })),
-        dbItemCheck.imageUrl || undefined
-      );
+      const varButtons = variants.slice(0, 3).map(v => ({ id: `var_${v.id}`, title: `${v.name} — Rs.${v.price}` }));
+      try {
+        await sendWhatsAppInteractiveButtons(phone, variantBody, varButtons, dbItemCheck.imageUrl || undefined);
+      } catch {
+        // Retry without image
+        await sendWhatsAppInteractiveButtons(phone, variantBody, varButtons);
+      }
     } else {
       if (dbItemCheck.imageUrl) {
         try { await sendWhatsAppImage(phone, dbItemCheck.imageUrl); } catch { /* ignore */ }
       }
       await sendWhatsAppInteractiveList(
         phone,
-        `*${dbItemCheck.name}*\n\n${lang === "ur" ? "Size chunein:" : "Please choose a size:"}`,
+        variantBody,
         lang === "ur" ? "Size Chunein" : "Choose Size",
         [{
           title: lang === "ur" ? "Sizes" : "Sizes",
@@ -1413,18 +1415,24 @@ async function addItemToCartAndProceed(
   };
   if (newTd.pendingItemId !== undefined) delete newTd.pendingItemId;
 
-  await sendWhatsAppInteractiveButtons(
-    phone,
-    `*${displayName}*${desc}\n\n${priceLabel}\n\n${lang === "ur" ? "Kitne lenge?" : "How many would you like?"}`,
-    [
-      { id: "qty_1", title: "1" },
-      { id: "qty_2", title: "2" },
-      { id: "qty_3", title: "3" },
-    ],
-    item.imageUrl || undefined
-  );
+  const displayBody = `*${displayName}*${desc}\n\n${priceLabel}\n\n${lang === "ur" ? "Kitne lenge?" : "How many would you like?"}`;
+  const qtyButtons = [
+    { id: "qty_1", title: "1" },
+    { id: "qty_2", title: "2" },
+    { id: "qty_3", title: "3" },
+  ];
+
+  try {
+    await sendWhatsAppInteractiveButtons(phone, displayBody, qtyButtons, item.imageUrl || undefined);
+  } catch {
+    // Image header may be rejected by WhatsApp (private URL, bad format, etc.)
+    // Retry without image so the user always gets the quantity prompt.
+    await sendWhatsAppInteractiveButtons(phone, displayBody, qtyButtons);
+  }
+
   return updateSessionState(session.id, "cart_review", cart, newTd);
 }
+
 
 // ─── handleQuantityInput ─────────────────────────────────────────────────────
 

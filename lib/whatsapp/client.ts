@@ -76,7 +76,9 @@ export async function sendWhatsAppMessage(
     return true;
   } catch (error) {
     console.error("[WhatsApp Client] Exception sending message:", error);
-    return false;
+    // Re-throw so callers (processor.ts) can handle the failure properly.
+    // Previously this silently returned false, causing the bot to go silent.
+    throw error;
   }
 }
 
