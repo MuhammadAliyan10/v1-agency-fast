@@ -52,7 +52,7 @@ export function buildAndPrintFromData(order: any) {
       html += `<div style="font-size: 14px; color: #333; margin-bottom: 4px;">+ ${addOns.map((a: any) => a.name).join(", ")}</div>`;
     }
     
-    if (item.specialInstructions) {
+    if (item.specialInstructions && !isDeal) {
       html += `<div style="font-size: 14px; font-weight: 700; margin-bottom: 4px;">*** ${item.specialInstructions}</div>`;
     }
     
@@ -259,7 +259,7 @@ export function buildAndPrintKOTFromData(order: any) {
       html += `<div style="font-size:14px;color:#333;margin-bottom:4px;font-weight:600;font-style:italic;">+ ${addOns.join(", ")}</div>`;
     }
     
-    if (item.specialInstructions) {
+    if (item.specialInstructions && !isDeal) {
       item.specialInstructions.split(" • ").forEach((inst: string) => {
         html += `<div style="font-size:14px;font-weight:900;margin-top:2px;text-transform:uppercase;font-style:italic;">*** ${inst}</div>`;
       });
