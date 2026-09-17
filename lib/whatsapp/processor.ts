@@ -47,6 +47,20 @@ import { STORE_CONSTANTS } from "@/lib/constants";
 
 const BASE_URL = STORE_CONSTANTS.STOREFRONT_URL;
 
+// ─── Module-level store-status cache (60 s TTL) ──────────────────────────────
+// Avoids a DB round-trip on every single WhatsApp message.
+let _storeStatusCache: { value: boolean; expiresAt: number } | null = null;
+
+async function getIsAcceptingOrders(): Promise<boolean> {
+  if (_storeStatusCache && Date.now() < _storeStatusCache.expiresAt) {
+    return _storeStatusCache.value;
+  }
+  const rows = await db.select().from(storeSettings).where(eq(storeSettings.key, "is_accepting_orders"));
+  const value = rows.length > 0 ? rows[0].value === "true" : true;
+  _storeStatusCache = { value, expiresAt: Date.now() + 60_000 };
+  return value;
+}
+
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
 type AppSession = typeof whatsappSessions.$inferSelect;
@@ -222,7 +236,9 @@ function detectOffTopic(input: string): OffTopicCategory | null {
   const thanksWords = ["thanks", "thank you", "shukriya", "jazakallah", "jazak", "thx", "ty", "shukria", "meherbani"];
   if (thanksWords.some(w => l.includes(w))) return "thanks";
 
-  if (input.length > 80) return "complaint"; // Long unstructured message likely a complaint
+  // Only flag as complaint if message is very long AND contains no food keywords.
+  // Raising threshold from 80 to 200 prevents long delivery addresses from being mis-classified.
+  if (input.length > 200) return "complaint";
 
   return "other";
 }
@@ -236,9 +252,13 @@ async function buildCartSummary(cart: CartItem[], lang: string): Promise<string>
       : "Your cart is empty. Type *Menu* to start ordering.";
   }
 
-  const itemIds = cart.map(c => c.menuItemId).filter((id): id is string => id !== null);
-  const dbItems = itemIds.length > 0
-    ? await db.select().from(menuItems).where(inArray(menuItems.id, itemIds))
+  // Use the name/price already stored in the cart item when available.
+  // Only fall back to DB lookup for items that are missing both.
+  const missingIds = cart
+    .filter(c => c.menuItemId && (c.name === undefined || c.price === undefined))
+    .map(c => c.menuItemId as string);
+  const dbItems = missingIds.length > 0
+    ? await db.select().from(menuItems).where(inArray(menuItems.id, missingIds))
     : [];
 
   let subtotal = 0;
@@ -261,8 +281,8 @@ async function buildCartSummary(cart: CartItem[], lang: string): Promise<string>
     "",
     ...lines,
     "",
-    `${lang === "ur" ? "Delivery" : "Delivery"}: Rs. ${deliveryFee}`,
-    `*${lang === "ur" ? "Total" : "Total"}: Rs. ${total}*`,
+    `Delivery: Rs. ${deliveryFee}`,
+    `*Total: Rs. ${total}*`,
   ].join("\n");
 }
 
@@ -335,11 +355,22 @@ export async function processWhatsAppMessage(
   let session = sessionList[0];
 
   if (!session) {
+    // QStash worker already creates the session with a lock before calling us.
+    // If it doesn't exist here (local dev / race), create it without a lock.
     const [newSession] = await db
       .insert(whatsappSessions)
       .values({ restaurantId, phone, state: "language_selection", cart: [], tempData: {}, language: "en" })
+      .onConflictDoNothing()
       .returning();
-    session = newSession;
+    if (!newSession) {
+      // Another worker won the race — re-read the now-existing session.
+      const [existing] = await db
+        .select().from(whatsappSessions)
+        .where(sql`${whatsappSessions.restaurantId} = ${restaurantId} AND ${whatsappSessions.phone} = ${phone}`);
+      session = existing;
+    } else {
+      session = newSession;
+    }
   } else {
     // 2-hour inactivity timeout — reset to greeting, keep language preference
     const SESSION_TIMEOUT_MS = 2 * 60 * 60 * 1000;
@@ -362,12 +393,8 @@ export async function processWhatsAppMessage(
   const tempData = (session.tempData ?? {}) as TempData;
   const lang = session.language ?? "en";
 
-  // ── 2. Check store open ────────────────────────────────────────────────────
-  const settingsRows = await db
-    .select()
-    .from(storeSettings)
-    .where(eq(storeSettings.key, "is_accepting_orders"));
-  const isAcceptingOrders = settingsRows.length > 0 ? settingsRows[0].value === "true" : true;
+  // ── 2. Check store open (cached, max one DB hit per 60 s) ─────────────────
+  const isAcceptingOrders = await getIsAcceptingOrders();
 
   // ── 3. Extract input ───────────────────────────────────────────────────────
   const msgType = message.type as string | undefined;
@@ -490,7 +517,7 @@ export async function processWhatsAppMessage(
       return;
     }
     const statusLabel = lastOrder.status.replace(/_/g, " ").toUpperCase();
-    const trackUrl = `${BASE_URL}/track/${lastOrder.id}`;
+    const trackUrl = `${BASE_URL}/track/${lastOrder.trackingToken ?? lastOrder.id}`;
     await sendWhatsAppText(phone, lang === "ur"
       ? `Order *#${lastOrder.id}*\nStatus: *${statusLabel}*\nTotal: Rs. ${lastOrder.totalAmount}\n\nTrack karein: ${trackUrl}`
       : `Order *#${lastOrder.id}*\nStatus: *${statusLabel}*\nTotal: Rs. ${lastOrder.totalAmount}\n\nTrack here: ${trackUrl}`);
@@ -640,9 +667,12 @@ export async function processWhatsAppMessage(
 
       case "greeting":
       case "expired":
-      case "order_created":
       case "cancelled":
         await handleGreeting(phone, session, false, false);
+        break;
+
+      case "order_created":
+        await handlePostOrderInput(phone, session, input);
         break;
 
       case "macro_selection":
@@ -718,12 +748,10 @@ async function handleGreeting(
     ? (lang === "ur" ? "Aur kuch add karna chahte hain?" : "What else would you like to add?")
     : (lang === "ur" ? "Classy Crave mein aapka swaagat hai. Kya order karein?" : "Welcome to Classy Crave. What would you like to order?");
 
-  // Menu images — only ever once
+  // Menu images — only ever once. No artificial sleep — Meta handles ordering.
   if (showImages && !td.menuImagesSent) {
     await sendWhatsAppImage(phone, `${BASE_URL}/Menu/Deals.jpeg`);
-    await new Promise<void>(r => setTimeout(r, 500));
     await sendWhatsAppImage(phone, `${BASE_URL}/Menu/Items.jpeg`);
-    await new Promise<void>(r => setTimeout(r, 500));
     td.menuImagesSent = true;
     session = { ...session, tempData: td };
   }
@@ -758,6 +786,59 @@ async function handleGreeting(
   await updateSessionState(session.id, "macro_selection", cart, td);
 }
 
+// ─── handlePostOrderInput ─────────────────────────────────────────────────────
+// Handles any message received when session.state === "order_created".
+// The user has just placed an order — they might say "thanks", ask status,
+// or start a new order. Never show the generic "I didn't catch that" here.
+
+async function handlePostOrderInput(
+  phone: string,
+  session: AppSession,
+  input: string
+): Promise<void> {
+  const lang = session.language ?? "en";
+  const td = (session.tempData ?? {}) as TempData;
+
+  // "Thanks / ok / shukriya" after placing order
+  const warmReplies = ["ok", "okay", "thanks", "thank you", "shukriya", "jazakallah", "thx", "ty", "shukria", "👍", "ji"];
+  if (warmReplies.includes(input)) {
+    await sendWhatsAppText(phone, lang === "ur"
+      ? "Shukriya! Order confirm ho gaya. Kuch aur chahiye toh *Menu* likhein."
+      : "Thank you! Your order is confirmed. Type *Menu* to place another order.");
+    return;
+  }
+
+  // Status check
+  if (td.activeOrderId) {
+    const order = await db.query.orders.findFirst({ where: eq(orders.id, td.activeOrderId) });
+    if (order) {
+      const statusLabel = order.status.replace(/_/g, " ").toUpperCase();
+      const trackUrl = `${BASE_URL}/track/${order.trackingToken ?? order.id}`;
+      await sendWhatsAppInteractiveButtons(phone,
+        lang === "ur"
+          ? `Order *#${order.id}* — *${statusLabel}*\nTotal: Rs. ${order.totalAmount}\n\nTrack: ${trackUrl}\n\nKuch aur karein?`
+          : `Order *#${order.id}* — *${statusLabel}*\nTotal: Rs. ${order.totalAmount}\n\nTrack: ${trackUrl}\n\nWhat would you like to do?`,
+        [
+          { id: "active_track", title: lang === "ur" ? "Status Refresh" : "Refresh Status" },
+          { id: "active_new", title: lang === "ur" ? "Naya Order" : "New Order" },
+        ]
+      );
+      return updateSessionState(session.id, "active_order_menu", [], { ...td, activeOrderStatus: order.status });
+    }
+  }
+
+  // Fallback — offer new order
+  await sendWhatsAppInteractiveButtons(phone,
+    lang === "ur"
+      ? "Kuch aur karein?"
+      : "What would you like to do next?",
+    [
+      { id: "macro_menu", title: lang === "ur" ? "Naya Order" : "New Order" },
+      { id: "active_track", title: lang === "ur" ? "Order Status" : "Order Status" },
+    ]
+  );
+}
+
 // ─── handleActiveOrderMenu ────────────────────────────────────────────────────
 
 async function handleActiveOrderMenu(
@@ -780,7 +861,7 @@ async function handleActiveOrderMenu(
       return updateSessionState(session.id, "greeting", [], {});
     }
     const statusLabel = order.status.replace(/_/g, " ").toUpperCase();
-    const trackUrl = `${BASE_URL}/track/${order.id}`;
+    const trackUrl = `${BASE_URL}/track/${order.trackingToken ?? order.id}`;
     const msg = lang === "ur"
       ? `Order *#${order.id}*\nStatus: *${statusLabel}*\nTotal: Rs. ${order.totalAmount}\n\nTrack: ${trackUrl}`
       : `Order *#${order.id}*\nStatus: *${statusLabel}*\nTotal: Rs. ${order.totalAmount}\n\nTrack here: ${trackUrl}`;
@@ -832,7 +913,7 @@ async function handleActiveOrderMenu(
   const fallbackOrder = await db.query.orders.findFirst({ where: eq(orders.id, td.activeOrderId ?? "") });
   if (fallbackOrder) {
     const statusLabel = fallbackOrder.status.replace(/_/g, " ").toUpperCase();
-    const trackUrl = `${BASE_URL}/track/${fallbackOrder.id}`;
+    const trackUrl = `${BASE_URL}/track/${fallbackOrder.trackingToken ?? fallbackOrder.id}`;
     const buttons: { id: string; title: string }[] = [
       { id: "active_track", title: lang === "ur" ? "Track Karein" : "Track Order" },
       { id: "active_new", title: lang === "ur" ? "Naya Order" : "New Order" },
@@ -865,9 +946,17 @@ async function handleReorderMenu(
     const pastOrderId = td.pastOrderId;
     if (!pastOrderId) return handleGreeting(phone, session, false, false);
     const pastItems = await db.query.orderItems.findMany({ where: eq(orderItems.orderId, pastOrderId) });
+    // Carry forward name and price from the orderItems record so cart summary
+    // works without a DB re-fetch and shows correct prices even for deleted items.
     const newCart: CartItem[] = pastItems
       .filter(i => i.menuItemId !== null)
-      .map(i => ({ menuItemId: i.menuItemId as string, variantId: i.variantId ?? undefined, quantity: i.quantity }));
+      .map(i => ({
+        menuItemId: i.menuItemId as string,
+        variantId: i.variantId ?? undefined,
+        quantity: i.quantity,
+        name: i.itemName ?? undefined,
+        price: i.unitPrice ?? undefined,
+      }));
     await sendWhatsAppText(phone, lang === "ur"
       ? "Pichla order cart mein add ho gaya."
       : "Your previous order has been added to the cart.");
@@ -1127,16 +1216,30 @@ async function handleItemSelection(
     return updateSessionState(session.id, "item_selection", cart, td);
   }
 
-  // Drinks
+  // Drinks — query only drink/beverage categories directly, not the whole menu
   if (input === "drinks") {
-    const allCats = await db.select().from(categories).where(eq(categories.isActive, true));
-    const allItems = await db.select().from(menuItems).where(eq(menuItems.isAvailable, true));
-    const drinkCatIds = allCats
-      .filter(c => ["drink", "beverage", "shake", "smoothie"].some(kw => c.name.toLowerCase().includes(kw)))
-      .map(c => c.id);
-    const drinks = allItems.filter(i => drinkCatIds.includes(i.categoryId)).slice(0, 10);
-    if (drinks.length > 0) {
-      const rows = drinks.map(i => ({ id: `item_${i.id}`, title: i.name.substring(0, 24), description: `Rs. ${i.basePrice}` }));
+    const drinkCats = await db
+      .select()
+      .from(categories)
+      .where(sql`${categories.isActive} = true AND (
+        LOWER(${categories.name}) LIKE '%drink%' OR
+        LOWER(${categories.name}) LIKE '%beverage%' OR
+        LOWER(${categories.name}) LIKE '%shake%' OR
+        LOWER(${categories.name}) LIKE '%smoothie%'
+      )`);
+    if (drinkCats.length === 0) {
+      await sendWhatsAppText(phone, lang === "ur" ? "Drinks abhi available nahi." : "Drinks are not available right now.");
+      return handleGreeting(phone, session, false, false);
+    }
+    const catId = drinkCats[0].id;
+    const drinks = await db
+      .select()
+      .from(menuItems)
+      .where(eq(menuItems.categoryId, catId))
+      .limit(10);
+    const available = drinks.filter(i => i.isAvailable);
+    if (available.length > 0) {
+      const rows = available.map(i => ({ id: `item_${i.id}`, title: i.name.substring(0, 24), description: `Rs. ${i.basePrice}` }));
       await sendWhatsAppInteractiveList(
         phone,
         lang === "ur" ? "*Drinks:*\n\nKoi drink chunein:" : "*Drinks:*\n\nChoose a drink:",
@@ -1191,12 +1294,13 @@ async function handleItemSelection(
     return handleQuantityInput(phone, session, input);
   }
 
-  // Fuzzy text search — user typed a food name
+  // Fuzzy text search — use ILIKE DB query to avoid loading entire menu
   if (input.length >= 3) {
-    const allItems = await db.select().from(menuItems).where(eq(menuItems.isAvailable, true));
-    const match = allItems.find(i => {
-      const n = i.name.toLowerCase();
-      return n.includes(input) || input.includes(n.replace(/\s+/g, ""));
+    const match = await db.query.menuItems.findFirst({
+      where: (m, { and, sql: s }) => and(
+        eq(m.isAvailable, true),
+        sql`LOWER(${m.name}) LIKE ${'%' + input.toLowerCase() + '%'}`
+      ),
     });
     if (match) {
       return processViewItem(phone, session, match.id, match);
@@ -1647,11 +1751,17 @@ async function handleConfirmation(
         await sendWhatsAppText(phone, lang === "ur"
           ? `Order *#${result.orderId}* pehle se confirm ho chuka hai.`
           : `Order *#${result.orderId}* has already been placed.`);
-        await updateSessionState(session.id, "order_created", [], td);
+        // Store orderId so handlePostOrderInput can show status
+        await updateSessionState(session.id, "order_created", [], { ...td, activeOrderId: result.orderId });
         return;
       }
 
-      // Ask about alert subscription
+      // Ask about alert subscription.
+      // The transaction already moved session to order_created and cleared the cart.
+      // We update tempData here to store the new orderId for post-order status checks.
+      const postOrderTd: TempData = { ...td, activeOrderId: result.orderId, alertsSubscribed: td.alertsSubscribed };
+      await updateSessionState(session.id, "order_created", [], postOrderTd);
+
       await sendWhatsAppInteractiveButtons(phone,
         lang === "ur"
           ? `Order *#${result.orderId}* confirm ho gaya.\nTotal: Rs. ${result.totalAmount}\n\nKya aap chahte hain ke order status ke updates yahan WhatsApp pe milein?`
@@ -1661,6 +1771,7 @@ async function handleConfirmation(
           { id: "alert_no", title: lang === "ur" ? "Nahi Shukriya" : "No thanks" },
         ]
       );
+      return;
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : "";
       console.error("[handleConfirmation] Order creation failed:", errMsg);
@@ -1760,11 +1871,26 @@ async function handleCartEdit(
         : "Cart is empty. Type *Menu* to add items.");
       return updateSessionState(session.id, "greeting", [], {});
     }
-    return handleInstructionsInput(phone, { ...session, cart } as AppSession, td.instructions ?? "none");
+    // After removing, show updated cart with options — don't skip to order confirmation
+    const summary = await buildCartSummary(cart, lang);
+    await sendWhatsAppInteractiveButtons(phone, summary, [
+      { id: "checkout", title: lang === "ur" ? "Order Karein" : "Checkout" },
+      { id: "edit_cart", title: lang === "ur" ? "Aur Remove" : "Remove More" },
+      { id: "macro_menu", title: lang === "ur" ? "Aur Add" : "Add More" },
+    ]);
+    return updateSessionState(session.id, "order_confirmation", cart, td);
   }
 
-  // Any other input — return to summary
-  return handleInstructionsInput(phone, { ...session, cart } as AppSession, td.instructions ?? "none");
+  // Any other input — return to confirmation summary
+  await sendWhatsAppInteractiveButtons(phone,
+    lang === "ur" ? "Baraye meharbani ek option chunein:" : "Please choose an option:",
+    [
+      { id: "confirm_yes", title: lang === "ur" ? "Haan, Confirm" : "Confirm Order" },
+      { id: "edit_cart", title: lang === "ur" ? "Cart Edit" : "Edit Cart" },
+      { id: "confirm_no", title: lang === "ur" ? "Cancel" : "Cancel" },
+    ]
+  );
+  return updateSessionState(session.id, "order_confirmation", cart, td);
 }
 
 // ─── handleDealBuilder ────────────────────────────────────────────────────────
