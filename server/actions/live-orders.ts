@@ -87,10 +87,9 @@ export async function getLiveOrders(_ts?: number) {
       ),
       with: {
         items: true,
-        rider: true,
-        waiter: true,
-        table: true,
-        customer: true,
+        // Only load rider — the one relation actually shown on the card.
+        // customer/waiter/table are not rendered and removed to reduce JOIN cost.
+        rider: { columns: { id: true, name: true, phone: true } },
       },
       orderBy: [desc(orders.createdAt)],
       limit: 100,
@@ -120,13 +119,13 @@ export async function getLiveOrders(_ts?: number) {
       orderVersion: row.orderVersion,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
-      customerName: row.customerName || row.customer?.name || "Guest",
-      customerPhone: row.customerPhone || row.customer?.phone || "",
+      customerName: row.customerName || "Guest",
+      customerPhone: row.customerPhone || "",
       paymentStatus: row.paymentStatus,
       estimatedReadyAt: row.estimatedReadyAt,
-      waiterName: row.waiter?.name || null,
-      tableHallType: (row.table?.hallType as "general" | "family" | null) ?? null,
-      tableZone: (row.table?.tableZone as "general" | "outdoor" | "family" | null) ?? null,
+      waiterName: row.waiterName || null,
+      tableHallType: null,
+      tableZone: null,
       rider: row.rider?.id ? { name: row.rider.name, phone: row.rider.phone } : null,
       items: row.items,
     }));

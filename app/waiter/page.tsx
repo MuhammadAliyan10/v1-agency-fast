@@ -1,9 +1,5 @@
-import { WaiterBoard } from "@/components/features/waiter/waiter-board";
-import { requireWaiter } from "@/lib/auth/session";
+import { notFound } from "next/navigation";
 
-export const dynamic = "force-dynamic";
-
-export default async function WaiterPage() {
-  await requireWaiter();
-  return <WaiterBoard />;
+export default function WaiterPage() {
+  notFound();
 }

@@ -9,6 +9,7 @@ import { useTheme } from "next-themes";
 import { adminNavConfig } from "@/config/admin-nav";
 import { logoutAdmin, getCurrentSession } from "@/server/actions/auth";
 import { getLiveOrders } from "@/server/actions/live-orders";
+import { useQuery } from "@tanstack/react-query";
 import type { SessionPayload } from "@/lib/auth/session";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -42,27 +43,17 @@ export function AppSidebar({ session }: { session: SessionPayload | null }) {
   const { setTheme } = useTheme();
   const { state } = useSidebar();
   
-  const [pendingOrdersCount, setPendingOrdersCount] = React.useState(0);
-  React.useEffect(() => {
-    const fetchPendingOrders = async () => {
-      try {
-        const res = await getLiveOrders();
-        if (res.success && res.data) {
-          const count = res.data.filter(o => o.status === "pending").length;
-          // Removed log
-          setPendingOrdersCount(count);
-        } else {
-          console.error("Failed to fetch live orders:", res.error);
-        }
-      } catch (e) {
-        console.error("Live orders catch error:", e);
-      }
-    };
-
-    fetchPendingOrders();
-    const interval = setInterval(fetchPendingOrders, 10000);
-    return () => clearInterval(interval);
-  }, []);
+  // Reuse the same React Query cache that KanbanBoard already maintains.
+  // No extra DB query — just reads the in-memory cache.
+  const { data: liveOrdersResult } = useQuery({
+    queryKey: ["live-orders"],
+    queryFn: () => getLiveOrders(Date.now()),
+    staleTime: 15000,
+    refetchIntervalInBackground: false,
+  });
+  const pendingOrdersCount = (liveOrdersResult?.data ?? []).filter(
+    (o) => o.status === "pending"
+  ).length;
 
   return (
     <Sidebar collapsible="icon">

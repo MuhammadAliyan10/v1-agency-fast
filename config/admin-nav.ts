@@ -14,9 +14,6 @@ import {
   Ticket,
   Megaphone,
   Activity,
-  ChefHat,
-  Coffee,
-  ExternalLink,
   Package,
   Calculator,
   AlertCircle,
@@ -44,16 +41,11 @@ export const adminNavConfig = {
   people: [
     { title: "Customers", url: "/admin/customers", icon: Contact },
     { title: "CRM Outbox", url: "/admin/outbox", icon: Megaphone, permission: "canBroadcastWhatsapp" },
-    { title: "Riders", url: "/admin/riders", icon: Bike, permission: "canManageStaff" },
     { title: "Staff", url: "/admin/staff", icon: Users, permission: "canManageStaff" },
   ],
   system: [
     { title: "Settings", url: "/admin/settings", icon: Settings, permission: "adminOnly" },
     { title: "Activity Log", url: "/admin/activity", icon: Activity, permission: "adminOnly" },
   ],
-  portals: [
-    { title: "Kitchen (KDS)", url: "/kitchen", icon: ChefHat },
-    { title: "Waiter Portal", url: "/waiter", icon: Coffee },
-    { title: "Rider App", url: "/rider", icon: ExternalLink },
-  ]
 };
+

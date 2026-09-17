@@ -79,8 +79,9 @@ export function LiveOrdersBoard({ role }: LiveOrdersBoardProps) {
     refetchInterval: (query) => {
       const data = query.state.data as { data?: LiveOrderProjection[] } | undefined;
       const hasActive = data?.data?.some(o => o.status === 'pending' || o.status === 'approved');
-      return hasActive ? 5000 : 15000;
+      return hasActive ? 15000 : 60000; // 15s when active, 60s when idle
     },
+    refetchIntervalInBackground: false, // stop polling when tab is hidden
   });
 
   // Pause polling when tab is hidden to save DB connections

@@ -10,7 +10,8 @@ export const dynamic = "force-dynamic";
 
 async function handler(_req: NextRequest) {
   const start = Date.now();
-  await db.execute(sql`SELECT 1`);
+  // DISABLED TO SAVE NEON COMPUTE HOURS
+  // await db.execute(sql`SELECT 1`);
   const elapsed = Date.now() - start;
 
   console.log(`[keep-alive] Neon ping OK — ${elapsed}ms`);

@@ -607,16 +607,24 @@ export const KanbanCard = React.memo(function KanbanCard({
                       )}
                     </>
                   )}
-                  {order.deliveryNotes && (
-                    <div className="col-span-1 md:col-span-2 flex flex-col gap-1 mt-2">
-                      <div className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider flex items-center gap-1.5">
-                        <FileText className="w-3 h-3" /> Special Instructions
+                  {(() => {
+                    const kitchenNotes = (order.deliveryNotes || "")
+                      .split("\n")
+                      .filter(l => !l.toLowerCase().startsWith("alternate contact"))
+                      .join("\n")
+                      .trim();
+                    return kitchenNotes ? (
+                      <div className="col-span-1 md:col-span-2 flex flex-col gap-1 mt-2">
+                        <div className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider flex items-center gap-1.5">
+                          <FileText className="w-3 h-3" /> Special Instructions
+                        </div>
+                        <div className="font-semibold text-xs text-amber-900 bg-amber-100/50 p-2 border border-amber-200 rounded-sm">
+                          {kitchenNotes}
+                        </div>
                       </div>
-                      <div className="font-semibold text-xs text-amber-900 bg-amber-100/50 p-2 border border-amber-200 rounded-sm">
-                        {order.deliveryNotes}
-                      </div>
-                    </div>
-                  )}
+                    ) : null;
+                  })()
+                  }
                 </div>
 
                 {/* ── Rider Assignment (delivery only, from ready_for_pickup onwards) ── */}

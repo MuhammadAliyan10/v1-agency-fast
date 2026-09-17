@@ -322,9 +322,9 @@ export function WaiterBoard() {
   const { data, isLoading, isFetching, error, refetch } = useQuery({
     queryKey: ["waiter-floor"],
     queryFn: getWaiterFloorData,
-    refetchInterval: 5000,
+    refetchInterval: 20000,
     refetchIntervalInBackground: false,
-    staleTime: 3000,
+    staleTime: 15000,
   });
 
   // Track network status

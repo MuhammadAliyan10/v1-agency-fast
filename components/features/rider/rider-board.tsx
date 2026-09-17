@@ -19,7 +19,8 @@ export function RiderBoard() {
       if (!res.success) throw new Error(res.error);
       return res.data;
     },
-    refetchInterval: 10000,
+    refetchInterval: 30000,
+    refetchIntervalInBackground: false,
   });
 
   const deliverMutation = useMutation({

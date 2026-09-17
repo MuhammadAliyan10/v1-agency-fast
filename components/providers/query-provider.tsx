@@ -10,7 +10,6 @@ export default function QueryProvider({ children }: { children: React.ReactNode 
         defaultOptions: {
           queries: {
             staleTime: 5 * 1000, // 5 seconds
-            refetchInterval: 10 * 1000, // Poll every 10 seconds automatically
           },
         },
       })

@@ -1,8 +1,9 @@
 import { db } from "@/database/db";
 import { orders, orderItems, menuItems, categories, inventoryItems } from "@/database/schema";
-import { eq, and, gte, lt, desc, sql, inArray, or, ne } from "drizzle-orm";
-import { startOfDay, endOfDay, subDays, format } from "date-fns";
-import { formatInTimeZone, toDate } from "date-fns-tz";
+import { eq, and, gte, lt, desc, sql, ne } from "drizzle-orm";
+import { startOfDay, endOfDay, subDays } from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
+import { unstable_cache } from "next/cache";
 import type { 
   DashboardKPIs, 
   WeeklyRevenuePoint, 
@@ -12,211 +13,176 @@ import type {
   OrderSourceData
 } from "@/types/analytics";
 
-export async function getDashboardKPIs(): Promise<DashboardKPIs> {
-  const now = new Date();
-  const todayStart = startOfDay(now);
-  const todayEnd = endOfDay(now);
-  const yesterdayStart = startOfDay(subDays(now, 1));
-  const yesterdayEnd = endOfDay(subDays(now, 1));
+// Cache TTL: 2 minutes — dashboard doesn't need real-time accuracy
+const ANALYTICS_TTL = 120;
 
-  // Today's Stats
-  const todayStatsRaw = await db
-    .select({
-      revenue: sql<number>`sum(case when ${orders.status} != 'cancelled' then ${orders.totalAmount} else 0 end)::int`,
-      count: sql<number>`count(${orders.id})::int`,
-      pendingCount: sql<number>`sum(case when ${orders.status} in ('pending', 'approved') then 1 else 0 end)::int`,
-    })
-    .from(orders)
-    .where(
-      and(
-        gte(orders.createdAt, todayStart),
-        lt(orders.createdAt, todayEnd)
-      )
-    );
+export const getDashboardKPIs = unstable_cache(
+  async (): Promise<DashboardKPIs> => {
+    const now = new Date();
+    const todayStart = startOfDay(now);
+    const todayEnd = endOfDay(now);
+    const yesterdayStart = startOfDay(subDays(now, 1));
+    const yesterdayEnd = endOfDay(subDays(now, 1));
 
-  // Yesterday's Stats for comparison
-  const yesterdayStatsRaw = await db
-    .select({
-      revenue: sql<number>`sum(case when ${orders.status} != 'cancelled' then ${orders.totalAmount} else 0 end)::int`,
-    })
-    .from(orders)
-    .where(
-      and(
-        gte(orders.createdAt, yesterdayStart),
-        lt(orders.createdAt, yesterdayEnd)
-      )
-    );
+    const todayStatsRaw = await db
+      .select({
+        revenue: sql<number>`sum(case when ${orders.status} != 'cancelled' then ${orders.totalAmount} else 0 end)::int`,
+        count: sql<number>`count(${orders.id})::int`,
+        pendingCount: sql<number>`sum(case when ${orders.status} in ('pending', 'approved') then 1 else 0 end)::int`,
+      })
+      .from(orders)
+      .where(and(gte(orders.createdAt, todayStart), lt(orders.createdAt, todayEnd)));
 
-  const todayRevenue = todayStatsRaw[0]?.revenue || 0;
-  const yesterdayRevenue = yesterdayStatsRaw[0]?.revenue || 0;
-  const todayOrdersCount = todayStatsRaw[0]?.count || 0;
-  const pendingOrdersCount = todayStatsRaw[0]?.pendingCount || 0;
+    const yesterdayStatsRaw = await db
+      .select({
+        revenue: sql<number>`sum(case when ${orders.status} != 'cancelled' then ${orders.totalAmount} else 0 end)::int`,
+      })
+      .from(orders)
+      .where(and(gte(orders.createdAt, yesterdayStart), lt(orders.createdAt, yesterdayEnd)));
 
-  const averageOrderValue = todayOrdersCount > 0 ? Math.round(todayRevenue / todayOrdersCount) : 0;
-  
-  let revenueComparison = 0;
-  if (yesterdayRevenue > 0) {
-    revenueComparison = ((todayRevenue - yesterdayRevenue) / yesterdayRevenue) * 100;
-  } else if (todayRevenue > 0) {
-    revenueComparison = 100;
-  }
+    const todayRevenue = todayStatsRaw[0]?.revenue || 0;
+    const yesterdayRevenue = yesterdayStatsRaw[0]?.revenue || 0;
+    const todayOrdersCount = todayStatsRaw[0]?.count || 0;
+    const pendingOrdersCount = todayStatsRaw[0]?.pendingCount || 0;
+    const averageOrderValue = todayOrdersCount > 0 ? Math.round(todayRevenue / todayOrdersCount) : 0;
 
-  return {
-    todayRevenue,
-    revenueComparison,
-    todayOrdersCount,
-    pendingOrdersCount,
-    averageOrderValue,
-  };
-}
+    let revenueComparison = 0;
+    if (yesterdayRevenue > 0) {
+      revenueComparison = ((todayRevenue - yesterdayRevenue) / yesterdayRevenue) * 100;
+    } else if (todayRevenue > 0) {
+      revenueComparison = 100;
+    }
 
-export async function getWeeklyRevenueTrend(): Promise<WeeklyRevenuePoint[]> {
-  const sevenDaysAgo = startOfDay(subDays(new Date(), 6));
+    return { todayRevenue, revenueComparison, todayOrdersCount, pendingOrdersCount, averageOrderValue };
+  },
+  ["dashboard-kpis"],
+  { tags: ["dashboard-analytics"], revalidate: ANALYTICS_TTL }
+);
 
-  const result = await db
-    .select({
-      date: sql<string>`to_char(date_trunc('day', ${orders.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Karachi'), 'Mon DD')`,
-      revenue: sql<number>`sum(${orders.totalAmount})::int`,
-      orders: sql<number>`count(${orders.id})::int`,
-    })
-    .from(orders)
-    .where(
-      and(
-        gte(orders.createdAt, sevenDaysAgo),
-        ne(orders.status, 'cancelled')
-      )
-    )
-    .groupBy(sql`date_trunc('day', ${orders.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Karachi')`)
-    .orderBy(sql`date_trunc('day', ${orders.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Karachi')`);
+export const getWeeklyRevenueTrend = unstable_cache(
+  async (): Promise<WeeklyRevenuePoint[]> => {
+    const sevenDaysAgo = startOfDay(subDays(new Date(), 6));
 
-  // Fill in missing days with 0 (using Karachi timezone to match SQL)
-  const trend: WeeklyRevenuePoint[] = [];
-  const timeZone = 'Asia/Karachi';
-  
-  for (let i = 6; i >= 0; i--) {
-    const d = subDays(new Date(), i);
-    // Format exactly as 'MMM dd' in Karachi TZ (e.g. 'Sep 01')
-    const dateStr = formatInTimeZone(d, timeZone, "MMM dd");
-    const found = result.find(r => r.date === dateStr);
-    trend.push({
-      date: dateStr,
-      revenue: found?.revenue || 0,
-      orders: found?.orders || 0,
-    });
-  }
+    const result = await db
+      .select({
+        date: sql<string>`to_char(date_trunc('day', ${orders.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Karachi'), 'Mon DD')`,
+        revenue: sql<number>`sum(${orders.totalAmount})::int`,
+        orders: sql<number>`count(${orders.id})::int`,
+      })
+      .from(orders)
+      .where(and(gte(orders.createdAt, sevenDaysAgo), ne(orders.status, 'cancelled')))
+      .groupBy(sql`date_trunc('day', ${orders.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Karachi')`)
+      .orderBy(sql`date_trunc('day', ${orders.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Karachi')`);
 
-  return trend;
-}
+    const trend: WeeklyRevenuePoint[] = [];
+    const timeZone = 'Asia/Karachi';
+    for (let i = 6; i >= 0; i--) {
+      const d = subDays(new Date(), i);
+      const dateStr = formatInTimeZone(d, timeZone, "MMM dd");
+      const found = result.find(r => r.date === dateStr);
+      trend.push({ date: dateStr, revenue: found?.revenue || 0, orders: found?.orders || 0 });
+    }
+    return trend;
+  },
+  ["dashboard-weekly-trend"],
+  { tags: ["dashboard-analytics"], revalidate: ANALYTICS_TTL }
+);
 
-export async function getTopSellingItems(limit = 5): Promise<TopSellingItem[]> {
-  const result = await db
-    .select({
-      id: menuItems.id,
-      name: menuItems.name,
-      categoryName: categories.name,
-      totalSold: sql<number>`sum(${orderItems.quantity})::int`,
-      totalRevenue: sql<number>`sum(${orderItems.subtotal})::int`,
-    })
-    .from(orderItems)
-    .innerJoin(menuItems, eq(orderItems.menuItemId, menuItems.id))
-    .innerJoin(categories, eq(menuItems.categoryId, categories.id))
-    .innerJoin(orders, eq(orderItems.orderId, orders.id))
-    .where(ne(orders.status, 'cancelled'))
-    .groupBy(menuItems.id, menuItems.name, categories.name)
-    .orderBy(sql`sum(${orderItems.quantity}) desc`)
-    .limit(limit);
+export const getTopSellingItems = unstable_cache(
+  async (limit = 5): Promise<TopSellingItem[]> => {
+    return db
+      .select({
+        id: menuItems.id,
+        name: menuItems.name,
+        categoryName: categories.name,
+        totalSold: sql<number>`sum(${orderItems.quantity})::int`,
+        totalRevenue: sql<number>`sum(${orderItems.subtotal})::int`,
+      })
+      .from(orderItems)
+      .innerJoin(menuItems, eq(orderItems.menuItemId, menuItems.id))
+      .innerJoin(categories, eq(menuItems.categoryId, categories.id))
+      .innerJoin(orders, eq(orderItems.orderId, orders.id))
+      .where(ne(orders.status, 'cancelled'))
+      .groupBy(menuItems.id, menuItems.name, categories.name)
+      .orderBy(sql`sum(${orderItems.quantity}) desc`)
+      .limit(limit);
+  },
+  ["dashboard-top-selling"],
+  { tags: ["dashboard-analytics"], revalidate: ANALYTICS_TTL }
+);
 
-  return result;
-}
+export const getRecentOrders = unstable_cache(
+  async (limit = 5): Promise<RecentOrderSummary[]> => {
+    const result = await db
+      .select({
+        id: orders.id,
+        customerName: orders.customerName,
+        customerPhone: orders.customerPhone,
+        itemsCount: sql<number>`count(${orderItems.id})::int`,
+        totalAmount: orders.totalAmount,
+        source: orders.source,
+        orderType: orders.orderType,
+        status: orders.status,
+        orderVersion: orders.orderVersion,
+        createdAt: orders.createdAt,
+      })
+      .from(orders)
+      .leftJoin(orderItems, eq(orders.id, orderItems.orderId))
+      .groupBy(orders.id)
+      .orderBy(desc(orders.createdAt))
+      .limit(limit);
 
-export async function getRecentOrders(limit = 5): Promise<RecentOrderSummary[]> {
-  const result = await db
-    .select({
-      id: orders.id,
-      customerName: orders.customerName,
-      customerPhone: orders.customerPhone,
-      itemsCount: sql<number>`count(${orderItems.id})::int`,
-      totalAmount: orders.totalAmount,
-      source: orders.source,
-      orderType: orders.orderType,
-      status: orders.status,
-      orderVersion: orders.orderVersion,
-      createdAt: orders.createdAt,
-    })
-    .from(orders)
-    .leftJoin(orderItems, eq(orders.id, orderItems.orderId))
-    .groupBy(orders.id)
-    .orderBy(desc(orders.createdAt))
-    .limit(limit);
+    return result.map(r => ({ ...r, createdAt: r.createdAt || new Date() }));
+  },
+  ["dashboard-recent-orders"],
+  { tags: ["dashboard-analytics"], revalidate: ANALYTICS_TTL }
+);
 
-  return result.map(r => ({
-    ...r,
-    createdAt: r.createdAt || new Date(),
-  }));
-}
+export const getLowStockAlerts = unstable_cache(
+  async (limit = 5): Promise<LowStockAlert[]> => {
+    const unavailableItems = await db
+      .select({ id: menuItems.id, name: menuItems.name, isAvailable: menuItems.isAvailable })
+      .from(menuItems)
+      .where(eq(menuItems.isAvailable, false))
+      .limit(limit);
 
-export async function getLowStockAlerts(limit = 5): Promise<LowStockAlert[]> {
-  // Query 1: Menu items explicitly marked as unavailable
-  const unavailableItems = await db
-    .select({
-      id: menuItems.id,
-      name: menuItems.name,
-      isAvailable: menuItems.isAvailable,
-    })
-    .from(menuItems)
-    .where(eq(menuItems.isAvailable, false))
-    .limit(limit);
+    const lowInventory = await db
+      .select({
+        id: inventoryItems.id,
+        name: inventoryItems.itemName,
+        stockQuantity: inventoryItems.stockQuantity,
+        unit: inventoryItems.unit,
+        lowStockThreshold: inventoryItems.lowStockThreshold,
+      })
+      .from(inventoryItems)
+      .where(sql`${inventoryItems.stockQuantity} <= ${inventoryItems.lowStockThreshold}`)
+      .limit(limit);
 
-  // Query 2: Inventory items below threshold
-  const lowInventory = await db
-    .select({
-      id: inventoryItems.id,
-      name: inventoryItems.itemName,
-      stockQuantity: inventoryItems.stockQuantity,
-      unit: inventoryItems.unit,
-      lowStockThreshold: inventoryItems.lowStockThreshold,
-    })
-    .from(inventoryItems)
-    .where(sql`${inventoryItems.stockQuantity} <= ${inventoryItems.lowStockThreshold}`)
-    .limit(limit);
+    const alerts: LowStockAlert[] = [
+      ...lowInventory.map(i => ({ ...i, isAvailable: true })),
+      ...unavailableItems.map(i => ({
+        id: i.id, name: i.name, stockQuantity: 0,
+        unit: "N/A", lowStockThreshold: 0, isAvailable: i.isAvailable || false,
+      })),
+    ];
+    return alerts.slice(0, limit);
+  },
+  ["dashboard-low-stock"],
+  { tags: ["dashboard-analytics", "inventory"], revalidate: ANALYTICS_TTL }
+);
 
-  const alerts: LowStockAlert[] = [];
-  
-  for (const item of lowInventory) {
-    alerts.push({
-      id: item.id,
-      name: item.name,
-      stockQuantity: item.stockQuantity,
-      unit: item.unit,
-      lowStockThreshold: item.lowStockThreshold,
-      isAvailable: true,
-    });
-  }
-
-  for (const item of unavailableItems) {
-    alerts.push({
-      id: item.id,
-      name: item.name,
-      stockQuantity: 0,
-      unit: "N/A",
-      lowStockThreshold: 0,
-      isAvailable: item.isAvailable || false,
-    });
-  }
-
-  return alerts.slice(0, limit);
-}
-
-export async function getOrderSourceDistribution(): Promise<OrderSourceData[]> {
-  const result = await db
-    .select({
-      source: orders.source,
-      revenue: sql<number>`sum(${orders.totalAmount})::int`,
-      orders: sql<number>`count(${orders.id})::int`,
-    })
-    .from(orders)
-    .where(ne(orders.status, 'cancelled'))
-    .groupBy(orders.source);
-
-  return result;
-}
+export const getOrderSourceDistribution = unstable_cache(
+  async (): Promise<OrderSourceData[]> => {
+    return db
+      .select({
+        source: orders.source,
+        revenue: sql<number>`sum(${orders.totalAmount})::int`,
+        orders: sql<number>`count(${orders.id})::int`,
+      })
+      .from(orders)
+      .where(ne(orders.status, 'cancelled'))
+      .groupBy(orders.source);
+  },
+  ["dashboard-order-sources"],
+  { tags: ["dashboard-analytics"], revalidate: ANALYTICS_TTL }
+);
