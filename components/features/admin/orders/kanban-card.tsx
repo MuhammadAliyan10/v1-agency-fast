@@ -1298,7 +1298,7 @@ export const KanbanCard = React.memo(function KanbanCard({
                         + {addOns.map((a: any) => a.name).join(", ")}
                       </div>
                     )}
-                    {item.specialInstructions && (
+                    {item.specialInstructions && !item.specialInstructions.startsWith("[DEAL:") && (
                       <div style={{ fontSize: "14px", fontWeight: "700", marginBottom: "4px" }}>
                         *** {item.specialInstructions}
                       </div>
@@ -1431,7 +1431,7 @@ export const KanbanCard = React.memo(function KanbanCard({
                             + {addOns.map((a: any) => a.name).join(", ")}
                           </div>
                         )}
-                        {item.specialInstructions && (
+                        {item.specialInstructions && !item.specialInstructions.startsWith("[DEAL:") && (
                           item.specialInstructions.split(" • ").map((inst, i) => (
                             <div key={i} style={{ fontSize: "14px", fontWeight: "900", marginTop: "2px", textTransform: "uppercase", fontStyle: "italic" }}>
                               *** {inst}
