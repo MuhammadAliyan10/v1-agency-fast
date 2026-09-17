@@ -5,6 +5,10 @@ import { outboundMessages, whatsappMessages } from "@/database/schema";
 import { eq, inArray, sql, lt } from "drizzle-orm";
 import { sendWhatsAppMessage } from "@/lib/whatsapp/client";
 
+// Vercel function timeout — outbox can send up to 50 messages per run (each is a Meta API call)
+export const maxDuration = 60;
+export const runtime = "nodejs";
+
 async function handler(req: NextRequest) {
   // Grab up to 50 pending or retryable messages
   const now = new Date();

@@ -5,6 +5,10 @@ import { whatsappSessions } from "@/database/schema";
 import { sql } from "drizzle-orm";
 import { processWhatsAppMessage } from "@/lib/whatsapp/processor";
 
+// Vercel function timeout — WhatsApp processing can take 10-30s (DB + Meta API calls)
+export const maxDuration = 60;
+export const runtime = "nodejs";
+
 /** Helper — releases the conversation lock unconditionally. */
 async function releaseLock(restaurantId: string, phone: string): Promise<void> {
   await db

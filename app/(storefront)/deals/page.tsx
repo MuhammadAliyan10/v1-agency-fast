@@ -6,7 +6,8 @@ import Link from "next/link";
 import { Tag, Sparkles, Flame, ShieldCheck, ArrowRight } from "lucide-react";
 import { DealCard, DealItem } from "@/components/features/storefront/deal-customizer-drawer";
 
-export const dynamic = "force-dynamic";
+// ISR: revalidate every 60s — matches unstable_cache TTL inside getPublicDeals
+export const revalidate = 60;
 
 export default async function DealsPage() {
   const { data: deals } = await getPublicDeals();

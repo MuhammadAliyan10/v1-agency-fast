@@ -3,49 +3,57 @@
 import { db } from "@/database/db";
 import { deals, dealSlots } from "@/database/schema";
 import { eq, and, gte, or, isNull } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, unstable_cache } from "next/cache";
 
-export async function getPublicDeals() {
-  try {
-    const now = new Date();
-    const activeDeals = await db.query.deals.findMany({
-      where: and(
-        eq(deals.isActive, true),
-        eq(deals.isArchived, false),
-        or(isNull(deals.validUntil), gte(deals.validUntil, now))
-      ),
-      with: {
-        slots: {
-          with: {
-            menuItem: {
-              with: {
-                variants: {
-                  where: (v: any, { eq }: any) => eq(v.isAvailable, true),
+const _getPublicDeals = unstable_cache(
+  async () => {
+    try {
+      const now = new Date();
+      const activeDeals = await db.query.deals.findMany({
+        where: and(
+          eq(deals.isActive, true),
+          eq(deals.isArchived, false),
+          or(isNull(deals.validUntil), gte(deals.validUntil, now))
+        ),
+        with: {
+          slots: {
+            with: {
+              menuItem: {
+                with: {
+                  variants: {
+                    where: (v: any, { eq }: any) => eq(v.isAvailable, true),
+                  }
                 }
-              }
-            },
-            category: {
-              with: {
-                menuItems: {
-                  where: (item: any, { eq }: any) => eq(item.isAvailable, true),
-                  with: {
-                    variants: {
-                      where: (v: any, { eq }: any) => eq(v.isAvailable, true),
+              },
+              category: {
+                with: {
+                  menuItems: {
+                    where: (item: any, { eq }: any) => eq(item.isAvailable, true),
+                    with: {
+                      variants: {
+                        where: (v: any, { eq }: any) => eq(v.isAvailable, true),
+                      }
                     }
                   }
                 }
-              }
-            },
+              },
+            }
           }
-        }
-      },
-      orderBy: (deals, { desc }) => [desc(deals.createdAt)],
-    });
-    return { success: true, data: activeDeals };
-  } catch (error) {
-    console.error("Error fetching public deals:", error);
-    return { success: false, error: "Failed to load deals" };
-  }
+        },
+        orderBy: (deals, { desc }) => [desc(deals.createdAt)],
+      });
+      return { success: true, data: activeDeals };
+    } catch (error) {
+      console.error("Error fetching public deals:", error);
+      return { success: false, error: "Failed to load deals" };
+    }
+  },
+  ["public-deals"],
+  { revalidate: 60, tags: ["public-deals"] }
+);
+
+export async function getPublicDeals() {
+  return _getPublicDeals();
 }
 
 export async function getAllDeals() {

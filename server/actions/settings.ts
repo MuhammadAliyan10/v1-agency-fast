@@ -3,23 +3,28 @@
 import { db } from "@/database/db";
 import { storeSettings } from "@/database/schema";
 import { eq } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag, unstable_cache } from "next/cache";
 import { requireAdmin } from "@/lib/auth/session";
 
+const _getStoreStatus = unstable_cache(
+  async () => {
+    try {
+      const setting = await db.query.storeSettings.findFirst({
+        where: eq(storeSettings.key, "is_store_open"),
+      });
+      if (!setting) return true;
+      return setting.value === "true";
+    } catch (error) {
+      console.error("Failed to get store status:", error);
+      return true; // Fail open
+    }
+  },
+  ["store-status"],
+  { revalidate: 30, tags: ["store-status"] }
+);
+
 export async function getStoreStatus() {
-  try {
-    const setting = await db.query.storeSettings.findFirst({
-      where: eq(storeSettings.key, "is_store_open"),
-    });
-    
-    // Default to true if not set
-    if (!setting) return true;
-    
-    return setting.value === "true";
-  } catch (error) {
-    console.error("Failed to get store status:", error);
-    return true; // Fail open
-  }
+  return _getStoreStatus();
 }
 
 export async function toggleStoreStatus(isOpen: boolean) {
@@ -39,9 +44,10 @@ export async function toggleStoreStatus(isOpen: boolean) {
       });
     }
 
-    // Revalidate storefront and admin paths
+    // Invalidate the store-status cache so the storefront reflects the change immediately
+    updateTag("store-status");
     revalidatePath("/", "layout");
-    
+
     return { success: true };
   } catch (error) {
     console.error("Failed to toggle store status:", error);
