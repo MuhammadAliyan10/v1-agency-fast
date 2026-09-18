@@ -1352,13 +1352,21 @@ async function processViewItem(
     // Has variants — show size selection first
     const newTd: TempData = { ...cleanTd, pendingItemId: itemId };
     const variantBody = `*${dbItemCheck.name}*\n\n${lang === "ur" ? "Size chunein:" : "Please choose a size:"}`;
+
+    // Always persist state before attempting any send so the session never hangs
+    await updateSessionState(session.id, "item_selection", cart, newTd);
+
     if (variants.length <= 3) {
       const varButtons = variants.slice(0, 3).map(v => ({ id: `var_${v.id}`, title: `${v.name} — Rs.${v.price}` }));
       try {
         await sendWhatsAppInteractiveButtons(phone, variantBody, varButtons, dbItemCheck.imageUrl || undefined);
       } catch {
         // Retry without image
-        await sendWhatsAppInteractiveButtons(phone, variantBody, varButtons);
+        try {
+          await sendWhatsAppInteractiveButtons(phone, variantBody, varButtons);
+        } catch {
+          await sendWhatsAppText(phone, `${variantBody}\n\n${variants.map((v, i) => `${i + 1}. ${v.name} — Rs.${v.price}`).join("\n")}\n\n${lang === "ur" ? "Number type karein." : "Reply with the number of your choice."}`);
+        }
       }
     } else {
       if (dbItemCheck.imageUrl) {
@@ -1374,7 +1382,7 @@ async function processViewItem(
         }]
       );
     }
-    return updateSessionState(session.id, "item_selection", cart, newTd);
+    return;
   }
   // No variants — go straight to quantity
   return addItemToCartAndProceed(phone, session, itemId, null);
@@ -1422,15 +1430,25 @@ async function addItemToCartAndProceed(
     { id: "qty_3", title: "3" },
   ];
 
+  // Always advance state first so the session is never left in a broken limbo,
+  // even if the WhatsApp message delivery fails.
+  await updateSessionState(session.id, "cart_review", cart, newTd);
+
   try {
     await sendWhatsAppInteractiveButtons(phone, displayBody, qtyButtons, item.imageUrl || undefined);
   } catch {
-    // Image header may be rejected by WhatsApp (private URL, bad format, etc.)
-    // Retry without image so the user always gets the quantity prompt.
-    await sendWhatsAppInteractiveButtons(phone, displayBody, qtyButtons);
+    // imageUrl may have been rejected even after the isSafeWhatsAppImageUrl
+    // guard (e.g. Meta cannot reach the host). Retry without image.
+    try {
+      await sendWhatsAppInteractiveButtons(phone, displayBody, qtyButtons);
+    } catch (retryErr) {
+      console.error("[WhatsApp] Failed to send quantity prompt even without image:", retryErr);
+      // Send a plain text fallback so the user knows to pick a quantity
+      await sendWhatsAppText(phone,
+        `${displayBody}\n\n${lang === "ur" ? "Reply mein 1, 2, ya 3 likhein." : "Reply with 1, 2, or 3."}`
+      );
+    }
   }
-
-  return updateSessionState(session.id, "cart_review", cart, newTd);
 }
 
 

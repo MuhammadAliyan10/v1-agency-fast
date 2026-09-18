@@ -99,20 +99,43 @@ export async function sendWhatsAppImage(to: string, url: string, caption?: strin
   });
 }
 
+/**
+ * Only HTTPS URLs that Meta can publicly fetch are safe as image headers.
+ * Unsplash, Supabase storage with tokens, and similar CDN URLs with many
+ * query params are routinely rejected by Meta with GraphMethodException.
+ * We whitelist only our own Vercel/Cloudinary/Supabase public bucket URLs.
+ */
+function isSafeWhatsAppImageUrl(url: string | undefined): boolean {
+  if (!url) return false;
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:") return false;
+    // Reject Unsplash and other third-party CDNs
+    const blockedHosts = ["unsplash.com", "images.unsplash.com", "picsum.photos", "via.placeholder.com", "placehold.co"];
+    if (blockedHosts.some(h => parsed.hostname.endsWith(h))) return false;
+    // Reject URLs with Supabase signed tokens (they expire and are private)
+    if (parsed.searchParams.has("token")) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function sendWhatsAppInteractiveButtons(
   to: string,
   text: string,
   buttons: { id: string; title: string }[],
   imageUrl?: string
 ) {
+  const safeImageUrl = isSafeWhatsAppImageUrl(imageUrl) ? imageUrl : undefined;
   return sendWhatsAppMessage(to, {
     type: "interactive",
     interactive: {
       type: "button",
-      ...(imageUrl ? {
+      ...(safeImageUrl ? {
         header: {
           type: "image",
-          image: { link: imageUrl },
+          image: { link: safeImageUrl },
         }
       } : {}),
       body: { text },
